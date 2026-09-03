@@ -16,8 +16,7 @@ import { summarizeCart } from "@/lib/cart";
 import { SITE } from "@/lib/site";
 import { useCart } from "@/components/store/providers";
 import { ButtonLink, EmptyState } from "@/components/ui";
-import SareeArt from "@/components/product/saree-art";
-import { artForProduct } from "@/lib/art";
+import { WornThumb } from "@/components/product/worn-image";
 import { formatINR } from "@/lib/format";
 import { swatchFor } from "@/lib/color-dots";
 
@@ -61,11 +60,6 @@ export function CartView() {
         {visibleItems.map((line) => {
           const meta = PRODUCT_INDEX[line.slug];
           const name = line.name ?? meta?.name ?? prettySlug(line.slug);
-          const art = artForProduct(
-            line.slug,
-            meta?.colorway ?? line.color,
-            meta?.category ?? "",
-          );
           const linePrice = line.price ?? SITE.price;
           return (
             <li key={`${line.slug}::${line.color}`} className="flex gap-4 p-4 sm:gap-5 sm:p-5">
@@ -73,7 +67,13 @@ export function CartView() {
                 href={`/sarees/${line.slug}`}
                 className="h-24 w-20 shrink-0 overflow-hidden rounded-xl ring-1 ring-line"
               >
-                <SareeArt spec={art} crop="portrait" className="h-full w-full" />
+                <WornThumb
+                  slug={line.slug}
+                  colorway={meta?.colorway ?? line.color}
+                  category={meta?.category}
+                  name={name}
+                  className="h-full w-full"
+                />
               </Link>
 
               <div className="flex min-w-0 flex-1 flex-col">

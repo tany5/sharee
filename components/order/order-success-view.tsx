@@ -16,8 +16,7 @@ import { ORDERS_KEY } from "@/lib/client-store";
 import { useLocalValue } from "@/lib/client-hooks";
 import { trackPurchase } from "@/lib/analytics";
 import { ButtonLink, EmptyState } from "@/components/ui";
-import SareeArt from "@/components/product/saree-art";
-import { artForProduct } from "@/lib/art";
+import { WornThumb } from "@/components/product/worn-image";
 import { formatDate, formatINR } from "@/lib/format";
 import type { Order } from "@/lib/types";
 
@@ -121,9 +120,10 @@ export function OrderSuccessView({ id }: { id: string }) {
             {order.items.map((item, i) => (
               <li key={`${item.slug}-${i}`} className="flex items-center gap-4 p-4">
                 <div className="h-16 w-13 shrink-0 overflow-hidden rounded-lg ring-1 ring-line">
-                  <SareeArt
-                    spec={artForProduct(item.slug, item.color, "")}
-                    crop="portrait"
+                  <WornThumb
+                    slug={item.slug}
+                    colorway={item.color}
+                    name={item.name}
                     className="h-full w-full"
                   />
                 </div>

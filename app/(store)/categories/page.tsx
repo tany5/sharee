@@ -1,8 +1,8 @@
 import Link from "next/link";
+import Image from "next/image";
 import { ArrowRight } from "lucide-react";
 import { getCategories } from "@/lib/data/queries";
-import { artForCategory } from "@/lib/art";
-import SareeArt from "@/components/product/saree-art";
+import { categoryPhoto } from "@/lib/photos";
 import { Ornament } from "@/components/ui";
 import { pageMetadata } from "@/lib/meta";
 
@@ -37,11 +37,15 @@ export default async function CategoriesPage() {
             className="group relative block overflow-hidden rounded-3xl ring-1 ring-line/80 transition-shadow hover:shadow-xl hover:shadow-ink/10"
           >
             <div className="relative aspect-[4/3.4]">
-              <SareeArt
-                spec={artForCategory(c.slug)}
-                label={`${c.name} collection`}
-                className="absolute inset-0 h-full w-full transition-transform duration-500 group-hover:scale-[1.04]"
-              />
+              {categoryPhoto(c.slug) && (
+                <Image
+                  src={categoryPhoto(c.slug)!}
+                  alt={`${c.name} — woman wearing the saree`}
+                  fill
+                  sizes="(min-width: 1024px) 33vw, 50vw"
+                  className="object-cover object-top transition-transform duration-500 group-hover:scale-[1.04]"
+                />
+              )}
               <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent" />
             </div>
             <div className="absolute inset-x-0 bottom-0 p-5">

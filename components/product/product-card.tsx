@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { Check, Heart, Plus } from "lucide-react";
 import { artForProduct } from "@/lib/art";
+import { productPhotoThumb } from "@/lib/photos";
 import SareeArt from "@/components/product/saree-art";
 import { Stars } from "@/components/ui";
 import { useCart, useWishlist } from "@/components/store/providers";
@@ -64,6 +65,10 @@ export function ProductCard({ product }: { product: ProductCardData }) {
     timer.current = setTimeout(() => setJustAdded(false), 1400);
   };
 
+  // Real photo first: an admin-uploaded image, else the "woman wearing the
+  // saree" shot from the photography map. Artwork only for catalogue items
+  // with neither (admin-created, no upload yet).
+  const photo = product.image ?? productPhotoThumb(product.slug);
   const art = artForProduct(product.slug, product.colorway, product.category);
 
   return (
@@ -74,12 +79,13 @@ export function ProductCard({ product }: { product: ProductCardData }) {
         aria-label={product.name}
       >
         <div className="relative aspect-[3/4] overflow-hidden rounded-2xl ring-1 ring-line/80 transition-shadow group-hover:shadow-lg group-hover:shadow-ink/10">
-          {product.image ? (
+          {photo ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
-              src={product.image}
-              alt={`${product.name} saree at ${formatINR(product.price)}`}
-              className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-[1.04]"
+              src={photo}
+              alt={`${product.name} saree at ${formatINR(product.price)} — worn by a woman`}
+              loading="lazy"
+              className="absolute inset-0 h-full w-full object-cover object-top transition-transform duration-500 group-hover:scale-[1.04]"
             />
           ) : (
             <SareeArt

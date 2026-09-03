@@ -20,8 +20,7 @@ import { readUtmFromUrl } from "@/lib/utm";
 import { useCart } from "@/components/store/providers";
 import { useAuth } from "@/components/auth/auth-provider";
 import { Button, EmptyState, Field, SelectInput, TextArea, TextInput } from "@/components/ui";
-import SareeArt from "@/components/product/saree-art";
-import { artForProduct } from "@/lib/art";
+import { WornThumb } from "@/components/product/worn-image";
 import { trackAddPaymentInfo, trackInitiateCheckout } from "@/lib/analytics";
 import { formatINR } from "@/lib/format";
 import { swatchFor } from "@/lib/color-dots";
@@ -368,13 +367,11 @@ export function CheckoutView() {
               return (
                 <li key={`${line.slug}::${line.color}`} className="flex items-center gap-3 py-3">
                   <div className="h-14 w-12 shrink-0 overflow-hidden rounded-lg ring-1 ring-line">
-                    <SareeArt
-                      spec={artForProduct(
-                        line.slug,
-                        meta?.colorway ?? line.color,
-                        meta?.category ?? "",
-                      )}
-                      crop="portrait"
+                    <WornThumb
+                      slug={line.slug}
+                      colorway={meta?.colorway ?? line.color}
+                      category={meta?.category}
+                      name={line.name}
                       className="h-full w-full"
                     />
                   </div>

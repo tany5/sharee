@@ -1,8 +1,10 @@
 /**
  * Server-only image resolver.
- * Renders a real product photo from public/products/<slug>/1.jpg when the file
- * exists (drop photography in and it wins automatically); otherwise falls back
- * to the deterministic generative artwork. Do not import into client files.
+ * Rendering order for a product:
+ *   1. real photo at public/products/<slug>/1.jpg (drop photography in and it wins)
+ *   2. the "worn" model photo from the photography map (lib/photos.ts)
+ *   3. deterministic generative fabric artwork
+ * Do not import into client files.
  */
 import "server-only";
 import { existsSync } from "node:fs";
@@ -10,6 +12,7 @@ import { join } from "node:path";
 import Image from "next/image";
 import SareeArt from "@/components/product/saree-art";
 import { artForProduct } from "@/lib/art";
+import { productPhoto } from "@/lib/photos";
 import { cx } from "@/lib/utils";
 
 const cache = new Map<string, boolean>();
@@ -58,6 +61,23 @@ export function ProductImage({
           priority={priority}
           sizes={sizes}
           className="object-cover"
+        />
+      </div>
+    );
+  }
+
+  // Worn model shot (free Pexels photography) for the seeded catalogue.
+  const modelPhoto = productPhoto(slug);
+  if (modelPhoto) {
+    return (
+      <div className={cx("relative aspect-[3/4] overflow-hidden bg-surface", className)}>
+        <Image
+          src={modelPhoto}
+          alt={alt}
+          fill
+          priority={priority}
+          sizes={sizes}
+          className="object-cover object-top"
         />
       </div>
     );

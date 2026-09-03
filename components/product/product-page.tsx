@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -18,6 +19,7 @@ import {
 } from "lucide-react";
 import type { Product } from "@/lib/types";
 import { artForProduct } from "@/lib/art";
+import { productPhoto } from "@/lib/photos";
 import SareeArt from "@/components/product/saree-art";
 import { ProductGrid } from "@/components/product/product-grid";
 import { Button, Stars } from "@/components/ui";
@@ -81,6 +83,19 @@ export function ProductPage({ product, related }: ProductPageProps) {
     { label: "Length", value: "5.5 m + unstitched blouse piece" },
   ];
 
+  const modelPhoto = productPhoto(product.slug);
+
+  // Gallery slot 0 is the real "worn" model photo when available; the other
+  // three slots are colourway artwork variants.
+  const galleryViews = useMemo(() => {
+    const views: { kind: "photo" | "art"; spec?: ReturnType<typeof artForProduct> }[] = [];
+    for (let i = 0; i < 4; i++) {
+      if (modelPhoto && i === 0) views.push({ kind: "photo" });
+      else views.push({ kind: "art", spec: artForProduct(product.slug, product.colorway, product.category, i) });
+    }
+    return views;
+  }, [modelPhoto, product.slug, product.colorway, product.category]);
+
   // ViewContent: product page opened (fires once per page view).
   useEffect(() => {
     trackViewContent(product.slug, product.name);
@@ -105,11 +120,6 @@ export function ProductPage({ product, related }: ProductPageProps) {
 
   const paragraphs = useMemo(() => product.details.split(/\n\n+/), [product.details]);
 
-  const artFor = (variant: number) =>
-    artForProduct(product.slug, product.colorway, product.category, variant);
-
-  const mainArt = artFor(activeView);
-
   return (
     <div>
       {/* Main section */}
@@ -117,14 +127,18 @@ export function ProductPage({ product, related }: ProductPageProps) {
         {/* Gallery */}
         <div className="flex flex-col-reverse gap-3 sm:flex-row">
           <div className="flex gap-3 sm:flex-col">
-            {[0, 1, 2, 3].map((i) => {
+            {galleryViews.map((view, i) => {
               const active = i === activeView;
               return (
                 <button
-                  key={i}
+                  key={`${i}-${view.kind}`}
                   type="button"
                   onClick={() => setViewIdx(i)}
-                  aria-label={`View style ${i + 1}`}
+                  aria-label={
+                    view.kind === "photo"
+                      ? `View ${product.name} worn photo`
+                      : `View style ${i + 1}`
+                  }
                   className={cx(
                     "h-20 w-16 shrink-0 overflow-hidden rounded-lg ring-1 transition-all sm:h-24 sm:w-20",
                     active
@@ -132,18 +146,39 @@ export function ProductPage({ product, related }: ProductPageProps) {
                       : "ring-line opacity-70 hover:opacity-100",
                   )}
                 >
-                  <SareeArt spec={artFor(i)} crop="portrait" className="h-full w-full" />
+                  {view.kind === "photo" && modelPhoto ? (
+                    <Image
+                      src={modelPhoto}
+                      alt={`${product.name} worn by model`}
+                      width={96}
+                      height={128}
+                      className="h-full w-full object-cover object-top"
+                    />
+                  ) : view.spec ? (
+                    <SareeArt spec={view.spec} crop="portrait" className="h-full w-full" />
+                  ) : null}
                 </button>
               );
             })}
           </div>
 
           <div className="relative aspect-[3/4] flex-1 overflow-hidden rounded-2xl ring-1 ring-line">
-            <SareeArt
-              spec={mainArt}
-              label={`${product.name} saree at ₹199 — ${selectedColor.toLowerCase()}`}
-              className="absolute inset-0 h-full w-full"
-            />
+            {galleryViews[activeView]?.kind === "photo" && modelPhoto ? (
+              <Image
+                src={modelPhoto}
+                alt={`${product.name} saree at ₹199 — ${selectedColor.toLowerCase()} — worn by model`}
+                fill
+                sizes="(min-width: 1024px) 55vw, 100vw"
+                priority
+                className="object-cover object-top"
+              />
+            ) : galleryViews[activeView]?.spec ? (
+              <SareeArt
+                spec={galleryViews[activeView].spec}
+                label={`${product.name} saree at ₹199 — ${selectedColor.toLowerCase()}`}
+                className="absolute inset-0 h-full w-full"
+              />
+            ) : null}
             <span className="absolute left-3 top-3 rounded-full bg-[#7c2d3a] px-3 py-1.5 font-display text-sm font-bold text-[#f9eeda] shadow-md">
               {formatINR(product.price)}
             </span>
@@ -201,7 +236,8 @@ export function ProductPage({ product, related }: ProductPageProps) {
                     aria-checked={active}
                     onClick={() => {
                       setColorIdx(i);
-                      setViewIdx(i);
+                      // Land back on the model photo; artwork variants are for browsing.
+                      setViewIdx(0);
                     }}
                     title={c}
                     className={cx(

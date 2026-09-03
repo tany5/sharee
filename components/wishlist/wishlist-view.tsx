@@ -6,8 +6,7 @@ import { PRODUCT_INDEX } from "@/lib/data/catalog";
 import { SITE } from "@/lib/site";
 import { useCart, useWishlist } from "@/components/store/providers";
 import { ButtonLink, EmptyState } from "@/components/ui";
-import SareeArt from "@/components/product/saree-art";
-import { artForProduct } from "@/lib/art";
+import { WornThumb } from "@/components/product/worn-image";
 import { trackAddToCart } from "@/lib/analytics";
 import { formatINR } from "@/lib/format";
 
@@ -52,9 +51,11 @@ export function WishlistView() {
               href={`/sarees/${slug}`}
               className="relative block aspect-[3/4] overflow-hidden"
             >
-              <SareeArt
-                spec={artForProduct(slug, meta?.colorway ?? "Maroon", meta?.category ?? "")}
-                crop="portrait"
+              <WornThumb
+                slug={slug}
+                colorway={meta?.colorway}
+                category={meta?.category}
+                name={name}
                 className="h-full w-full transition-transform duration-500 group-hover:scale-[1.04]"
               />
             </Link>

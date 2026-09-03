@@ -1,19 +1,14 @@
 /**
- * Async data-access layer. Pages only talk to these functions, never to
- * catalogue arrays directly.
- *
- * Reads resolve through the demo database (so admin edits appear in the store
- * on refresh) with a fallback to the seed catalogue. Swapping this layer for
- * Supabase later (supabase/migrations/0001_init.sql) leaves pages untouched.
+ * Async data-access layer for storefront pages. Pages only talk to these
+ * functions, which resolve through the active backend facade — the demo
+ * database (so admin edits appear in the store on refresh) or Supabase.
  */
-import type { CategoryWithCount, Product } from "@/lib/types";
-import { CATEGORIES, PRODUCTS } from "@/lib/data/catalog";
 import {
-  publicProducts,
-  publicProductBySlug,
-  categories,
-  isDbInitialised,
-} from "@/lib/demo/db";
+  storeCategories,
+  storeProductBySlug,
+  storeProducts,
+} from "@/lib/backend";
+import type { CategoryWithCount, Product } from "@/lib/types";
 
 export type SortKey = "popular" | "newest" | "rating";
 
@@ -26,15 +21,8 @@ export interface ProductFilter {
   limit?: number;
 }
 
-/** Source products (demo DB when initialised, seed catalogue otherwise). */
-function allProducts(): Product[] {
-  if (!isDbInitialised()) return PRODUCTS;
-  return publicProducts();
-}
-
 export async function getCategories(): Promise<CategoryWithCount[]> {
-  const list = isDbInitialised() ? categories() : CATEGORIES;
-  const products = allProducts();
+  const [list, products] = await Promise.all([storeCategories(), storeProducts()]);
   return list.map((c) => ({
     ...c,
     count: products.filter((p) => p.category === c.slug).length,
@@ -43,7 +31,7 @@ export async function getCategories(): Promise<CategoryWithCount[]> {
 
 export async function getProducts(filter: ProductFilter = {}): Promise<Product[]> {
   const { category, q, color, tag, sort = "popular", limit } = filter;
-  let list = allProducts();
+  let list = await storeProducts();
 
   if (category) list = list.filter((p) => p.category === category);
   if (tag) list = list.filter((p) => p.tags.includes(tag));
@@ -90,13 +78,7 @@ export async function getProducts(filter: ProductFilter = {}): Promise<Product[]
 export async function getProductBySlug(
   slug: string,
 ): Promise<Product | undefined> {
-  try {
-    const fromDb = publicProductBySlug(slug);
-    if (fromDb) return fromDb;
-  } catch {
-    /* fall through */
-  }
-  return PRODUCTS.find((p) => p.slug === slug);
+  return storeProductBySlug(slug);
 }
 
 export async function getFeatured(limit = 8): Promise<Product[]> {
@@ -111,7 +93,7 @@ export async function getRelated(
   product: Product,
   limit = 4,
 ): Promise<Product[]> {
-  const pool = allProducts();
+  const pool = await storeProducts();
   const sameCategory = pool.filter(
     (p) => p.category === product.category && p.slug !== product.slug,
   );
@@ -127,6 +109,6 @@ export async function getRelated(
 /** Distinct base colours present in the catalogue (for the filter UI). */
 export async function getFilterColors(): Promise<string[]> {
   const set = new Set<string>();
-  for (const p of allProducts()) for (const c of p.colors) set.add(c);
+  for (const p of await storeProducts()) for (const c of p.colors) set.add(c);
   return [...set];
 }

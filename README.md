@@ -1,8 +1,10 @@
 # Ambika — All Sarees ₹199
 
 Mobile-first saree storefront around one promise: **every saree is ₹199**.
-Next.js 15 (App Router) + TypeScript + Tailwind CSS v4, running fully in
-**demo mode** — no accounts, databases or payment keys required.
+Next.js 15 (App Router) + TypeScript + Tailwind CSS v4. Runs in **demo mode**
+by default — no accounts or payment keys required — and can be pointed at a
+real **Supabase** project (database + auth + the public “Sharee” storage
+bucket) by flipping one flag.
 
 Design system: Judson (headings) + Teachers (body), warm brown/gold palette
 (`#5D350E #886644 #878A5D #9D9D9D #F6EBE1`) with a class-based **light/dark
@@ -34,30 +36,58 @@ npm run build
 | Cart | Qty steppers, free-shipping progress (free ≥ ₹999, else ₹49), totals |
 | Checkout | Guest-friendly: delivery details (validated server-side), UPI/Cards/Net Banking/COD, summary |
 | Orders | POST `/api/orders` creates a server-validated order; confirmation page fires `Purchase` only post-verification |
-| Wishlist / Account | Device-local wishlist; orders placed from the device listed under `/account` |
+| Wishlist / Account | Device-local wishlist; accounts (register/login, address book, order history with live fulfilment status) |
+| Admin | `/admin` — dashboard (revenue, COGS, **profit & margin %**), products CRUD + multi-image upload, categories, orders dispatch flow, customers |
 | Policies & SEO | About, Contact, Shipping/Return/Privacy, sitemap, robots, per-product metadata + structured data |
 | Analytics | Meta Pixel + GA4 load only when IDs are set (`.env`); UTM/fbclid captured onto each order |
 
 ## Demo mode & the road to production
 
 The whole storefront runs on a **seed catalogue** (`lib/data/catalog.ts`, ~29
-sarees, 6 categories) and **simulated payments**. The seams to go live are
-already in place:
+sarees, 6 categories) and **simulated payments**, with accounts/orders/admin
+persisted to a file-backed demo store (`.demo-data/db.json`).
 
-1. **Real photos** — drop `public/products/<slug>/1.jpg` (`.png`/`.webp` also
-   work) and every image on that product switches from generated artwork to the
-   photo automatically.
-2. **Supabase** — `supabase/migrations/0001_init.sql` holds the forward-looking
-   schema (products/variants/inventory, orders with UTM attribution, payments,
-   shipments, refunds, coupons, reviews, wishlists + RLS policies). Pages talk
-   to `lib/data/queries.ts` (async), so swapping its internals to Supabase
-   leaves every page untouched. Copy keys from `.env.example`.
-3. **Razorpay** — `app/api/webhooks/razorpay/route.ts` is a signature-verified
-   stub; the checkout flow and `lib/payments.ts` naming anticipate the real
-   flow: server creates Razorpay order → client checkout with `order_id` →
-   signature + webhook verified → `payment_status` flipped to `paid` →
-   `Purchase` event.
-4. **Tracking** — set `NEXT_PUBLIC_META_PIXEL_ID` / `NEXT_PUBLIC_GA4_ID`.
+### Switching the backend: Demo store → Supabase
+
+All data access flows through one facade (`lib/backend/index.ts`) that routes
+to either backend. To go live:
+
+```bash
+# 1. copy the example env and paste your Supabase project keys
+cp .env.example .env.local
+
+# 2. apply the runtime schema (tables, RLS, triggers, “Sharee” storage bucket)
+#    Supabase Dashboard → SQL → New query → paste supabase/migrations/0001_init.sql → Run
+
+# 3. flip the switch
+NEXT_PUBLIC_USE_SUPABASE=true
+```
+
+Then restart the dev server. Notes:
+
+- **No service-role key is used.** Everything runs through the publishable
+  key + Row Level Security: anon browses the catalogue and can guest-checkout;
+  signed-in users manage their own profile/addresses/orders; profile rows with
+  `role = 'admin'` manage products, categories, orders and customers.
+- **First user = admin.** The first account registered after the migration is
+  auto-promoted to admin (see the `handle_new_user` trigger), so register once
+  and the admin panel unlocks. The empty catalogue then seeds itself from the
+  seed data on the first admin visit to the product list.
+- **Email confirmation** should be disabled in Supabase Auth settings
+  (Authentication → Sign In / Providers → Email) so sign-ups log straight in;
+  otherwise the app shows a “check your email” message instead.
+- **Product photos** upload to the public **`Sharee`** storage bucket from the
+  admin panel; storefront pages render those public CDN URLs.
+
+Remaining steps to production (unchanged):
+
+1. **Razorpay** — `app/api/webhooks/razorpay/route.ts` is a signature-verified
+   stub; the real flow: server creates Razorpay order → client checkout with
+   `order_id` → signature + webhook verified → `payment_status` flipped to
+   `paid` → `Purchase` event.
+2. **Tracking** — set `NEXT_PUBLIC_META_PIXEL_ID` / `NEXT_PUBLIC_GA4_ID`.
+3. **Real photos** — drop `public/products/<slug>/1.jpg` (or upload via the
+   admin panel) and artwork switches to photography automatically.
    `Purchase` fires only on the verified order-success page (guarded per order
    in sessionStorage), never on the Place Order click. Attribution lands in
    `order.utm` and is saved with the order.

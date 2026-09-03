@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { createDemoOrder, OrderError } from "@/lib/orders";
-import { addOrder, orderProductBySlug, DbError } from "@/lib/demo/db";
-import { currentUser } from "@/lib/auth/session";
+import { addOrder, currentUser, resolveOrderSource } from "@/lib/backend";
 import type { CartItem, DeliveryAddress, PaymentMethodId, Utm } from "@/lib/types";
 
 /**
@@ -71,16 +70,12 @@ export async function POST(request: Request) {
   const user = await currentUser();
 
   try {
-    const order = createDemoOrder({
+    const order = await createDemoOrder({
       items: body.items ?? [],
       address: body.address ?? {},
       paymentMethod: body.paymentMethod ?? "upi",
       utm: body.utm,
-      resolveProduct: (slug) => {
-        const source = orderProductBySlug(slug);
-        if (!source) return undefined;
-        return source;
-      },
+      resolveProduct: resolveOrderSource,
       user: user ? { id: user.id, email: user.email } : undefined,
     });
 
@@ -93,8 +88,16 @@ export async function POST(request: Request) {
         { status: 400 },
       );
     }
-    if (err instanceof DbError) {
-      return NextResponse.json({ ok: false, error: err.message }, { status: 400 });
+    if (
+      typeof err === "object" &&
+      err !== null &&
+      "code" in err &&
+      (err as { code?: string }).code
+    ) {
+      return NextResponse.json(
+        { ok: false, error: (err as { message?: string }).message ?? "Order could not be saved" },
+        { status: 400 },
+      );
     }
     return NextResponse.json(
       { ok: false, error: "Something went wrong placing your order." },

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { setOrderFulfilment, DbError } from "@/lib/demo/db";
+import { setOrderFulfilment } from "@/lib/backend";
 import { requireAdmin, unauthorized } from "@/lib/admin/guard";
 import type { FulfilmentStatus } from "@/lib/types";
 
@@ -25,9 +25,10 @@ export async function PATCH(
     const order = await setOrderFulfilment(id, status);
     return NextResponse.json({ ok: true, order });
   } catch (err) {
-    if (err instanceof DbError) {
-      return NextResponse.json({ ok: false, error: err.message }, { status: 404 });
-    }
-    return NextResponse.json({ ok: false, error: "Could not update the order" }, { status: 500 });
+    const e = err as { code?: string; message?: string };
+    return NextResponse.json(
+      { ok: false, error: e.message ?? "Could not update the order" },
+      { status: e.code === "not_found" ? 404 : 500 },
+    );
   }
 }

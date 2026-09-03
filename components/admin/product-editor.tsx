@@ -117,14 +117,15 @@ export function ProductEditor({ slug }: { slug?: string }) {
   };
 
   useEffect(() => {
-    if (!editing) return;
     let active = true;
+    // Fetch categories in both modes; only look up the product row when editing.
     fetch("/api/admin/products", { cache: "no-store" })
       .then((r) => r.json() as Promise<{ ok: boolean; products?: DbProduct[]; categories?: Category[] }>)
       .then((d) => {
         if (!active) return;
         if (!d.ok) throw new Error("Failed to load products");
         setCategories(d.categories ?? []);
+        if (!editing) return;
         const row = (d.products ?? []).find((p) => p.slug === slug);
         if (!row) {
           setMissing(true);
@@ -134,7 +135,7 @@ export function ProductEditor({ slug }: { slug?: string }) {
         setImages(row.images ?? []);
       })
       .catch(() => {
-        if (active) setError("Could not load this product");
+        if (active) setError("Could not load the product list");
       })
       .finally(() => {
         if (active) setLoaded(true);

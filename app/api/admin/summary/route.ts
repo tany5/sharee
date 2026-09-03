@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
-import { allOrders, publicUsers } from "@/lib/demo/db";
+import { allOrders, customersWithStats } from "@/lib/backend";
 import { requireAdmin, unauthorized } from "@/lib/admin/guard";
 
 export async function GET() {
   if (!(await requireAdmin())) return unauthorized();
 
-  const orders = allOrders();
+  const [orders, customers] = await Promise.all([allOrders(), customersWithStats()]);
   const sales = orders.filter((o) => o.fulfilment !== "cancelled");
 
   const itemQty = (o: (typeof sales)[number]) => o.items.reduce((s, i) => s + i.qty, 0);
@@ -41,8 +41,6 @@ export async function GET() {
     completed: orders.filter((o) => o.fulfilment === "completed").length,
     cancelled: orders.filter((o) => o.fulfilment === "cancelled").length,
   };
-
-  const customers = publicUsers().filter((u) => u.role === "customer");
 
   return NextResponse.json({
     ok: true,

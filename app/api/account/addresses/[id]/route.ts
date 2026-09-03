@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
-import { currentUser } from "@/lib/auth/session";
-import { updateUserAddresses, findUserById } from "@/lib/demo/db";
+import { currentUser, saveAddresses } from "@/lib/backend";
 import type { AddressBookAddress, DeliveryAddress } from "@/lib/types";
 
 interface Ctx {
@@ -21,17 +20,12 @@ export async function PATCH(request: Request, { params }: Ctx) {
     return NextResponse.json({ ok: false, error: "Invalid request" }, { status: 400 });
   }
 
-  const stored = findUserById(user.id);
-  if (!stored) {
-    return NextResponse.json({ ok: false, error: "User not found" }, { status: 404 });
-  }
-
-  const target = stored.addresses.find((a) => a.id === id);
+  const target = user.addresses.find((a) => a.id === id);
   if (!target) {
     return NextResponse.json({ ok: false, error: "Address not found" }, { status: 404 });
   }
 
-  const addresses = stored.addresses.map((a) => {
+  const addresses = user.addresses.map((a) => {
     if (a.id !== id) return { ...a, isDefault: false };
     return {
       ...a,
@@ -40,7 +34,10 @@ export async function PATCH(request: Request, { params }: Ctx) {
     } as AddressBookAddress;
   });
 
-  const saved = await updateUserAddresses(user.id, addresses);
+  const saved = await saveAddresses(user.id, addresses);
+  if (!saved) {
+    return NextResponse.json({ ok: false, error: "Could not update the address" }, { status: 500 });
+  }
   return NextResponse.json({ ok: true, user: saved });
 }
 
@@ -50,16 +47,15 @@ export async function DELETE(_request: Request, { params }: Ctx) {
     return NextResponse.json({ ok: false, error: "Please sign in first" }, { status: 401 });
   }
   const { id } = await params;
-  const stored = findUserById(user.id);
-  if (!stored) {
-    return NextResponse.json({ ok: false, error: "User not found" }, { status: 404 });
-  }
 
-  let addresses = stored.addresses.filter((a) => a.id !== id);
+  let addresses = user.addresses.filter((a) => a.id !== id);
   // If the default was removed, promote the first remaining address.
   if (addresses.length > 0 && !addresses.some((a) => a.isDefault)) {
     addresses = addresses.map((a, i) => ({ ...a, isDefault: i === 0 }));
   }
-  const saved = await updateUserAddresses(user.id, addresses);
+  const saved = await saveAddresses(user.id, addresses);
+  if (!saved) {
+    return NextResponse.json({ ok: false, error: "Could not delete the address" }, { status: 500 });
+  }
   return NextResponse.json({ ok: true, user: saved });
 }

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
-import { endSession } from "@/lib/auth/session";
+import { logoutUser } from "@/lib/backend";
 
 export async function POST() {
-  await endSession();
+  await logoutUser();
   return NextResponse.json({ ok: true });
 }

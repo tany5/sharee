@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
-import { createUser, DbError } from "@/lib/demo/db";
-import { startSession } from "@/lib/auth/session";
+import { registerUser } from "@/lib/backend";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
@@ -30,17 +29,21 @@ export async function POST(request: Request) {
     );
   }
 
-  try {
-    const user = await createUser({ name, email, phone, password, role: "customer" });
-    await startSession(user.id);
-    return NextResponse.json({ ok: true, user });
-  } catch (err) {
-    if (err instanceof DbError && err.code === "conflict") {
-      return NextResponse.json({ ok: false, error: err.message }, { status: 409 });
-    }
+  const result = await registerUser({ name, email, phone, password });
+  if (!result.ok) {
+    const conflict = /exists/i.test(result.error ?? "");
     return NextResponse.json(
-      { ok: false, error: "Could not create your account — please try again." },
-      { status: 500 },
+      { ok: false, error: result.error ?? "Could not create your account" },
+      { status: conflict ? 409 : 500 },
     );
   }
+  if (result.needsConfirm) {
+    return NextResponse.json({
+      ok: true,
+      needsConfirm: true,
+      error:
+        "Account created — check your email to confirm, then sign in.",
+    });
+  }
+  return NextResponse.json({ ok: true, user: result.user });
 }

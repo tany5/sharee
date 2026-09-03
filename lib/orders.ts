@@ -11,7 +11,7 @@
  *   server creates a Razorpay Order -> client opens checkout with order_id ->
  *   signature + webhook verified -> payment_status flipped to paid.
  */
-import { KNOWN_SLUGS, PRODUCTS } from "@/lib/data/catalog";
+import { PRODUCTS } from "@/lib/data/catalog";
 import { defaultCostFor } from "@/lib/demo/cost";
 import { MAX_QTY_PER_ITEM, totalsFor } from "@/lib/cart";
 import { validateAddress, type AddressErrors } from "@/lib/validations";
@@ -19,6 +19,7 @@ import type {
   CartItem,
   DeliveryAddress,
   Order,
+  OrderItem,
   PaymentMethodId,
   Utm,
 } from "@/lib/types";
@@ -41,7 +42,9 @@ export interface OrderSource {
   stock?: number;
 }
 
-export type ProductResolver = (slug: string) => OrderSource | undefined;
+export type ProductResolver = (
+  slug: string,
+) => OrderSource | undefined | Promise<OrderSource | undefined>;
 
 function seedResolver(slug: string): OrderSource | undefined {
   const p = PRODUCTS.find((x) => x.slug === slug);
@@ -89,7 +92,7 @@ function estimatedDelivery(createdAt: string): string {
   return d.toISOString();
 }
 
-export function createDemoOrder(input: CreateOrderInput): Order {
+export async function createDemoOrder(input: CreateOrderInput): Promise<Order> {
   if (!PAYMENT_METHODS.has(input.paymentMethod)) {
     throw new OrderError("Please choose a payment method");
   }
@@ -109,31 +112,29 @@ export function createDemoOrder(input: CreateOrderInput): Order {
   const resolver = input.resolveProduct ?? seedResolver;
 
   // Resolve against the trusted source — never the browser.
-  const items = input.items.map((line) => {
-    if (!KNOWN_SLUGS.has(line.slug) && !resolver(line.slug)) {
-      throw new OrderError("Item is no longer available");
-    }
-    const source = resolver(line.slug);
+  const items: OrderItem[] = [];
+  for (const line of input.items) {
+    const source = await resolver(line.slug);
     if (!source) throw new OrderError("Item is no longer available");
     const qty = Math.round(Number(line.qty));
     if (!Number.isFinite(qty) || qty < 1 || qty > MAX_QTY_PER_ITEM) {
       throw new OrderError(`Invalid quantity for ${source.name}`);
     }
-    return {
+    items.push({
       slug: line.slug,
       name: source.name,
       qty,
       price: source.price,
       cost: source.cost,
       color: String(line.color).slice(0, 40) || "Default",
-    };
-  });
+    });
+  }
 
   // Enforce stock server-side (per-product totals across lines).
   const bySlug = new Map<string, number>();
   for (const it of items) bySlug.set(it.slug, (bySlug.get(it.slug) ?? 0) + it.qty);
   for (const [slug, qty] of bySlug) {
-    const source = resolver(slug);
+    const source = await resolver(slug);
     const cap = source?.stock ?? 50;
     if (qty > cap) {
       throw new OrderError(`Only ${cap} of "${source?.name ?? "this saree"}" left — reduce the quantity`);

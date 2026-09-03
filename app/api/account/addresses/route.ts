@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { randomUUID } from "node:crypto";
-import { currentUser } from "@/lib/auth/session";
-import { updateUserAddresses, findUserById } from "@/lib/demo/db";
+import { currentUser, saveAddresses } from "@/lib/backend";
 import { validateAddress } from "@/lib/validations";
 import type { AddressBookAddress, DeliveryAddress } from "@/lib/types";
 
@@ -20,20 +19,22 @@ export async function POST(request: Request) {
 
   const check = validateAddress(body);
   if (!check.ok || !check.address) {
-    return NextResponse.json({ ok: false, error: "Please check the address", fieldErrors: check.errors }, { status: 400 });
+    return NextResponse.json(
+      { ok: false, error: "Please check the address", fieldErrors: check.errors },
+      { status: 400 },
+    );
   }
 
-  const current = findUserById(user.id);
-  if (!current) {
-    return NextResponse.json({ ok: false, error: "User not found" }, { status: 404 });
-  }
   const next: AddressBookAddress = {
     ...check.address,
     id: randomUUID(),
     label: body.label?.trim() || undefined,
-    isDefault: current.addresses.length === 0,
+    isDefault: user.addresses.length === 0,
     createdAt: new Date().toISOString(),
   };
-  const saved = await updateUserAddresses(user.id, [...current.addresses, next]);
+  const saved = await saveAddresses(user.id, [...user.addresses, next]);
+  if (!saved) {
+    return NextResponse.json({ ok: false, error: "Could not save the address" }, { status: 500 });
+  }
   return NextResponse.json({ ok: true, user: saved });
 }

@@ -1,16 +1,15 @@
 import { NextResponse } from "next/server";
 import {
-  categories,
   createCategory,
-  updateCategory,
+  listCategoriesAll,
   removeCategory,
-  DbError,
-} from "@/lib/demo/db";
+  updateCategory,
+} from "@/lib/backend";
 import { requireAdmin, unauthorized } from "@/lib/admin/guard";
 
 export async function GET() {
   if (!(await requireAdmin())) return unauthorized();
-  return NextResponse.json({ ok: true, categories: categories() });
+  return NextResponse.json({ ok: true, categories: await listCategoriesAll() });
 }
 
 export async function POST(request: Request) {
@@ -32,10 +31,11 @@ export async function POST(request: Request) {
     });
     return NextResponse.json({ ok: true, category });
   } catch (err) {
-    if (err instanceof DbError) {
-      return NextResponse.json({ ok: false, error: err.message }, { status: 409 });
-    }
-    return NextResponse.json({ ok: false, error: "Could not save the category" }, { status: 500 });
+    const e = err as { code?: string; message?: string };
+    return NextResponse.json(
+      { ok: false, error: e.message ?? "Could not save the category" },
+      { status: e.code === "conflict" ? 409 : 500 },
+    );
   }
 }
 
@@ -54,10 +54,11 @@ export async function PATCH(request: Request) {
     const category = await updateCategory(slug, body);
     return NextResponse.json({ ok: true, category });
   } catch (err) {
-    if (err instanceof DbError) {
-      return NextResponse.json({ ok: false, error: err.message }, { status: 404 });
-    }
-    return NextResponse.json({ ok: false, error: "Could not update the category" }, { status: 500 });
+    const e = err as { code?: string; message?: string };
+    return NextResponse.json(
+      { ok: false, error: e.message ?? "Could not update the category" },
+      { status: e.code === "not_found" ? 404 : 500 },
+    );
   }
 }
 
@@ -70,12 +71,10 @@ export async function DELETE(request: Request) {
     await removeCategory(slug);
     return NextResponse.json({ ok: true });
   } catch (err) {
-    if (err instanceof DbError) {
-      return NextResponse.json(
-        { ok: false, error: err.message },
-        { status: err.code === "in_use" ? 409 : 404 },
-      );
-    }
-    return NextResponse.json({ ok: false, error: "Could not delete the category" }, { status: 500 });
+    const e = err as { code?: string; message?: string };
+    return NextResponse.json(
+      { ok: false, error: e.message ?? "Could not delete the category" },
+      { status: e.code === "in_use" ? 409 : e.code === "not_found" ? 404 : 500 },
+    );
   }
 }

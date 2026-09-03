@@ -1,28 +1,5 @@
 import { NextResponse } from "next/server";
-import { findUserByEmail } from "@/lib/demo/db";
-import { verifyPassword } from "@/lib/auth/password";
-import { startSession } from "@/lib/auth/session";
-import type { PublicUser } from "@/lib/types";
-
-function toPublic(user: {
-  id: string;
-  name: string;
-  email: string;
-  phone?: string;
-  role: "customer" | "admin";
-  addresses: PublicUser["addresses"];
-  createdAt: string;
-}): PublicUser {
-  return {
-    id: user.id,
-    name: user.name,
-    email: user.email,
-    phone: user.phone,
-    role: user.role,
-    addresses: user.addresses,
-    createdAt: user.createdAt,
-  };
-}
+import { loginUser } from "@/lib/backend";
 
 export async function POST(request: Request) {
   let body: { email?: string; password?: string };
@@ -35,14 +12,12 @@ export async function POST(request: Request) {
   const email = body.email?.trim().toLowerCase() ?? "";
   const password = body.password ?? "";
 
-  const stored = findUserByEmail(email);
-  if (!stored || !verifyPassword(password, stored.passwordSalt, stored.passwordHash)) {
+  const result = await loginUser(email, password);
+  if (!result.ok) {
     return NextResponse.json(
-      { ok: false, error: "Incorrect email or password" },
+      { ok: false, error: result.error ?? "Sign in failed" },
       { status: 401 },
     );
   }
-
-  await startSession(stored.id);
-  return NextResponse.json({ ok: true, user: toPublic(stored) });
+  return NextResponse.json({ ok: true, user: result.user });
 }

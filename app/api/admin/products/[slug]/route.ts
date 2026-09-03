@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
-import { upsertProduct, deleteProduct, DbError } from "@/lib/demo/db";
+import { deleteProduct, upsertProduct } from "@/lib/backend";
 import { requireAdmin, unauthorized } from "@/lib/admin/guard";
-import type { DbStatus } from "@/lib/demo/db";
+import type { DbStatus } from "@/lib/types";
 
 export async function PATCH(
   request: Request,
@@ -52,16 +52,20 @@ export async function PATCH(
           : undefined,
       featured: body.featured !== undefined ? Boolean(body.featured) : undefined,
       images: Array.isArray(body.images) ? body.images.map(String) : undefined,
-      dbStatus: (body.dbStatus as DbStatus) === "active" || (body.dbStatus as DbStatus) === "draft"
-        ? (body.dbStatus as DbStatus)
-        : undefined,
+      dbStatus:
+        body.dbStatus === "active" || body.dbStatus === "draft"
+          ? (body.dbStatus as DbStatus)
+          : body.dbStatus === "deleted"
+            ? "deleted"
+            : undefined,
     });
     return NextResponse.json({ ok: true, product: row });
   } catch (err) {
-    if (err instanceof DbError) {
-      return NextResponse.json({ ok: false, error: err.message }, { status: 400 });
-    }
-    return NextResponse.json({ ok: false, error: "Could not save the product" }, { status: 500 });
+    const e = err as { code?: string; message?: string };
+    return NextResponse.json(
+      { ok: false, error: e.message ?? "Could not save the product" },
+      { status: e.code === "conflict" ? 409 : 400 },
+    );
   }
 }
 
@@ -75,9 +79,10 @@ export async function DELETE(
     await deleteProduct(slug);
     return NextResponse.json({ ok: true });
   } catch (err) {
-    if (err instanceof DbError) {
-      return NextResponse.json({ ok: false, error: err.message }, { status: 404 });
-    }
-    return NextResponse.json({ ok: false, error: "Could not delete the product" }, { status: 500 });
+    const e = err as { code?: string; message?: string };
+    return NextResponse.json(
+      { ok: false, error: e.message ?? "Could not delete the product" },
+      { status: e.code === "not_found" ? 404 : 500 },
+    );
   }
 }

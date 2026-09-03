@@ -12,8 +12,8 @@ const VALID_ADDRESS: DeliveryAddress = {
 };
 
 describe("createDemoOrder", () => {
-  it("creates an order with server-side pricing for paid methods", () => {
-    const order = createDemoOrder({
+  it("creates an order with server-side pricing for paid methods", async () => {
+    const order = await createDemoOrder({
       items: [
         { slug: "beautiful-banarasi-silk-saree", qty: 2, color: "Maroon" },
         { slug: "floral-printed-saree", qty: 1, color: "Green" },
@@ -31,8 +31,8 @@ describe("createDemoOrder", () => {
     expect(order.items[0].name).toContain("Banarasi");
   });
 
-  it("marks COD orders as cash-on-delivery", () => {
-    const order = createDemoOrder({
+  it("marks COD orders as cash-on-delivery", async () => {
+    const order = await createDemoOrder({
       items: [{ slug: "beautiful-banarasi-silk-saree", qty: 1, color: "Maroon" }],
       address: VALID_ADDRESS,
       paymentMethod: "cod",
@@ -41,49 +41,49 @@ describe("createDemoOrder", () => {
     expect(order.status).toBe("cod");
   });
 
-  it("rejects unknown product slugs", () => {
-    expect(() =>
+  it("rejects unknown product slugs", async () => {
+    await expect(
       createDemoOrder({
         items: [{ slug: "not-a-real-saree", qty: 1, color: "Maroon" }],
         address: VALID_ADDRESS,
         paymentMethod: "upi",
       }),
-    ).toThrow(OrderError);
+    ).rejects.toThrow(OrderError);
   });
 
-  it("rejects invalid quantities", () => {
-    expect(() =>
+  it("rejects invalid quantities", async () => {
+    await expect(
       createDemoOrder({
         items: [{ slug: "floral-printed-saree", qty: 0, color: "Green" }],
         address: VALID_ADDRESS,
         paymentMethod: "upi",
       }),
-    ).toThrow(/quantity/i);
+    ).rejects.toThrow(/quantity/i);
   });
 
-  it("rejects an empty basket", () => {
-    expect(() =>
+  it("rejects an empty basket", async () => {
+    await expect(
       createDemoOrder({
         items: [],
         address: VALID_ADDRESS,
         paymentMethod: "upi",
       }),
-    ).toThrow(/cart is empty/i);
+    ).rejects.toThrow(/cart is empty/i);
   });
 
-  it("rejects over-quantity vs stock", () => {
-    expect(() =>
+  it("rejects over-quantity vs stock", async () => {
+    await expect(
       createDemoOrder({
         items: [{ slug: "floral-printed-saree", qty: 99, color: "Green" }],
         address: VALID_ADDRESS,
         paymentMethod: "upi",
       }),
-    ).toThrow(OrderError);
+    ).rejects.toThrow(OrderError);
   });
 
-  it("returns field-level address errors", () => {
+  it("returns field-level address errors", async () => {
     try {
-      createDemoOrder({
+      await createDemoOrder({
         items: [{ slug: "floral-printed-saree", qty: 1, color: "Green" }],
         address: { ...VALID_ADDRESS, phone: "123", pincode: "12" },
         paymentMethod: "upi",

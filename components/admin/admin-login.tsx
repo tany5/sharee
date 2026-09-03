@@ -8,8 +8,11 @@ import { Button, Field, TextInput } from "@/components/ui";
 
 export function AdminLogin({
   demoHint,
+  note,
 }: {
   demoHint?: { email: string; password: string };
+  /** Backend-specific guidance shown under the form. */
+  note?: string;
 }) {
   const router = useRouter();
   const [email, setEmail] = useState("");
@@ -98,6 +101,11 @@ export function AdminLogin({
         <p className="mt-4 rounded-xl border border-bronze/40 bg-bronze/10 px-4 py-3 text-center text-[13px] leading-5 text-ink2">
           <strong className="text-ink">Demo admin:</strong> {demoHint.email} ·{" "}
           {demoHint.password}
+        </p>
+      )}
+      {note && !demoHint && (
+        <p className="mt-4 rounded-xl border border-bronze/40 bg-bronze/10 px-4 py-3 text-center text-[13px] leading-5 text-ink2">
+          {note}
         </p>
       )}
     </div>

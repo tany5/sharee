@@ -1,20 +1,25 @@
 import { NextResponse } from "next/server";
 import {
   adminProducts,
-  categories,
-  slugify,
+  ensureStoreSeeded,
+  listCategoriesAll,
   upsertProduct,
-  DbError,
-} from "@/lib/demo/db";
+} from "@/lib/backend";
 import { requireAdmin, unauthorized } from "@/lib/admin/guard";
 
 export async function GET() {
   if (!(await requireAdmin())) return unauthorized();
-  return NextResponse.json({
-    ok: true,
-    products: adminProducts(),
-    categories: categories(),
-  });
+  // Supabase bootstrap: seed the catalogue the first time an admin opens this.
+  try {
+    await ensureStoreSeeded();
+  } catch {
+    /* non-fatal — the store stays empty until products are added */
+  }
+  const [products, categories] = await Promise.all([
+    adminProducts(),
+    listCategoriesAll(),
+  ]);
+  return NextResponse.json({ ok: true, products, categories });
 }
 
 export async function POST(request: Request) {
@@ -32,12 +37,22 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: false, error: "Product name is required" }, { status: 400 });
   }
   const category = String(body.category ?? "cotton-sarees");
-  if (!categories().some((c) => c.slug === category)) {
+  const categories = await listCategoriesAll();
+  if (!categories.some((c) => c.slug === category)) {
     return NextResponse.json({ ok: false, error: "Choose a valid category" }, { status: 400 });
   }
 
-  const slug = slugify(String(body.slug ?? "") || name);
-  if (adminProducts().some((p) => p.slug === slug)) {
+  const slug = String(body.slug ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 60);
+  if (!slug || slug === "saree") {
+    return NextResponse.json({ ok: false, error: "Choose a valid product slug" }, { status: 400 });
+  }
+  const existing = await adminProducts();
+  if (existing.some((p) => p.slug === slug)) {
     return NextResponse.json(
       { ok: false, error: "A product with that slug already exists" },
       { status: 409 },
@@ -73,9 +88,10 @@ export async function POST(request: Request) {
     });
     return NextResponse.json({ ok: true, product: row });
   } catch (err) {
-    if (err instanceof DbError) {
-      return NextResponse.json({ ok: false, error: err.message }, { status: 400 });
-    }
-    return NextResponse.json({ ok: false, error: "Could not save the product" }, { status: 500 });
+    const e = err as { code?: string; message?: string };
+    return NextResponse.json(
+      { ok: false, error: e.message ?? "Could not save the product" },
+      { status: e.code === "conflict" ? 409 : 400 },
+    );
   }
 }

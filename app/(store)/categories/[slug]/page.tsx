@@ -6,6 +6,7 @@ import {
   getProducts,
   type SortKey,
 } from "@/lib/data/queries";
+import { isSupabaseBackend } from "@/lib/backend/env";
 import { SITE } from "@/lib/site";
 import { ProductGrid } from "@/components/product/product-grid";
 import { SortSelect } from "@/components/product/listing-tools";
@@ -35,6 +36,11 @@ export async function generateMetadata({ params }: { params: Promise<Params> }) 
 }
 
 export async function generateStaticParams() {
+  // The Supabase backend needs an HTTP request (cookies → auth/RLS), so it
+  // cannot run at build time. In Supabase mode the catalogue is also
+  // admin-managed, so nothing is prerendered — pages render on demand
+  // (dynamicParams defaults to true). Demo mode prerenders from the seed.
+  if (isSupabaseBackend()) return [];
   const categories = await getCategories();
   return categories.map((c) => ({ slug: c.slug }));
 }

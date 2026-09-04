@@ -8,6 +8,8 @@ import {
   BadgeCheck,
   Check,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   Clock,
   Minus,
   Plus,
@@ -19,7 +21,7 @@ import {
 } from "lucide-react";
 import type { Product } from "@/lib/types";
 import { artForProduct } from "@/lib/art";
-import { productPhoto } from "@/lib/photos";
+import { productPhoto, productPhotoAlt } from "@/lib/photos";
 import SareeArt from "@/components/product/saree-art";
 import { ProductGrid } from "@/components/product/product-grid";
 import { Button, Stars } from "@/components/ui";
@@ -71,9 +73,12 @@ export function ProductPage({ product, related }: ProductPageProps) {
   const [added, setAdded] = useState(false);
   const addedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const colors = product.colors.slice(0, 4);
-  const selectedColor = colors[Math.min(colorIdx, colors.length - 1)];
-  const activeView = Math.min(viewIdx, 3);
+  // Some admin/Supabase rows arrive without a colors array — fall back to the
+  // product's colourway so the PDP never renders without a selected colour.
+  const colors =
+    product.colors.length > 0 ? product.colors.slice(0, 4) : [product.colorway];
+  const selectedColor =
+    colors[Math.min(colorIdx, colors.length - 1)] ?? product.colorway;
   const maxQty = Math.min(product.stock, 5);
 
   const specs = [
@@ -84,17 +89,31 @@ export function ProductPage({ product, related }: ProductPageProps) {
   ];
 
   const modelPhoto = productPhoto(product.slug);
+  const altPhoto = productPhotoAlt(product.slug);
 
-  // Gallery slot 0 is the real "worn" model photo when available; the other
-  // three slots are colourway artwork variants.
+  // Every saree shows at least 3 gallery images: two "worn" model shots (when
+  // photography is mapped) plus fabric-only artwork.
   const galleryViews = useMemo(() => {
-    const views: { kind: "photo" | "art"; spec?: ReturnType<typeof artForProduct> }[] = [];
-    for (let i = 0; i < 4; i++) {
-      if (modelPhoto && i === 0) views.push({ kind: "photo" });
-      else views.push({ kind: "art", spec: artForProduct(product.slug, product.colorway, product.category, i) });
-    }
-    return views;
-  }, [modelPhoto, product.slug, product.colorway, product.category]);
+    const views: {
+      kind: "photo" | "art";
+      src?: string;
+      spec?: ReturnType<typeof artForProduct>;
+    }[] = [];
+    if (modelPhoto) views.push({ kind: "photo", src: modelPhoto });
+    if (altPhoto) views.push({ kind: "photo", src: altPhoto });
+    const artStart = views.length;
+    views.push({
+      kind: "art",
+      spec: artForProduct(product.slug, product.colorway, product.category, artStart),
+    });
+    views.push({
+      kind: "art",
+      spec: artForProduct(product.slug, product.colorway, product.category, artStart + 1),
+    });
+    return views.slice(0, 4);
+  }, [modelPhoto, altPhoto, product.slug, product.colorway, product.category]);
+
+  const activeView = Math.min(viewIdx, galleryViews.length - 1);
 
   // ViewContent: product page opened (fires once per page view).
   useEffect(() => {
@@ -136,8 +155,8 @@ export function ProductPage({ product, related }: ProductPageProps) {
                   onClick={() => setViewIdx(i)}
                   aria-label={
                     view.kind === "photo"
-                      ? `View ${product.name} worn photo`
-                      : `View style ${i + 1}`
+                      ? `View ${product.name} worn photo ${i === 0 ? 1 : 2}`
+                      : `View the saree alone, style ${i + 1}`
                   }
                   className={cx(
                     "h-20 w-16 shrink-0 overflow-hidden rounded-lg ring-1 transition-all sm:h-24 sm:w-20",
@@ -146,9 +165,9 @@ export function ProductPage({ product, related }: ProductPageProps) {
                       : "ring-line opacity-70 hover:opacity-100",
                   )}
                 >
-                  {view.kind === "photo" && modelPhoto ? (
+                  {view.kind === "photo" && view.src ? (
                     <Image
-                      src={modelPhoto}
+                      src={view.src}
                       alt={`${product.name} worn by model`}
                       width={96}
                       height={128}
@@ -162,10 +181,10 @@ export function ProductPage({ product, related }: ProductPageProps) {
             })}
           </div>
 
-          <div className="relative aspect-[3/4] flex-1 overflow-hidden rounded-2xl ring-1 ring-line">
-            {galleryViews[activeView]?.kind === "photo" && modelPhoto ? (
+          <div className="group relative aspect-[3/4] flex-1 overflow-hidden rounded-2xl ring-1 ring-line">
+            {galleryViews[activeView]?.kind === "photo" && galleryViews[activeView].src ? (
               <Image
-                src={modelPhoto}
+                src={galleryViews[activeView].src!}
                 alt={`${product.name} saree at ₹199 — ${selectedColor.toLowerCase()} — worn by model`}
                 fill
                 sizes="(min-width: 1024px) 55vw, 100vw"
@@ -179,6 +198,26 @@ export function ProductPage({ product, related }: ProductPageProps) {
                 className="absolute inset-0 h-full w-full"
               />
             ) : null}
+            {galleryViews.length > 1 && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => setViewIdx((activeView - 1 + galleryViews.length) % galleryViews.length)}
+                  aria-label="Previous image"
+                  className="absolute left-2.5 top-1/2 hidden h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-surface/90 text-ink shadow-md opacity-0 backdrop-blur transition-opacity duration-200 hover:bg-surface group-hover:opacity-100 md:flex"
+                >
+                  <ChevronLeft size={17} strokeWidth={2.2} />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setViewIdx((activeView + 1) % galleryViews.length)}
+                  aria-label="Next image"
+                  className="absolute right-2.5 top-1/2 hidden h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-surface/90 text-ink shadow-md opacity-0 backdrop-blur transition-opacity duration-200 hover:bg-surface group-hover:opacity-100 md:flex"
+                >
+                  <ChevronRight size={17} strokeWidth={2.2} />
+                </button>
+              </>
+            )}
             <span className="absolute left-3 top-3 rounded-full bg-[#7c2d3a] px-3 py-1.5 font-display text-sm font-bold text-[#f9eeda] shadow-md">
               {formatINR(product.price)}
             </span>

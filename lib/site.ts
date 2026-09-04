@@ -19,7 +19,8 @@ export const SITE = {
   freeShippingThreshold: 999,
   shippingFee: 49,
 
-  announcement: "ALL SAREES ₹199 · FREE SHIPPING ON ORDERS ABOVE ₹999",
+  announcementMain: "ALL SAREES ₹199",
+  announcementSub: "FREE SHIPPING OVER ₹999",
 
   email: "hello@ambikasarees.in",
   phone: "+91 98765 43210",

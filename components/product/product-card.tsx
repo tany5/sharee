@@ -2,10 +2,10 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { Check, Heart, Plus } from "lucide-react";
+import { Check, Heart, Plus, ShoppingCart } from "lucide-react";
 import { artForProduct } from "@/lib/art";
-import { productPhotoThumb } from "@/lib/photos";
-import SareeArt from "@/components/product/saree-art";
+import { productPhotoAltThumb, productPhotoThumb } from "@/lib/photos";
+import { CardCarousel, type CardSlide } from "@/components/product/card-carousel";
 import { Stars } from "@/components/ui";
 import { useCart, useWishlist } from "@/components/store/providers";
 import { trackAddToCart } from "@/lib/analytics";
@@ -65,11 +65,31 @@ export function ProductCard({ product }: { product: ProductCardData }) {
     timer.current = setTimeout(() => setJustAdded(false), 1400);
   };
 
-  // Real photo first: an admin-uploaded image, else the "woman wearing the
-  // saree" shot from the photography map. Artwork only for catalogue items
-  // with neither (admin-created, no upload yet).
-  const photo = product.image ?? productPhotoThumb(product.slug);
+  // Every saree gets at least 3 images: the primary "worn" shot, a second
+  // worn shot, and a fabric-only artwork. Admin-uploaded photos come first.
   const art = artForProduct(product.slug, product.colorway, product.category);
+  const slides: CardSlide[] = [];
+  const worn1 = product.image ?? productPhotoThumb(product.slug);
+  const worn2 = productPhotoAltThumb(product.slug);
+  if (worn1) {
+    slides.push({
+      kind: "img",
+      src: worn1,
+      alt: `${product.name} saree at ${formatINR(product.price)} — worn by a woman`,
+    });
+  }
+  if (worn2) {
+    slides.push({
+      kind: "img",
+      src: worn2,
+      alt: `${product.name} saree at ${formatINR(product.price)} — worn by a woman, alternate shot`,
+    });
+  }
+  slides.push({
+    kind: "art",
+    spec: art,
+    label: `${product.name} saree at ${formatINR(product.price)} — the saree alone`,
+  });
 
   return (
     <div className="group relative">
@@ -79,24 +99,9 @@ export function ProductCard({ product }: { product: ProductCardData }) {
         aria-label={product.name}
       >
         <div className="relative aspect-[3/4] overflow-hidden rounded-2xl ring-1 ring-line/80 transition-shadow group-hover:shadow-lg group-hover:shadow-ink/10">
-          {photo ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={photo}
-              alt={`${product.name} saree at ${formatINR(product.price)} — worn by a woman`}
-              loading="lazy"
-              className="absolute inset-0 h-full w-full object-cover object-top transition-transform duration-500 group-hover:scale-[1.04]"
-            />
-          ) : (
-            <SareeArt
-              spec={art}
-              label={`${product.name} saree at ${formatINR(product.price)}`}
-              crop="portrait"
-              className="absolute inset-0 h-full w-full transition-transform duration-500 group-hover:scale-[1.04]"
-            />
-          )}
+          <CardCarousel slides={slides} />
           {product.tags.length > 0 && (
-            <span className="absolute left-2.5 top-2.5">
+            <span className="absolute left-2.5 top-2.5 z-10">
               <TagBadge tag={product.tags[0]} />
             </span>
           )}
@@ -136,19 +141,53 @@ export function ProductCard({ product }: { product: ProductCardData }) {
         <Heart size={17} className={wished ? "fill-current" : ""} />
       </button>
 
-      {/* Quick add */}
+      {/* Quick add — the + rotates into a cart icon on hover, with a tooltip */}
       <button
         type="button"
         onClick={quickAdd}
         aria-label={`Add ${product.name} to cart`}
         className={cx(
-          "absolute bottom-2.5 right-2.5 flex h-10 w-10 items-center justify-center rounded-full shadow-md transition-all",
+          "group/qa absolute bottom-2.5 right-2.5 z-20 flex h-10 w-10 items-center justify-center rounded-full shadow-md transition-all duration-300",
           justAdded
-            ? "bg-[#5f7a4d] text-white"
+            ? "bg-[#5f7a4d] text-white hover:scale-105"
             : "bg-[#5d350e] text-[#f6ebd9] hover:scale-105",
         )}
       >
-        {justAdded ? <Check size={19} /> : <Plus size={20} strokeWidth={2.4} />}
+        {justAdded ? (
+          <Check size={19} strokeWidth={2.4} />
+        ) : (
+          <span aria-hidden className="relative flex h-5 w-5 items-center justify-center">
+            <Plus
+              size={20}
+              strokeWidth={2.4}
+              className={cx(
+                "absolute transition-all duration-300 ease-out",
+                "rotate-0 opacity-100 group-hover/qa:rotate-90 group-hover/qa:scale-0 group-hover/qa:opacity-0",
+              )}
+            />
+            <ShoppingCart
+              size={19}
+              strokeWidth={2.1}
+              className={cx(
+                "absolute transition-all duration-300 ease-out",
+                "-rotate-90 scale-0 opacity-0 group-hover/qa:rotate-0 group-hover/qa:scale-100 group-hover/qa:opacity-100",
+              )}
+            />
+          </span>
+        )}
+        {/* Tooltip */}
+        <span
+          aria-hidden
+          className={cx(
+            "pointer-events-none absolute right-full top-1/2 mr-2.5 hidden -translate-y-1/2 whitespace-nowrap rounded-full px-3 py-1.5 text-[11px] font-bold shadow-lg transition-all duration-200 md:block",
+            "bg-ink text-btntext",
+            justAdded
+              ? "opacity-100"
+              : "translate-x-1 opacity-0 group-hover/qa:translate-x-0 group-hover/qa:opacity-100",
+          )}
+        >
+          {justAdded ? "Added to cart ✓" : "Add to cart"}
+        </span>
       </button>
     </div>
   );

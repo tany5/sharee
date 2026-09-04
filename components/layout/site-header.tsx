@@ -137,10 +137,14 @@ export function SiteHeader() {
 
   return (
     <header className="sticky top-0 z-40">
-      {/* Announcement bar */}
-      <div className="bg-ink text-center text-[11px] font-semibold uppercase tracking-[0.18em] text-[#f6ebd9]">
-        <div className="mx-auto flex h-8 max-w-7xl items-center justify-center gap-6 px-4">
-          <p className="truncate">{SITE.announcement}</p>
+      {/* Announcement bar — deep maroon in both themes so the promise always reads */}
+      <div className="bg-[#4a2a18] text-center text-[11px] font-semibold uppercase tracking-[0.18em] text-[#f7ead2]">
+        <div className="mx-auto flex h-8 max-w-7xl items-center justify-center gap-2.5 overflow-hidden px-4">
+          <p className="truncate">{SITE.announcementMain}</p>
+          <span aria-hidden className="hidden text-[#c9a86a] sm:inline">
+            ✦
+          </span>
+          <p className="hidden truncate sm:inline">{SITE.announcementSub}</p>
         </div>
       </div>
 

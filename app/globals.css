@@ -32,20 +32,22 @@
 .dark {
   color-scheme: dark;
 
-  --bg: #221003; /* deep warm brown page */
-  --surface: #2f1a0b; /* cards */
-  --surface-2: #3b2412; /* raised panels */
+  /* Warm medium-brown surfaces — lifted from near-black so the dark theme
+     is rich and easy on the eyes instead of pitch dark. */
+  --bg: #3a2414;
+  --surface: #4a2f1c;
+  --surface-2: #593b23;
   --ink: #f6e9d7; /* text = warm ivory */
   --ink-2: #e2c9a8; /* secondary text */
-  --accent: #c99d6b; /* lifted bronze-gold for accents on dark */
-  --accent-2: #b98a56;
-  --bronze: #a98f63;
-  --muted: #9d9d9d; /* brand grey works on dark surfaces */
-  --line: #4e3317;
-  --chip: #452b13;
+  --accent: #d9ae76; /* lifted bronze-gold for accents on dark */
+  --accent-2: #c99d6b;
+  --bronze: #b49a6e;
+  --muted: #a89a88; /* warm grey reads well on the lighter browns */
+  --line: #6d4c2d;
+  --chip: #5b3d24;
   --btn: #f6e9d7; /* inverted ivory button */
-  --btn-text: #241204;
-  --tint: #33200e;
+  --btn-text: #3a2414;
+  --tint: #4e3019;
   --danger: #f08a73;
 }
 
@@ -66,8 +68,8 @@
   --color-tint: var(--tint);
   --color-danger: var(--danger);
 
-  --font-sans: var(--font-teachers);
-  --font-display: var(--font-judson);
+  --font-sans: var(--font-judson);
+  --font-display: var(--font-teachers);
 
   --radius-2xl: 1.25rem;
 }
@@ -84,9 +86,8 @@
   body {
     background: var(--bg);
     color: var(--ink);
-    font-family: var(--font-teachers), ui-sans-serif, system-ui, -apple-system,
-      "Segoe UI", sans-serif;
-    font-feature-settings: "ss01" on;
+    font-family: var(--font-judson), ui-serif, Georgia, "Times New Roman",
+      serif;
   }
 
   h1,
@@ -95,8 +96,8 @@
   h4,
   h5,
   h6 {
-    font-family: var(--font-judson), ui-serif, Georgia, "Times New Roman",
-      serif;
+    font-family: var(--font-teachers), ui-sans-serif, system-ui, -apple-system,
+      "Segoe UI", sans-serif;
     font-weight: 700;
     line-height: 1.1;
     letter-spacing: -0.01em;

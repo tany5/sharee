@@ -72,6 +72,42 @@ export const PRODUCT_PHOTOS: Record<string, number> = {
   "mirror-work-fancy-saree": 36041230, // indigo mirror work
 };
 
+/**
+ * Second "woman wearing the saree" shot per seeded product, so every saree
+ * has at least 3 images: two model shots + one fabric-only artwork. Swap in
+ * your own photography by editing these ids.
+ */
+export const PRODUCT_PHOTOS_2: Record<string, number> = {
+  "beautiful-banarasi-silk-saree": 27575174, // maroon-gold editorial
+  "kanjeevaram-style-silk-saree": 33882521, // deep green temple drape
+  "banarasi-georgette-silk-saree": 35108820, // blush chiffon
+  "south-silk-temple-saree": 35586011, // forest green
+  "silk-zari-fancy-border-saree": 35108770, // gold tissue
+  "soft-daily-wear-cotton-saree": 20077350, // ivory pearl border
+  "handloom-chettinad-cotton-saree": 38325045, // rust floral
+  "bandhani-inspired-cotton-saree": 38187748, // soft blush print
+  "cotton-silk-festive-saree": 38130866, // bold yellow block print
+  "kalamkari-print-cotton-saree": 36024072, // blue-green printed drape
+  "everyday-silk-mark-cotton-saree": 19284702, // maroon temple border
+  "floral-printed-saree": 35108863, // teal artisanal print
+  "pastel-abstract-printed-saree": 35108807, // blush silk
+  "temple-border-printed-saree": 7486657, // classic maroon drape
+  "mango-motif-printed-saree": 13679117, // bright lace drape
+  "bold-block-print-cotton-saree": 30188034, // festive yellow
+  "featherlight-chiffon-saree": 36041230, // indigo mirror work
+  "chiffon-zari-border-saree": 31450186, // maroon party wear
+  "pastel-sheer-chiffon-saree": 35108807, // blush silk
+  "chiffon-printed-drape-saree": 35108863, // teal artisanal
+  "georgette-designer-saree": 19600007, // indigo sheer
+  "georgette-silk-blend-saree": 35586011, // forest green
+  "georgette-floral-fancy-saree": 28943616, // rust terracotta
+  "pearl-border-georgette-saree": 13556678, // ivory everyday wear
+  "designer-party-wear-saree": 12999437, // maroon zari chiffon
+  "net-fancy-saree-with-lace": 28058263, // plum mango motifs
+  "golden-tissue-fancy-saree": 20158861, // mustard zari
+  "mirror-work-fancy-saree": 19600007, // indigo sheer
+};
+
 /** Full-size URL for a product photo (cached for hot renders). */
 const urlCache = new Map<string, string>();
 export function productPhoto(slug: string): string | undefined {
@@ -84,8 +120,22 @@ export function productPhoto(slug: string): string | undefined {
   return url;
 }
 
+/** Full-size second "worn" shot (PDP gallery). */
+export function productPhotoAlt(slug: string): string | undefined {
+  const id = PRODUCT_PHOTOS_2[slug];
+  if (!id || id === PRODUCT_PHOTOS[slug]) return undefined;
+  return pexels(id);
+}
+
 /** Compact thumb (cart, checkout, wishlist rows). */
 export function productPhotoThumb(slug: string): string | undefined {
   const id = PRODUCT_PHOTOS[slug];
   return id ? pexels(id, 320) : undefined;
+}
+
+/** Compact second "worn" shot (product card carousel). */
+export function productPhotoAltThumb(slug: string): string | undefined {
+  const id = PRODUCT_PHOTOS_2[slug];
+  if (!id || id === PRODUCT_PHOTOS[slug]) return undefined;
+  return pexels(id, 320);
 }

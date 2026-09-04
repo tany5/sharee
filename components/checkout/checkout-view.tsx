@@ -129,7 +129,11 @@ export function CheckoutView() {
   const razorpayLive = razorpayClientLive();
 
   /** POST the checkout success response to the server for verification. */
-  const verifyPayment = async (resp: RazorpaySuccessResponse, orderId: string) => {
+  const verifyPayment = async (
+    resp: RazorpaySuccessResponse,
+    orderId: string,
+    amountPaise: number,
+  ) => {
     setVerifying(true);
     try {
       const res = await fetch("/api/payments/verify", {
@@ -140,6 +144,7 @@ export function CheckoutView() {
           razorpayOrderId: resp.razorpay_order_id,
           razorpayPaymentId: resp.razorpay_payment_id,
           razorpaySignature: resp.razorpay_signature,
+          amountPaise,
         }),
       });
       const data = (await res.json()) as {
@@ -211,6 +216,7 @@ export function CheckoutView() {
             razorpay_signature: String(r?.razorpay_signature ?? ""),
           },
           orderId,
+          payload.amountPaise,
         );
       },
     });

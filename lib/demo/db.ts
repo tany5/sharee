@@ -492,11 +492,18 @@ export async function confirmPayment(input: {
   razorpayOrderId: string;
   razorpayPaymentId?: string;
   amountPaise: number;
-}): Promise<{ ok: boolean; error?: string }> {
+  /** Client order id — cross-checked so a payment can't confirm another order. */
+  orderId?: string;
+}): Promise<{ ok: boolean; error?: string; order?: Order }> {
   return mutate((db) => {
     const order = db.orders.find((o) => o.razorpayOrderId === input.razorpayOrderId);
     if (!order) return { ok: false, error: "Order not found" };
-    if (order.paymentStatus === "paid") return { ok: true }; // idempotent
+    if (input.orderId && order.id !== input.orderId) {
+      return { ok: false, error: "Order does not match this payment" };
+    }
+    if (order.paymentStatus === "paid") {
+      return { ok: true, order }; // idempotent
+    }
     if (Math.round(order.total * 100) !== Math.round(input.amountPaise)) {
       return { ok: false, error: "Payment amount does not match the order" };
     }
@@ -504,7 +511,7 @@ export async function confirmPayment(input: {
     order.status = "paid";
     if (input.razorpayPaymentId) order.razorpayPaymentId = input.razorpayPaymentId;
     order.updatedAt = new Date().toISOString();
-    return { ok: true };
+    return { ok: true, order };
   });
 }
 

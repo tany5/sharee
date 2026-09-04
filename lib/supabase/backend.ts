@@ -391,14 +391,17 @@ function orderToRow(o: Order): Record<string, unknown> {
 }
 
 export async function supabaseAddOrder(order: Order): Promise<Order> {
+  // Guests (user_id = null) can INSERT under RLS but their rows are invisible
+  // to SELECT, so `insert ... returning` fails with an RLS error. Generate the
+  // id here (uuid column) and return the input order + id instead of reading
+  // the row back — the persisted shape is identical.
   const supabase = await supabaseServer();
-  const { data, error } = await supabase
+  const id = crypto.randomUUID();
+  const { error } = await supabase
     .from("orders")
-    .insert(orderToRow(order))
-    .select("*")
-    .single();
+    .insert({ ...orderToRow(order), id });
   if (error) fail(error, "Could not save your order");
-  return toOrder(data as OrderRow);
+  return { ...order, id };
 }
 
 export async function supabaseOrdersForUser(userId: string): Promise<Order[]> {
@@ -434,7 +437,9 @@ export async function supabaseConfirmPayment(input: {
   webhookBody?: string;
   webhookSignature?: string;
   amountPaise: number;
-}): Promise<{ ok: boolean; error?: string }> {
+  /** Client order id — ties the confirmation to that exact order. */
+  orderId?: string;
+}): Promise<{ ok: boolean; error?: string; order?: Order }> {
   const supabase = await supabaseServer();
   const { data, error } = await supabase.rpc("confirm_payment", {
     p_razorpay_order_id: input.razorpayOrderId,
@@ -443,9 +448,15 @@ export async function supabaseConfirmPayment(input: {
     p_webhook_body: input.webhookBody ?? "",
     p_webhook_signature: input.webhookSignature ?? "",
     p_amount_paise: Math.round(input.amountPaise),
+    p_order_id: input.orderId ?? null,
   });
   if (error) return { ok: false, error: error.message };
-  return { ok: data === true };
+  // The security-definer RPC returns the updated row as jsonb (guests can't
+  // read their rows through RLS, so this is the authoritative read path).
+  const row = data as OrderRow | null;
+  return row
+    ? { ok: true, order: toOrder(row) }
+    : { ok: false, error: "Payment could not be matched to an order" };
 }
 
 export async function supabaseAllOrders(): Promise<Order[]> {

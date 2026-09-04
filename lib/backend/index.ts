@@ -314,7 +314,9 @@ export async function confirmRazorpayPayment(input: {
   webhookBody?: string;
   webhookSignature?: string;
   amountPaise: number;
-}): Promise<{ ok: boolean; error?: string }> {
+  /** Client order id — ties the confirmation to that exact order. */
+  orderId?: string;
+}): Promise<{ ok: boolean; error?: string; order?: Order }> {
   if (active()) return (await supabaseModule()).supabaseConfirmPayment(input);
   return (await demo()).confirmPayment(input);
 }

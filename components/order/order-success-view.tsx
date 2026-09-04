@@ -48,6 +48,10 @@ export function OrderSuccessView({ id }: { id: string }) {
   // refreshes of the confirmation page don't double-report.
   useEffect(() => {
     if (!order) return;
+    // Purchase is a paid-conversion event: COD and pending-payment orders
+    // must not fire it. Online orders reach this page only after server-side
+    // verification, so their paymentStatus is "paid" here.
+    if (order.paymentStatus !== "paid") return;
     try {
       if (window.sessionStorage.getItem(`ambika.purchase.${order.id}`)) return;
       trackPurchase({

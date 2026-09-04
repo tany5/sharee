@@ -79,20 +79,42 @@ Then restart the dev server. Notes:
 - **Product photos** upload to the public **`Sharee`** storage bucket from the
   admin panel; storefront pages render those public CDN URLs.
 
-Remaining steps to production (unchanged):
+### Enabling real payments (Razorpay Standard Checkout)
 
-1. **Razorpay** — `app/api/webhooks/razorpay/route.ts` is a signature-verified
-   stub; the real flow: server creates Razorpay order → client checkout with
-   `order_id` → signature + webhook verified → `payment_status` flipped to
-   `paid` → `Purchase` event.
-2. **Tracking** — set `NEXT_PUBLIC_META_PIXEL_ID` / `NEXT_PUBLIC_GA4_ID`.
-3. **Real photos** — drop `public/products/<slug>/1.jpg` (or upload via the
-   admin panel) and artwork switches to photography automatically.
-   `Purchase` fires only on the verified order-success page (guarded per order
-   in sessionStorage), never on the Place Order click. Attribution lands in
-   `order.utm` and is saved with the order.
-5. **Admin** — not built yet (Phase 4). Planned slot: `app/admin/*` guarded by
-   Supabase Auth role `admin`, CRUD via the same `queries.ts` layer.
+The full payment flow is implemented behind an env switch — demo payments
+(simulated, marked paid instantly) are the default until you add keys:
+
+```bash
+# .env.local
+NEXT_PUBLIC_RAZORPAY_KEY_ID=rzp_live_…        # public — powers the widget
+RAZORPAY_KEY_SECRET=…                          # server-side, signs verification
+RAZORPAY_WEBHOOK_SECRET=…                      # verifies webhook events
+```
+
+Flow: **server** creates a Razorpay order for the server-computed total → the
+checkout widget opens with that `order_id` → on success the client posts the
+payment id + signature to `/api/payments/verify`, which verifies the HMAC
+server-side before flipping the order to `paid`. Razorpay also POSTs events to
+`/api/webhooks/razorpay` (configure the webhook in the Razorpay dashboard,
+events `payment.captured` + `payment.authorized` + `order.paid`) as an
+independent server-side confirmation. `Purchase` fires **only** on the
+verified order-success page (guarded per order), never on the Place Order
+click; attribution lands in `order.utm`.
+
+In **Supabase mode**, the key/webhook secrets additionally live in the DB
+`app_secrets` table and confirmation runs through the security-definer
+`confirm_payment` function (see the migration) — so payments confirm with the
+publishable key, no service-role key anywhere. Unpaid orders stay
+`paymentStatus: "pending"` and are excluded from admin revenue/profit until
+confirmed; the admin panel blocks dispatching them.
+
+### Remaining steps to production
+
+1. **Tracking** — set `NEXT_PUBLIC_META_PIXEL_ID` / `NEXT_PUBLIC_GA4_ID`.
+2. **Real photos** — replace the Pexels placeholders in `lib/photos.ts` with
+   your own model shoots (or upload per-product in the admin panel).
+3. **Hosting** — deploy to Vercel connected to your GitHub repo, with the env
+   vars above set in the project settings.
 
 Set `NEXT_PUBLIC_USE_DEMO=0` once production integrations are configured
 (`isDemoMode()` currently gates only the demo-checkout notice).

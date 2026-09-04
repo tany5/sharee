@@ -479,6 +479,35 @@ export async function setOrderFulfilment(
   });
 }
 
+export function findOrderById(orderId: string): Order | undefined {
+  return getDb().orders.find((o) => o.id === orderId);
+}
+
+/**
+ * Confirm a Razorpay payment (signature verified by the calling route).
+ * Cross-checks the paid amount against the stored order total so a payment
+ * for the wrong amount can never mark an order paid.
+ */
+export async function confirmPayment(input: {
+  razorpayOrderId: string;
+  razorpayPaymentId?: string;
+  amountPaise: number;
+}): Promise<{ ok: boolean; error?: string }> {
+  return mutate((db) => {
+    const order = db.orders.find((o) => o.razorpayOrderId === input.razorpayOrderId);
+    if (!order) return { ok: false, error: "Order not found" };
+    if (order.paymentStatus === "paid") return { ok: true }; // idempotent
+    if (Math.round(order.total * 100) !== Math.round(input.amountPaise)) {
+      return { ok: false, error: "Payment amount does not match the order" };
+    }
+    order.paymentStatus = "paid";
+    order.status = "paid";
+    if (input.razorpayPaymentId) order.razorpayPaymentId = input.razorpayPaymentId;
+    order.updatedAt = new Date().toISOString();
+    return { ok: true };
+  });
+}
+
 /* ------------------------------ media ------------------------------ */
 
 const MEDIA_EXT = new Set(["jpg", "jpeg", "png", "webp"]);

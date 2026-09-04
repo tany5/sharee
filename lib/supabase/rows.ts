@@ -56,6 +56,8 @@ export interface OrderRow {
   payment_method: string;
   payment_status: string;
   status: string;
+  razorpay_order_id: string | null;
+  razorpay_payment_id: string | null;
   address: unknown;
   utm: unknown;
   fulfilment: string;

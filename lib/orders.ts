@@ -66,6 +66,11 @@ export interface CreateOrderInput {
   resolveProduct?: ProductResolver;
   /** Signed-in user at checkout (persists orders to their history). */
   user?: { id: string; email: string };
+  /**
+   * Live payments are enabled: online-paid orders start as pending and are
+   * flipped to paid only after Razorpay signature/webhook verification.
+   */
+  razorpayIntent?: boolean;
 }
 
 const PAYMENT_METHODS = new Set<PaymentMethodId>([
@@ -145,6 +150,12 @@ export async function createDemoOrder(input: CreateOrderInput): Promise<Order> {
   const totals = totalsFor(subtotal);
   const createdAt = new Date().toISOString();
 
+  // Online payment starts "pending" when live Razorpay is enabled — it is
+  // flipped to "paid" only after server-side verification (signature or
+  // webhook). COD is accepted at the door; demo orders are marked paid.
+  const needsPayment =
+    input.razorpayIntent && input.paymentMethod !== "cod";
+
   return {
     id: `ord_${Date.now().toString(36)}${Math.floor(Math.random() * 46656).toString(36).padStart(3, "0")}`,
     number: orderNumber(),
@@ -153,8 +164,8 @@ export async function createDemoOrder(input: CreateOrderInput): Promise<Order> {
     shipping: totals.shipping,
     total: totals.total,
     paymentMethod: input.paymentMethod,
-    paymentStatus: input.paymentMethod === "cod" ? "cod" : "paid",
-    status: input.paymentMethod === "cod" ? "cod" : "paid",
+    paymentStatus: input.paymentMethod === "cod" ? "cod" : needsPayment ? "pending" : "paid",
+    status: input.paymentMethod === "cod" ? "cod" : needsPayment ? "placed" : "paid",
     address: addressCheck.address,
     utm: input.utm,
     storedIn: "local",

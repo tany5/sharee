@@ -6,6 +6,7 @@ import {
   Banknote,
   CreditCard,
   Landmark,
+  Info,
   Loader2,
   Lock,
   Smartphone,
@@ -17,6 +18,11 @@ import { SITE, PAYMENT_METHODS, isDemoMode, type PaymentMethodId } from "@/lib/s
 import { INDIAN_STATES, validateAddress, type AddressErrors } from "@/lib/validations";
 import { saveOrder } from "@/lib/client-store";
 import { readUtmFromUrl } from "@/lib/utm";
+import {
+  razorpayClientLive,
+  type RazorpayPayload,
+  type RazorpaySuccessResponse,
+} from "@/lib/payments/client";
 import { useCart } from "@/components/store/providers";
 import { useAuth } from "@/components/auth/auth-provider";
 import { Button, EmptyState, Field, SelectInput, TextArea, TextInput } from "@/components/ui";
@@ -55,6 +61,11 @@ export function CheckoutView() {
   const [method, setMethod] = useState<PaymentMethodId>("upi");
   const [apiError, setApiError] = useState<string | null>(null);
   const [placing, setPlacing] = useState(false);
+  const [verifying, setVerifying] = useState(false);
+  const [pendingPay, setPendingPay] = useState<{
+    payload: RazorpayPayload;
+    orderId: string;
+  } | null>(null);
   const firedMethods = useRef<Set<PaymentMethodId>>(new Set());
   const initiateFired = useRef(false);
   const prefilledFor = useRef<string | null>(null);
@@ -115,9 +126,114 @@ export function CheckoutView() {
     }
   };
 
+  const razorpayLive = razorpayClientLive();
+
+  /** POST the checkout success response to the server for verification. */
+  const verifyPayment = async (resp: RazorpaySuccessResponse, orderId: string) => {
+    setVerifying(true);
+    try {
+      const res = await fetch("/api/payments/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          orderId,
+          razorpayOrderId: resp.razorpay_order_id,
+          razorpayPaymentId: resp.razorpay_payment_id,
+          razorpaySignature: resp.razorpay_signature,
+        }),
+      });
+      const data = (await res.json()) as {
+        ok: boolean;
+        order?: import("@/lib/types").Order;
+        error?: string;
+      };
+      if (!res.ok || !data.ok || !data.order) {
+        setApiError(
+          data.error ?? "Could not confirm your payment — please contact support.",
+        );
+        return;
+      }
+      // Order is paid (server-verified) — only now do we save it, clear the
+      // cart and show the success page (Purchase fires there).
+      saveOrder(data.order);
+      clear();
+      setPendingPay(null);
+      router.replace(`/order-success?order=${encodeURIComponent(data.order.id)}`);
+    } catch {
+      setApiError("Network error while confirming your payment — please retry.");
+    } finally {
+      setVerifying(false);
+      setPlacing(false);
+    }
+  };
+
+  /** Load checkout.js (once) and open the Razorpay payment widget. */
+  const openRazorpay = async (payload: RazorpayPayload, orderId: string) => {
+    setApiError(null);
+    try {
+      if (typeof window === "undefined" || !window.Razorpay) {
+        await new Promise<void>((resolve, reject) => {
+          const s = document.createElement("script");
+          s.src = "https://checkout.razorpay.com/v1/checkout.js";
+          s.async = true;
+          s.onload = () => resolve();
+          s.onerror = () => reject(new Error("gateway load failed"));
+          document.head.appendChild(s);
+        });
+      }
+    } catch {
+      setApiError("Could not load the payment gateway — please retry.");
+      setPlacing(false);
+      return;
+    }
+
+    if (typeof window === "undefined" || !window.Razorpay) {
+      setApiError("Payment gateway is unavailable — please retry.");
+      setPlacing(false);
+      return;
+    }
+
+    const rzp = new window.Razorpay({
+      key: payload.keyId,
+      amount: payload.amountPaise,
+      currency: payload.currency,
+      name: payload.name,
+      description: payload.description,
+      order_id: payload.orderId,
+      prefill: payload.prefill ?? {},
+      theme: payload.theme ?? {},
+      modal: { ondismiss: () => setPlacing(false) },
+      handler: async (r?: Record<string, unknown>) => {
+        await verifyPayment(
+          {
+            razorpay_payment_id: String(r?.razorpay_payment_id ?? ""),
+            razorpay_order_id: String(r?.razorpay_order_id ?? ""),
+            razorpay_signature: String(r?.razorpay_signature ?? ""),
+          },
+          orderId,
+        );
+      },
+    });
+    rzp.on("payment.failed", () => {
+      setPlacing(false);
+      setApiError(
+        "Payment failed or was cancelled. Your order is saved — press Resume Payment to try again.",
+      );
+    });
+    rzp.open();
+  };
+
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setApiError(null);
+
+    // Resume an interrupted payment against the same order (no duplicate).
+    if (pendingPay) {
+      setPlacing(true);
+      await openRazorpay(pendingPay.payload, pendingPay.orderId);
+      return;
+    }
+
     const check = validateAddress(form);
     if (!check.ok || !check.address) {
       setErrors(check.errors);
@@ -143,6 +259,7 @@ export function CheckoutView() {
       const data = (await res.json()) as {
         ok: boolean;
         order?: import("@/lib/types").Order;
+        razorpay?: RazorpayPayload;
         error?: string;
         fieldErrors?: AddressErrors;
       };
@@ -151,6 +268,15 @@ export function CheckoutView() {
         if (data.fieldErrors) setErrors((prev) => ({ ...prev, ...data.fieldErrors }));
         return;
       }
+
+      // Live payment: hold the order as pending and open the Razorpay widget.
+      if (data.razorpay?.orderId && razorpayLive) {
+        setPendingPay({ payload: data.razorpay, orderId: data.order.id });
+        await openRazorpay(data.razorpay, data.order.id);
+        return;
+      }
+
+      // Demo / COD: order is placed immediately.
       saveOrder(data.order);
       clear();
       router.replace(`/order-success?order=${encodeURIComponent(data.order.id)}`);
@@ -178,14 +304,33 @@ export function CheckoutView() {
 
   return (
     <form id="checkout-form" onSubmit={submit} noValidate>
-      {isDemoMode() && (
-        <p className="mb-6 rounded-xl border border-bronze/40 bg-bronze/10 px-4 py-3 text-[13px] leading-5 text-ink2">
-          <strong className="text-ink">Demo checkout:</strong> no real payment is
-          processed — UPI / cards / net banking orders are simulated and marked
-          paid so you can test the full funnel. Enable Razorpay via the env keys
-          in <code className="rounded bg-surface px-1">.env.example</code> when
-          going live.
+      {razorpayLive ? (
+        <p className="mb-6 rounded-xl border border-line bg-surface px-4 py-3 text-[13px] leading-5 text-ink2">
+          <strong className="text-ink">Secure checkout:</strong> payments are
+          processed by <strong>Razorpay</strong> — UPI, cards and net banking.
+          Your order is confirmed only after the payment verifies.
         </p>
+      ) : (
+        isDemoMode() && (
+          <p className="mb-6 rounded-xl border border-bronze/40 bg-bronze/10 px-4 py-3 text-[13px] leading-5 text-ink2">
+            <strong className="text-ink">Demo checkout:</strong> no real payment
+            is processed — UPI / cards / net banking orders are simulated and
+            marked paid so you can test the full funnel. Enable Razorpay via the
+            env keys in <code className="rounded bg-surface px-1">.env.example</code>{" "}
+            when going live.
+          </p>
+        )
+      )}
+
+      {pendingPay && !verifying && (
+        <div
+          role="status"
+          className="mb-6 flex items-start gap-2.5 rounded-xl border border-bronze/40 bg-bronze/10 px-4 py-3 text-sm font-semibold text-ink2"
+        >
+          <Info size={18} className="mt-0.5 shrink-0 text-bronze" />
+          Payment window closed — your order is saved. Press Resume Payment to
+          continue paying.
+        </div>
       )}
 
       {apiError && (
@@ -345,7 +490,7 @@ export function CheckoutView() {
                 Pay in cash when your order is delivered to your doorstep.
               </div>
             )}
-            {method !== "cod" && isDemoMode() && (
+            {method !== "cod" && !razorpayLive && isDemoMode() && (
               <p className="mt-4 rounded-xl bg-accent/10 px-4 py-3 text-[13px] leading-5 text-ink2">
                 <strong className="text-ink">Demo:</strong> this payment will be
                 simulated and your order marked paid instantly. No money moves.
@@ -422,12 +567,19 @@ export function CheckoutView() {
             type="submit"
             size="lg"
             className="mt-5 hidden w-full lg:inline-flex"
-            disabled={placing}
+            disabled={placing || verifying}
           >
-            {placing ? (
+            {verifying ? (
               <>
-                <Loader2 size={18} className="animate-spin" /> Placing order…
+                <Loader2 size={18} className="animate-spin" /> Verifying payment…
               </>
+            ) : placing ? (
+              <>
+                <Loader2 size={18} className="animate-spin" />{" "}
+                {pendingPay ? "Resuming…" : "Placing order…"}
+              </>
+            ) : pendingPay ? (
+              `Resume Payment · ${formatINR(summary.total)}`
             ) : (
               `Place Order · ${formatINR(summary.total)}`
             )}
@@ -458,12 +610,19 @@ export function CheckoutView() {
             form="checkout-form"
             className="ml-auto flex-1"
             size="lg"
-            disabled={placing}
+            disabled={placing || verifying}
           >
-            {placing ? (
+            {verifying ? (
               <>
-                <Loader2 size={17} className="animate-spin" /> Placing…
+                <Loader2 size={17} className="animate-spin" /> Verifying…
               </>
+            ) : placing ? (
+              <>
+                <Loader2 size={17} className="animate-spin" />{" "}
+                {pendingPay ? "Resuming…" : "Placing…"}
+              </>
+            ) : pendingPay ? (
+              "Resume Payment"
             ) : (
               "Place Order"
             )}

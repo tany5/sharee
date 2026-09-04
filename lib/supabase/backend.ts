@@ -354,6 +354,8 @@ function toOrder(r: OrderRow): Order {
     paymentMethod: String(r.payment_method) as Order["paymentMethod"],
     paymentStatus: String(r.payment_status) as Order["paymentStatus"],
     status: String(r.status) as Order["status"],
+    razorpayOrderId: r.razorpay_order_id ?? undefined,
+    razorpayPaymentId: r.razorpay_payment_id ?? undefined,
     address,
     utm: utmRaw ?? undefined,
     storedIn: (String(r.stored_in) as Order["storedIn"]) ?? "supabase",
@@ -378,6 +380,8 @@ function orderToRow(o: Order): Record<string, unknown> {
     payment_method: o.paymentMethod,
     payment_status: o.paymentStatus,
     status: o.status,
+    razorpay_order_id: o.razorpayOrderId ?? null,
+    razorpay_payment_id: o.razorpayPaymentId ?? null,
     address: JSON.stringify(o.address),
     utm: o.utm ? JSON.stringify(o.utm) : null,
     fulfilment: o.fulfilment ?? "pending",
@@ -406,6 +410,42 @@ export async function supabaseOrdersForUser(userId: string): Promise<Order[]> {
     .order("created_at", { ascending: false });
   if (error) return [];
   return (data as OrderRow[]).map(toOrder);
+}
+
+export async function supabaseFindOrderById(orderId: string): Promise<Order | null> {
+  const supabase = await supabaseServer();
+  const { data } = await supabase
+    .from("orders")
+    .select("*")
+    .eq("id", orderId)
+    .maybeSingle();
+  return data ? toOrder(data as OrderRow) : null;
+}
+
+/**
+ * Confirm a payment via the security-definer `confirm_payment` RPC (secrets
+ * live only in the database — no service-role key required). The RPC verifies
+ * the HMAC signature and amount itself and is idempotent.
+ */
+export async function supabaseConfirmPayment(input: {
+  razorpayOrderId: string;
+  razorpayPaymentId?: string;
+  paymentSignature?: string;
+  webhookBody?: string;
+  webhookSignature?: string;
+  amountPaise: number;
+}): Promise<{ ok: boolean; error?: string }> {
+  const supabase = await supabaseServer();
+  const { data, error } = await supabase.rpc("confirm_payment", {
+    p_razorpay_order_id: input.razorpayOrderId,
+    p_razorpay_payment_id: input.razorpayPaymentId ?? "",
+    p_payment_signature: input.paymentSignature ?? "",
+    p_webhook_body: input.webhookBody ?? "",
+    p_webhook_signature: input.webhookSignature ?? "",
+    p_amount_paise: Math.round(input.amountPaise),
+  });
+  if (error) return { ok: false, error: error.message };
+  return { ok: data === true };
 }
 
 export async function supabaseAllOrders(): Promise<Order[]> {

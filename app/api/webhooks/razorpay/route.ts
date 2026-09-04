@@ -1,43 +1,63 @@
 import { NextResponse } from "next/server";
-import { createHmac, timingSafeEqual } from "node:crypto";
+import { verifyWebhookSignature } from "@/lib/payments/razorpay";
+import { confirmRazorpayPayment } from "@/lib/backend";
 
 /**
- * Razorpay payment webhook.
+ * Razorpay webhook endpoint.
  *
- * In production this endpoint:
- *   1. verifies the X-Razorpay-Signature with RAZORPAY_WEBHOOK_SECRET
- *   2. looks the order up by `payload.payment.entity.order_id`
- *   3. flips payment_status -> paid (idempotently)
- *   4. marks the order for fulfilment (and triggers the server-side Purchase
- *      conversion for the Conversions API)
+ * Server-side confirmation of payments: Razorpay POSTs events here with an
+ * HMAC-SHA256 signature over the raw body (X-Razorpay-Signature). Only events
+ * carrying an order id + amount (payment.captured / payment.authorized /
+ * order.paid) flip an order to paid — via the Supabase `confirm_payment` RPC
+ * (which re-verifies the signature and amount inside the database) or the demo
+ * store. Idempotent; responds 200 quickly so Razorpay doesn't retry.
  *
- * Until RAZORPAY_WEBHOOK_SECRET is configured the demo storefront simulates
- * payments through /api/orders, so this endpoint stays inert.
+ * Configure in the Razorpay dashboard → Webhooks:
+ *   URL:     https://<your-domain>/api/webhooks/razorpay
+ *   Events:  payment.captured, payment.authorized, order.paid
+ *   Secret:  RAZORPAY_WEBHOOK_SECRET
  */
 export async function POST(request: Request) {
-  const secret = process.env.RAZORPAY_WEBHOOK_SECRET;
-  if (!secret) {
-    return NextResponse.json(
-      { error: "Razorpay is not configured in demo mode." },
-      { status: 501 },
-    );
-  }
-
-  const body = await request.text();
+  const raw = await request.text();
   const signature = request.headers.get("x-razorpay-signature") ?? "";
-  const expected = createHmac("sha256", secret).update(body).digest("hex");
-  let valid = false;
-  try {
-    valid =
-      expected.length === signature.length &&
-      timingSafeEqual(Buffer.from(expected), Buffer.from(signature));
-  } catch {
-    valid = false;
-  }
-  if (!valid) {
-    return NextResponse.json({ error: "Invalid signature" }, { status: 400 });
+
+  if (!verifyWebhookSignature(raw, signature)) {
+    return NextResponse.json({ ok: false }, { status: 400 });
   }
 
-  // TODO(production): verify the payment entity, update the order, trigger CAPI.
-  return NextResponse.json({ received: true });
+  let payload: {
+    event?: string;
+    payload?: {
+      payment?: { entity?: { id?: string; order_id?: string; amount?: number } };
+      order?: { entity?: { id?: string; amount?: number } };
+    };
+  };
+  try {
+    payload = JSON.parse(raw) as typeof payload;
+  } catch {
+    return NextResponse.json({ ok: false }, { status: 400 });
+  }
+
+  const event = payload?.event ?? "";
+  const payment = payload?.payload?.payment?.entity;
+  const orderEntity = payload?.payload?.order?.entity;
+  const razorpayOrderId = payment?.order_id ?? orderEntity?.id;
+  const amountPaise = Number(payment?.amount ?? orderEntity?.amount ?? 0);
+
+  if (
+    razorpayOrderId &&
+    (event === "payment.captured" ||
+      event === "payment.authorized" ||
+      event === "order.paid")
+  ) {
+    await confirmRazorpayPayment({
+      razorpayOrderId: String(razorpayOrderId),
+      razorpayPaymentId: payment?.id ? String(payment.id) : undefined,
+      webhookBody: raw,
+      webhookSignature: signature,
+      amountPaise,
+    });
+  }
+
+  return NextResponse.json({ ok: true });
 }

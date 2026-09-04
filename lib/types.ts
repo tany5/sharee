@@ -108,6 +108,10 @@ export interface Order {
   paymentMethod: PaymentMethodId;
   paymentStatus: PaymentStatus;
   status: OrderStatus;
+  /** Razorpay payment-order id (set when the order is created against Razorpay). */
+  razorpayOrderId?: string;
+  /** Razorpay payment id (set once the payment is verified/confirmed). */
+  razorpayPaymentId?: string;
   address: DeliveryAddress;
   utm?: Utm;
   /** Demo only: where the order record is stored locally. */

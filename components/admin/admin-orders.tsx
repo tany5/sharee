@@ -7,6 +7,7 @@ import {
   FULFILMENT_LABEL,
   PageHeader,
   PAYMENT_LABEL,
+  PAYMENT_STATUS_LABEL,
   StatusChip,
   formatINRShort,
 } from "@/components/admin/shared";
@@ -174,12 +175,18 @@ function OrderCard({ order, onUpdated }: { order: Order; onUpdated: () => void }
                           : "bg-danger/15 text-danger",
                     )}
                   >
-                    {order.paymentStatus === "cod" ? "Pay on delivery" : order.paymentStatus}
+                    {PAYMENT_STATUS_LABEL[order.paymentStatus] ?? order.paymentStatus}
                   </span>
                 </p>
                 {order.paymentStatus === "cod" && (
                   <p className="mt-1 text-[11px] text-muted">
                     Collect {formatINR(order.total)} at the door.
+                  </p>
+                )}
+                {order.paymentStatus === "pending" && (
+                  <p className="mt-1 text-[11px] font-semibold text-danger">
+                    Awaiting Razorpay confirmation — dispatch after the payment
+                    clears.
                   </p>
                 )}
               </div>
@@ -193,7 +200,7 @@ function OrderCard({ order, onUpdated }: { order: Order; onUpdated: () => void }
                     <button
                       key={s}
                       type="button"
-                      disabled={updating !== null}
+                      disabled={updating !== null || order.paymentStatus === "pending"}
                       onClick={() => setStatus(s)}
                       aria-pressed={current === s}
                       className={cx(

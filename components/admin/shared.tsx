@@ -57,6 +57,12 @@ export const PAYMENT_LABEL: Record<string, string> = {
   cod: "Cash on Delivery",
 };
 
+export const PAYMENT_STATUS_LABEL: Record<string, string> = {
+  paid: "Paid",
+  cod: "Pay on delivery",
+  pending: "Payment pending",
+};
+
 /* ------------------------------ thumbnails ------------------------------ */
 
 /** First uploaded photo, or the deterministic fabric artwork. */

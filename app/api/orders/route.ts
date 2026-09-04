@@ -1,20 +1,31 @@
 import { NextResponse } from "next/server";
 import { createDemoOrder, OrderError } from "@/lib/orders";
 import { addOrder, currentUser, resolveOrderSource } from "@/lib/backend";
+import {
+  createRazorpayOrder,
+  isRazorpayLive,
+  razorpayKeyId,
+  RazorpayError,
+} from "@/lib/payments/razorpay";
+import { SITE } from "@/lib/site";
+import type { RazorpayPayload } from "@/lib/payments/client";
 import type { CartItem, DeliveryAddress, PaymentMethodId, Utm } from "@/lib/types";
 
 /**
- * Demo order endpoint.
+ * Order endpoint.
  *
- *  - quantities + slugs validated against the demo DB (admin-edited prices
- *    and costs are authoritative — the browser is never trusted)
+ *  - quantities + slugs validated against the trusted product source
+ *    (admin-edited prices and costs are authoritative — never the browser)
  *  - cost snapshots attached for the admin profit dashboard
  *  - signed-in customers get their order persisted to their history
  *  - guest checkout continues to work and returns the same order payload
  *
- * The Razorpay flow (production) adds: create Razorpay order server-side,
- * verify payment signature + webhook, then flip payment_status to paid —
- * Purchase is fired client-side only after that verification (order-success).
+ * Live Razorpay: when RAZORPAY key id + secret are configured, online-paid
+ * orders get a payment order created server-side and are returned as
+ * `paymentStatus: "pending"` with a `razorpay` payload for the checkout
+ * widget. They flip to "paid" only after signature verification
+ * (/api/payments/verify) or the webhook (/api/webhooks/razorpay) — Purchase
+ * fires client-side only after that verification (order-success page).
  */
 
 interface RateBucket {
@@ -70,6 +81,7 @@ export async function POST(request: Request) {
   const user = await currentUser();
 
   try {
+    const razorpayLive = isRazorpayLive();
     const order = await createDemoOrder({
       items: body.items ?? [],
       address: body.address ?? {},
@@ -77,11 +89,45 @@ export async function POST(request: Request) {
       utm: body.utm,
       resolveProduct: resolveOrderSource,
       user: user ? { id: user.id, email: user.email } : undefined,
+      razorpayIntent: razorpayLive,
     });
 
+    // Live payments: create the Razorpay order server-side, attach its id to
+    // the order record, and hand the widget payload back to the client. COD
+    // and demo payments skip this entirely.
+    let razorpay: RazorpayPayload | undefined;
+    if (razorpayLive && order.paymentMethod !== "cod") {
+      const rp = await createRazorpayOrder({
+        amountPaise: Math.round(order.total * 100),
+        receipt: order.number,
+        notes: { orderId: order.id },
+      });
+      order.razorpayOrderId = rp.id;
+      razorpay = {
+        keyId: razorpayKeyId() ?? "",
+        orderId: rp.id,
+        amountPaise: rp.amount,
+        currency: rp.currency,
+        name: SITE.name,
+        description: `${SITE.name} order ${order.number}`,
+        prefill: {
+          name: order.address.fullName,
+          contact: order.address.phone,
+          email: order.userEmail ?? user?.email,
+        },
+        theme: { color: "#886644" },
+      };
+    }
+
     const persisted = await addOrder(order);
-    return NextResponse.json({ ok: true, order: persisted });
+    return NextResponse.json({ ok: true, order: persisted, razorpay });
   } catch (err) {
+    if (err instanceof RazorpayError) {
+      return NextResponse.json(
+        { ok: false, error: `Payment setup failed: ${err.message}` },
+        { status: 502 },
+      );
+    }
     if (err instanceof OrderError) {
       return NextResponse.json(
         { ok: false, error: err.message, fieldErrors: err.fieldErrors },

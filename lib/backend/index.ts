@@ -296,6 +296,29 @@ export async function addOrder(order: Order): Promise<Order> {
   return (await demo()).addOrder(order);
 }
 
+export async function findOrderById(orderId: string): Promise<Order | null> {
+  if (active()) return (await supabaseModule()).supabaseFindOrderById(orderId);
+  return (await demo()).findOrderById(orderId) ?? null;
+}
+
+/**
+ * Confirm a Razorpay payment server-side and flip the order to paid. Route
+ * layers already verified the payment/webhook signature; backends additionally
+ * cross-check the paid amount against the order total (demo writes the local
+ * file, Supabase runs the security-definer `confirm_payment` RPC).
+ */
+export async function confirmRazorpayPayment(input: {
+  razorpayOrderId: string;
+  razorpayPaymentId?: string;
+  paymentSignature?: string;
+  webhookBody?: string;
+  webhookSignature?: string;
+  amountPaise: number;
+}): Promise<{ ok: boolean; error?: string }> {
+  if (active()) return (await supabaseModule()).supabaseConfirmPayment(input);
+  return (await demo()).confirmPayment(input);
+}
+
 export async function setOrderFulfilment(
   orderId: string,
   status: FulfilmentStatus,
@@ -313,7 +336,9 @@ export async function customersWithStats(): Promise<
 > {
   if (active()) return (await supabaseModule()).supabaseCustomers();
   const db = await demo();
-  const orders = db.allOrders().filter((o) => o.fulfilment !== "cancelled");
+  const orders = db
+    .allOrders()
+    .filter((o) => o.fulfilment !== "cancelled" && o.paymentStatus !== "pending");
   return db
     .publicUsers()
     .filter((u) => u.role === "customer")

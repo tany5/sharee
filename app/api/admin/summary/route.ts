@@ -6,7 +6,11 @@ export async function GET() {
   if (!(await requireAdmin())) return unauthorized();
 
   const [orders, customers] = await Promise.all([allOrders(), customersWithStats()]);
-  const sales = orders.filter((o) => o.fulfilment !== "cancelled");
+  // Revenue only counts confirmed sales — unpaid (pending-payment) orders are
+  // excluded until Razorpay confirms them.
+  const sales = orders.filter(
+    (o) => o.fulfilment !== "cancelled" && o.paymentStatus !== "pending",
+  );
 
   const itemQty = (o: (typeof sales)[number]) => o.items.reduce((s, i) => s + i.qty, 0);
   const subtotalOf = (o: (typeof sales)[number]) =>

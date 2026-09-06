@@ -23,6 +23,9 @@
   (`components/product/product-image.tsx` is server-only; grids/carts use
   `SareeArt` directly from `components/product/saree-art.tsx`).
 - Brand/pricing config: `lib/site.ts` (name, ₹199, free-shipping ≥ ₹999).
+- AI marketing pipeline (`lib/marketing/`): try-on (IDM-VTON Space) → copy
+  (Gemini/Groq/template) → FFmpeg reel → Meta publish. State lives in
+  `products.marketing` jsonb; setup: `docs/marketing-pipeline.md`.
 
 ## Design
 - Palette is fixed by the brand: `#5D350E #886644 #878A5D #9D9D9D #F6EBE1`

@@ -62,13 +62,26 @@ export function CheckoutView() {
   const [apiError, setApiError] = useState<string | null>(null);
   const [placing, setPlacing] = useState(false);
   const [verifying, setVerifying] = useState(false);
+  // Restored from session storage when the customer arrives via
+  // "Retry Payment" (failure page) — the pending Razorpay payload for the
+  // exact order is re-offered as "Resume Payment" instead of a duplicate.
   const [pendingPay, setPendingPay] = useState<{
     payload: RazorpayPayload;
     orderId: string;
-  } | null>(null);
+  } | null>(() => {
+    try {
+      const raw = sessionStorage.getItem("ambika.pending-pay");
+      if (!raw) return null;
+      const saved = JSON.parse(raw) as { payload: RazorpayPayload; orderId: string };
+      return saved?.payload?.orderId && saved.orderId ? saved : null;
+    } catch {
+      return null;
+    }
+  });
   const firedMethods = useRef<Set<PaymentMethodId>>(new Set());
   const initiateFired = useRef(false);
   const prefilledFor = useRef<string | null>(null);
+  const PENDING_KEY = "ambika.pending-pay";
 
   // Signed-in customers get their default address prefilled once.
   useEffect(() => {
@@ -153,19 +166,53 @@ export function CheckoutView() {
         error?: string;
       };
       if (!res.ok || !data.ok || !data.order) {
-        setApiError(
-          data.error ?? "Could not confirm your payment — please contact support.",
-        );
+        // Verification could not confirm the payment. It may still have
+        // succeeded on Razorpay's side (webhook pending) — the failure page
+        // double-checks before showing the sad face. Keep the order saved so
+        // "Retry Payment" resumes the exact same order.
+        try {
+          saveOrder({
+            id: orderId,
+            number: "",
+            items: [],
+            subtotal: 0,
+            shipping: 0,
+            total: amountPaise / 100,
+            paymentMethod: "upi",
+            paymentStatus: "pending",
+            status: "placed",
+            address: {
+              fullName: "",
+              phone: "",
+              pincode: "",
+              line1: "",
+              city: "",
+              state: "",
+            },
+            createdAt: new Date().toISOString(),
+            estimatedDelivery: new Date().toISOString(),
+            fulfilment: "pending",
+            storedIn: "local" as const,
+          });
+        } catch {
+          /* ignore */
+        }
+        router.replace(`/order-failure?order=${encodeURIComponent(orderId)}`);
         return;
       }
       // Order is paid (server-verified) — only now do we save it, clear the
       // cart and show the success page (Purchase fires there).
+      try {
+        sessionStorage.removeItem(PENDING_KEY);
+      } catch {
+        /* ignore */
+      }
       saveOrder(data.order);
       clear();
       setPendingPay(null);
       router.replace(`/order-success?order=${encodeURIComponent(data.order.id)}`);
     } catch {
-      setApiError("Network error while confirming your payment — please retry.");
+      router.replace(`/order-failure?order=${encodeURIComponent(orderId)}`);
     } finally {
       setVerifying(false);
       setPlacing(false);
@@ -220,14 +267,21 @@ export function CheckoutView() {
         );
       },
     });
-    rzp.on("payment.failed", () => {
+    rzp.on("payment.failed", (r?: Record<string, unknown>) => {
       setPlacing(false);
+      const failure = r as { error?: { description?: string; reason?: string } } | undefined;
       setApiError(
-        "Payment failed or was cancelled. Your order is saved — press Resume Payment to try again.",
+        failure?.error?.description ||
+          "Payment failed or was cancelled. Your order is saved — press Resume Payment to try again.",
       );
+      // Straight to a proper failure page with the order reference. The
+      // pending payment stays in session storage so Retry resumes this order.
+      router.replace(`/order-failure?order=${encodeURIComponent(orderId)}`);
     });
     rzp.open();
   };
+
+
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -278,8 +332,25 @@ export function CheckoutView() {
       // Live payment: hold the order as pending and open the Razorpay widget.
       if (data.razorpay?.orderId && razorpayLive) {
         setPendingPay({ payload: data.razorpay, orderId: data.order.id });
+        try {
+          // Persist so "Retry Payment" on the failure page resumes this
+          // exact order + payment instead of creating a duplicate.
+          sessionStorage.setItem(
+            PENDING_KEY,
+            JSON.stringify({ payload: data.razorpay, orderId: data.order.id }),
+          );
+        } catch {
+          /* ignore */
+        }
         await openRazorpay(data.razorpay, data.order.id);
         return;
+      }
+
+      // Fresh (COD / demo) order — no pending Razorpay payment to resume.
+      try {
+        sessionStorage.removeItem(PENDING_KEY);
+      } catch {
+        /* ignore */
       }
 
       // Demo / COD: order is placed immediately.

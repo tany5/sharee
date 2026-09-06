@@ -1,7 +1,18 @@
 import Link from "next/link";
+import Image from "next/image";
 import { SITE } from "@/lib/site";
 import { cx } from "@/lib/utils";
 
+/**
+ * Brand logo — the TheTanti lockup (public/logo/logo.png).
+ *
+ * The artwork is transparent with two built variants:
+ *   logo.webp       — dark maroon, for light surfaces (light header)
+ *   logo-light.webp — warm ivory + gold recolor, for dark surfaces
+ *                     (dark header, footer, admin sidebar)
+ * No chip/box is painted behind it — it sits directly on the surface and
+ * blends with the theme.
+ */
 export function Logo({
   className,
   compact,
@@ -10,23 +21,36 @@ export function Logo({
   /** Compact size for sticky headers on small screens. */
   compact?: boolean;
 }) {
+  const sizeCls = compact
+    ? "max-h-[38px] max-w-[150px] sm:max-w-[170px]"
+    : "max-h-[52px] max-w-[200px]";
   return (
     <Link
       href="/"
       aria-label={`${SITE.name} — ${SITE.tagline}`}
-      className={cx("flex flex-col leading-none", className)}
+      className={cx("inline-flex shrink-0 items-center", className)}
     >
-      <span
+      {/* Dark maroon lockup — light theme surfaces only */}
+      <Image
+        src="/logo/logo.webp"
+        alt={`${SITE.name} — ${SITE.tagline}`}
+        width={480}
+        height={216}
+        priority
         className={cx(
-          "font-display font-bold tracking-[0.22em] text-ink",
-          compact ? "text-xl" : "text-[26px] sm:text-[30px]",
+          "h-auto w-auto object-contain dark:hidden",
+          sizeCls,
         )}
-      >
-        {SITE.name.toUpperCase()}
-      </span>
-      <span className="mt-1 text-[9px] font-semibold uppercase tracking-[0.32em] text-accent">
-        All Sarees ₹199
-      </span>
+      />
+      {/* Ivory + gold lockup — dark theme surfaces only */}
+      <Image
+        src="/logo/logo-light.webp"
+        alt={`${SITE.name} — ${SITE.tagline}`}
+        width={480}
+        height={216}
+        priority
+        className={cx("hidden h-auto w-auto object-contain dark:block", sizeCls)}
+      />
     </Link>
   );
 }

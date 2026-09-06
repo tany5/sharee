@@ -2,8 +2,10 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import {
+  Clapperboard,
   ExternalLink,
   LayoutDashboard,
   LogOut,
@@ -18,6 +20,7 @@ import { cx } from "@/lib/utils";
 
 const NAV = [
   { label: "Dashboard", href: "/admin", icon: LayoutDashboard, exact: true },
+  { label: "Marketing Studio", href: "/admin/marketing", icon: Clapperboard },
   { label: "Products", href: "/admin/products", icon: Package },
   { label: "Categories", href: "/admin/categories", icon: Tags },
   { label: "Orders", href: "/admin/orders", icon: ShoppingBag },
@@ -83,13 +86,14 @@ export function AdminShell({
       {/* Desktop sidebar */}
       <aside className="fixed inset-y-0 left-0 z-30 hidden w-60 flex-col bg-[#2b1608] lg:flex">
         <div className="px-5 py-6">
-          <Link href="/admin" className="block">
-            <span className="font-display text-xl font-bold tracking-[0.18em] text-[#f6ebd9]">
-              AMBIKA
-            </span>
-            <span className="mt-0.5 block text-[10px] font-semibold uppercase tracking-[0.3em] text-[#c9a27a]">
-              Admin Panel
-            </span>
+          <Link href="/admin" className="block w-fit">
+            <Image
+              src="/logo/logo-light.webp"
+              alt="TheTanti Admin"
+              width={200}
+              height={90}
+              className="h-auto w-[136px] object-contain"
+            />
           </Link>
         </div>
         {nav}
@@ -106,9 +110,13 @@ export function AdminShell({
           />
           <aside className="absolute inset-y-0 left-0 flex w-64 flex-col bg-[#2b1608]">
             <div className="flex items-center justify-between px-5 py-5">
-              <span className="font-display text-lg font-bold tracking-[0.18em] text-[#f6ebd9]">
-                AMBIKA
-              </span>
+              <Image
+                src="/logo/logo-light.webp"
+                alt="TheTanti Admin"
+                width={200}
+                height={90}
+                className="h-auto w-[116px] object-contain"
+              />
               <button
                 type="button"
                 onClick={() => setOpen(false)}

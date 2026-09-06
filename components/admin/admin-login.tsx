@@ -64,7 +64,7 @@ export function AdminLogin({
               autoComplete="username"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="admin@ambika.in"
+              placeholder="admin@thetanti.in"
             />
           </Field>
           <Field label="Password" required>

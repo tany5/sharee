@@ -8,6 +8,8 @@ const CONTENT_TYPES: Record<string, string> = {
   jpeg: "image/jpeg",
   png: "image/png",
   webp: "image/webp",
+  mp4: "video/mp4",
+  webm: "video/webm",
 };
 
 export async function GET(

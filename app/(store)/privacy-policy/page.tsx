@@ -5,7 +5,7 @@ import { pageMetadata } from "@/lib/meta";
 export const metadata = pageMetadata({
   title: "Privacy Policy",
   description:
-    "How Ambika handles your data: we collect only what’s needed to deliver sarees, we never sell your information, and you can ask us to delete it any time.",
+    "How TheTanti handles your data: we collect only what’s needed to deliver sarees, we never sell your information, and you can ask us to delete it any time.",
   path: "/privacy-policy",
 });
 

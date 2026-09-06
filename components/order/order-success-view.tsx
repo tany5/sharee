@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import {
   BadgeCheck,
@@ -37,11 +37,74 @@ function StatusPill({ order }: { order: Order }) {
 
 export function OrderSuccessView({ id }: { id: string }) {
   const orders = useLocalValue<Order[]>(ORDERS_KEY, []);
-
-  const order = useMemo(() => {
+  const [serverOrder, setServerOrder] = useState<Order | null>(null);
+  const localOrder = useMemo(() => {
     if (!id) return null;
     return orders.find((o) => o.id === id) ?? null;
   }, [id, orders]);
+
+  // True when a server lookup is needed (no local copy) — initialized from
+  // props so the effect body never sets state synchronously; the async
+  // callback flips it to false when the fetch settles.
+  const [checkingServer, setCheckingServer] = useState(
+    () => Boolean(id) && !localOrder,
+  );
+
+  // Guest orders live on the server too (Supabase mode) — if the order isn't
+  // on this device (e.g. the user returned to the confirmation link), fetch
+  // the basic status from the server so the confirmation page still renders.
+  useEffect(() => {
+    if (localOrder || !id) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`/api/orders/status?order=${encodeURIComponent(id)}`);
+        const data = (await res.json()) as {
+          ok: boolean;
+          status?: {
+            paymentStatus: string;
+            total: number;
+            number: string;
+          };
+        };
+        if (cancelled) return;
+        if (data.ok && data.status) {
+          setServerOrder({
+            id,
+            number: data.status.number,
+            total: data.status.total,
+            paymentStatus: data.status.paymentStatus as Order["paymentStatus"],
+            items: [],
+            subtotal: 0,
+            shipping: 0,
+            paymentMethod: "upi",
+            status: "placed",
+            address: {
+              fullName: "",
+              phone: "",
+              pincode: "",
+              line1: "",
+              city: "",
+              state: "",
+            },
+            createdAt: new Date().toISOString(),
+            estimatedDelivery: new Date().toISOString(),
+            fulfilment: "pending",
+            storedIn: "local",
+          } as Order);
+        }
+      } catch {
+        /* ignore */
+      } finally {
+        if (!cancelled) setCheckingServer(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [id, localOrder]);
+
+  const order = localOrder ?? serverOrder;
 
   // Purchase fires ONLY after the order exists and was confirmed server-side —
   // never on the "Place Order" click. Guarded per order via sessionStorage so
@@ -64,6 +127,16 @@ export function OrderSuccessView({ id }: { id: string }) {
       /* ignore */
     }
   }, [order]);
+
+  if (order === null && checkingServer) {
+    return (
+      <EmptyState
+        icon={<Package size={30} />}
+        title="Looking up your order…"
+        body="Just a moment while we confirm your order details."
+      />
+    );
+  }
 
   if (order === null) {
     return (
@@ -100,8 +173,7 @@ export function OrderSuccessView({ id }: { id: string }) {
           <StatusPill order={order} />
         </div>
         <p className="mt-3 text-xs text-[#c9a27a]">
-          Order placed {formatDate(order.createdAt)} · Stored on this device
-          (demo)
+          Order placed {formatDate(order.createdAt)} · Order #{order.number}
         </p>
       </div>
 
@@ -223,8 +295,8 @@ export function OrderSuccessView({ id }: { id: string }) {
         </div>
         <p className="text-center text-xs leading-5 text-muted">
           Questions about your order? Write to us at{" "}
-          <a className="text-accent underline" href="mailto:hello@ambikasarees.in">
-            hello@ambikasarees.in
+          <a className="text-accent underline" href="mailto:hello@thetanti.in">
+            hello@thetanti.in
           </a>{" "}
           or WhatsApp us on +91 98765 43210.
         </p>

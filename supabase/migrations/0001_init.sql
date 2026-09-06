@@ -16,7 +16,7 @@
 --   * Product photos live in the public storage bucket "Sharee".
 -- ============================================================================
 
-create extension if not exists "pgcrypto";
+create extension if not exists "pgcrypto" with schema extensions;
 
 -- ---------------------------------------------------------------------------
 -- Grants (RLS is the real gate; these only remove privilege errors)
@@ -328,7 +328,7 @@ create or replace function public.confirm_payment(
 ) returns jsonb
 language plpgsql
 security definer
-set search_path = public
+set search_path = extensions, public
 as $$
 declare
   v_key_secret text;

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { Mail, Phone, MapPin } from "lucide-react";
 import { FacebookIcon, InstagramIcon } from "@/components/icons/brand";
 import { SITE } from "@/lib/site";
@@ -18,13 +19,18 @@ export function SiteFooter() {
         <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-4">
           {/* Brand */}
           <div className="space-y-4">
-            <Link href="/" className="flex flex-col leading-none">
-              <span className="font-display text-2xl font-bold tracking-[0.22em] text-[#f6ebd9]">
-                {SITE.name.toUpperCase()}
-              </span>
-              <span className="mt-1.5 text-[9px] font-semibold uppercase tracking-[0.32em] text-[#c9a27a]">
-                All Sarees ₹199
-              </span>
+            <Link
+              href="/"
+              aria-label={`${SITE.name} — ${SITE.tagline}`}
+              className="flex w-fit items-center"
+            >
+              <Image
+                src="/logo/logo-light.webp"
+                alt={`${SITE.name} — ${SITE.tagline}`}
+                width={480}
+                height={216}
+                className="h-auto w-[172px] object-contain"
+              />
             </Link>
             <p className="max-w-xs text-sm leading-6 text-[#e2c9a6]/90">
               {SITE.promise} Quality assured weaves, easy returns and fast

@@ -40,6 +40,8 @@ export interface ProductRow {
   images: unknown;
   db_status: "active" | "draft" | "deleted";
   is_custom: boolean;
+  marketing: unknown;
+  marketing_updated_at: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -93,6 +95,7 @@ export const toProduct = (r: ProductRow) => ({
   cost: Number(r.cost) || 0,
   dbStatus: r.db_status,
   isCustom: Boolean(r.is_custom),
+  marketing: (r.marketing ?? {}) as Record<string, unknown>,
   createdAt: r.created_at,
   updatedAt: r.updated_at,
 });
@@ -118,4 +121,5 @@ export const productToRow = (p: Record<string, unknown>) => ({
   images: JSON.stringify(p.images ?? []),
   db_status: p.dbStatus === "active" ? "active" : p.dbStatus === "deleted" ? "deleted" : "draft",
   is_custom: Boolean(p.isCustom),
+  ...(p.marketing !== undefined ? { marketing: JSON.stringify(p.marketing) } : {}),
 });

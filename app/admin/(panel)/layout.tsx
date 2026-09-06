@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { currentUser } from "@/lib/auth/session";
 import { AdminShell } from "@/components/admin/admin-shell";
 
-export const metadata = { title: "Admin | Ambika" };
+export const metadata = { title: "Admin | TheTanti" };
 
 export default async function AdminLayout({
   children,

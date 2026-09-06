@@ -4,7 +4,7 @@ import { currentUser } from "@/lib/auth/session";
 import { AdminLogin } from "@/components/admin/admin-login";
 import { demoAdminHint, isSupabaseBackend } from "@/lib/backend";
 
-export const metadata: Metadata = { title: "Admin Sign In | Ambika" };
+export const metadata: Metadata = { title: "Admin Sign In | TheTanti" };
 
 export default async function AdminLoginPage() {
   const user = await currentUser();

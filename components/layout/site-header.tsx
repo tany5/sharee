@@ -139,7 +139,7 @@ export function SiteHeader() {
     <header className="sticky top-0 z-40">
       {/* Announcement bar — deep maroon in both themes so the promise always reads */}
       <div className="bg-[#4a2a18] text-center text-[11px] font-semibold uppercase tracking-[0.18em] text-[#f7ead2]">
-        <div className="mx-auto flex h-8 max-w-7xl items-center justify-center gap-2.5 overflow-hidden px-4">
+        <div className="mx-auto sm:flex h-8 max-w-7xl items-center justify-center gap-2.5 overflow-hidden px-4 hidden">
           <p className="truncate">{SITE.announcementMain}</p>
           <span aria-hidden className="hidden text-[#c9a86a] sm:inline">
             ✦
@@ -150,7 +150,7 @@ export function SiteHeader() {
 
       {/* Main header */}
       <div className="border-b border-line bg-bg/90 backdrop-blur supports-[backdrop-filter]:bg-bg/80">
-        <div className="mx-auto flex h-[74px] max-w-7xl items-center gap-4 px-4 sm:px-6">
+        <div className="mx-auto flex sm:h-[74px] h-[55px] max-w-7xl items-center gap-4 px-4 sm:px-6">
           <Logo compact />
 
           {/* Desktop search */}

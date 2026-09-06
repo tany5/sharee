@@ -10,31 +10,35 @@ import {
   Star,
   Truck,
 } from "lucide-react";
-import { pexels } from "@/lib/photos";
 import { formatINR } from "@/lib/format";
 import { SITE } from "@/lib/site";
 import { cx } from "@/lib/utils";
 
 /* ------------------------------------------------------------------ */
-/*  Slides — real women wearing sarees. Crossfaded in the hero canvas. */
+/*  Slides — banner photography of women wearing sarees, crossfaded in */
+/*  the hero canvas (public/banner, WebP-optimized).                  */
 /* ------------------------------------------------------------------ */
 
 const SLIDES = [
   {
-    src: pexels(27575174, 1600),
-    alt: "Woman wearing a maroon and gold Banarasi saree with jhumka earrings",
+    src: "/banner/banner-1.webp",
+    alt: "Woman wearing a maroon and gold Banarasi saree with gajra flowers",
   },
   {
-    src: pexels(35586011, 1600),
-    alt: "Woman wearing a rich green silk saree with gold jewellery",
+    src: "/banner/banner-2.webp",
+    alt: "Woman wearing an off-white saree with pink floral border",
   },
   {
-    src: pexels(19600007, 1600),
-    alt: "Woman wearing an indigo sheer saree, softly draped",
+    src: "/banner/banner-3.webp",
+    alt: "Woman wearing a deep green silk saree with gold zari border",
   },
   {
-    src: pexels(35108807, 1600),
-    alt: "Woman wearing a blush pink silk saree, elegant styling",
+    src: "/banner/banner-4.webp",
+    alt: "Woman wearing a maroon silk saree with gold zari embroidery",
+  },
+  {
+    src: "/banner/banner-5.webp",
+    alt: "Woman wearing a golden silk saree, graceful drape",
   },
 ];
 
@@ -49,7 +53,7 @@ function FeatureBadges() {
     { Icon: Truck, t: "Fast Delivery", s: "Across India" },
   ];
   return (
-    <div className="flex items-stretch justify-center divide-x lg:justify-start">
+    <div className="flex items-stretch justify-center divide-x divide-white/15 lg:justify-start lg:divide-line">
       {items.map(({ Icon, t, s }) => (
         <div
           key={t}
@@ -58,13 +62,13 @@ function FeatureBadges() {
           <Icon
             size={20}
             strokeWidth={1.7}
-            className="shrink-0 text-[#f4d9a4] lg:text-bronze"
+            className="shrink-0 text-[#f4d9a4] lg:size-7 lg:text-bronze"
           />
           <div>
-            <p className="text-[13px] font-bold leading-snug text-[#fdf3e3] sm:text-[14px] lg:text-ink">
+            <p className="text-[15px] font-bold leading-snug text-[#fdf3e3] sm:text-xl lg:text-2xl lg:text-ink lg:[text-shadow:0_1px_2px_rgba(59,28,5,0.35),0_0_18px_rgba(253,243,227,0.6)] dark:lg:[text-shadow:0_1px_3px_rgba(20,8,0,0.9),0_0_18px_rgba(20,8,0,0.55)]">
               {t}
             </p>
-            <p className="text-[11px] leading-snug text-[#e5cfa4]/90 sm:text-[12px] lg:text-muted">
+            <p className="text-[13px] leading-snug text-[#e5cfa4]/90 sm:text-base lg:text-[17px] lg:text-muted lg:[text-shadow:0_1px_2px_rgba(59,28,5,0.35),0_0_14px_rgba(253,243,227,0.55)] dark:lg:[text-shadow:0_1px_3px_rgba(20,8,0,0.9),0_0_14px_rgba(20,8,0,0.5)]">
               {s}
             </p>
           </div>
@@ -99,24 +103,24 @@ function CtaButtons() {
 /** "10,000+ happy customers · loved across India" proof chip. */
 function SocialProof() {
   return (
-    <div className="flex w-full max-w-2xl items-center justify-between gap-3 rounded-full border border-white/25 bg-white/10 py-2.5 pl-3 pr-5 backdrop-blur-sm sm:gap-5 sm:pl-3.5 lg:border-line lg:bg-surface lg:py-3 lg:shadow-lg lg:shadow-ink/5">
+    <div className="flex w-full max-w-2xl items-center justify-between gap-3 rounded-full border border-white/25 bg-black/25 py-3 pl-3 pr-5 backdrop-blur-md sm:gap-5 sm:pl-3.5 lg:border-line lg:bg-surface/95 lg:py-3 lg:shadow-lg lg:shadow-ink/5">
       <div className="flex min-w-0 items-center gap-3">
         <div className="flex shrink-0 -space-x-3">
           {AVATAR_LETTERS.map((l) => (
             <span
               key={l}
               aria-hidden
-              className="flex h-9 w-9 items-center justify-center rounded-full border-2 border-[#3b2210] bg-[#f4d9a4]/90 text-xs font-bold text-[#4a2410] sm:h-10 sm:w-10 lg:border-bg lg:bg-accent/25 lg:text-ink"
+              className="flex h-9 w-9 items-center justify-center rounded-full border-2 border-[#3b2210] bg-[#f4d9a4]/90 text-xs font-bold text-[#4a2410] sm:h-11 sm:w-11 lg:border-bg lg:bg-accent/25 lg:text-ink"
             >
               {l}
             </span>
           ))}
         </div>
         <div className="min-w-0 text-left">
-          <p className="truncate text-[14px] font-bold leading-tight text-[#fdf3e3] sm:text-[16px] lg:text-ink">
+          <p className="truncate text-[15px] font-bold leading-tight text-[#fdf3e3] sm:text-[17px] lg:text-lg lg:text-ink">
             10,000+ Happy Customers
           </p>
-          <p className="truncate text-[12px] leading-tight text-[#e5cfa4] sm:text-[13px] lg:text-muted">
+          <p className="truncate text-[13px] leading-tight text-[#e5cfa4] sm:text-sm lg:text-[15px] lg:text-muted">
             Loved across India ♥
           </p>
         </div>
@@ -128,10 +132,10 @@ function SocialProof() {
           aria-label="Rated 4.8 out of 5"
         >
           {Array.from({ length: 5 }, (_, i) => (
-            <Star key={i} size={14} className="fill-current" />
+            <Star key={i} size={15} className="fill-current" />
           ))}
         </span>
-        <span className="whitespace-nowrap text-[12px] leading-tight text-[#e5cfa4] sm:text-[13px] lg:text-muted">
+        <span className="whitespace-nowrap text-[13px] leading-tight text-[#e5cfa4] sm:text-sm lg:text-[15px] lg:text-muted">
           <strong className="text-[#fdf3e3] lg:text-ink">4.8/5</strong> · 2,500+
           reviews
         </span>
@@ -170,34 +174,46 @@ export function Hero() {
       className="relative isolate flex flex-col overflow-hidden bg-bg min-h-[calc(100svh-10.875rem-env(safe-area-inset-bottom))] lg:min-h-[calc(100svh-9.4rem)]"
       aria-label="All sarees at one simple price"
     >
-      {/* Photo canvas — full hero on mobile, right half on desktop */}
-      <div className="absolute inset-0 lg:right-0 lg:left-auto lg:w-[54%]">
+      {/* Photo canvas — full-bleed on every screen; on desktop a wide
+          left-edge feather + theme wash keep the copy column readable
+          while the photo still peeks through on the left. */}
+      <div className="absolute inset-0">
         {SLIDES.map((s, i) => (
           <Image
             key={s.src}
             src={s.src}
             alt={s.alt}
             fill
-            sizes="(min-width: 1024px) 54vw, 100vw"
+            sizes="(min-width: 1024px) 100vw, 100vw"
             priority={i === 0}
             loading="eager"
             className={cx(
-              "object-cover object-[50%_18%] transition-[opacity,transform] duration-[1600ms] ease-out motion-reduce:transition-none lg:[mask-image:linear-gradient(to_right,transparent_0%,black_18%,black_100%)] lg:[-webkit-mask-image:linear-gradient(to_right,transparent_0%,black_18%,black_100%)]",
+              "object-cover object-[62%_20%] transition-[opacity,transform] duration-[1600ms] ease-out motion-reduce:transition-none lg:object-[40%_20%] lg:[mask-image:linear-gradient(to_right,transparent_0%,black_26%,black_100%)] lg:[-webkit-mask-image:linear-gradient(to_right,transparent_0%,black_26%,black_100%)]",
               i === index
                 ? "scale-[1.05] opacity-100"
                 : "scale-100 opacity-0",
             )}
           />
-        ))}        {/* Mobile: blend the photo into a deep warm scrim so copy stays legible */}
+        ))}
+
+        {/* Desktop-only wash: theme-tinted gradient under the copy column.
+            Low z-index (below the copy, above the photo only on the far left)
+            and kept to ~50% width so the photo stays visible on the left too.
+            It just lifts the headline zone for readability. */}
         <div
           aria-hidden
-          className="absolute inset-0 bg-gradient-to-t from-[#180b02] via-[#180b02]/60 via-35% to-[#180b02]/10 lg:hidden"
+          className="absolute inset-y-0 left-0 z-[1] hidden w-[52%] bg-gradient-to-r from-bg via-bg/70 to-transparent lg:block dark:from-bg dark:via-bg/70 dark:to-transparent"
         />
 
+        {/* Mobile: blend the photo into a deep warm scrim so copy stays legible */}
+        <div
+          aria-hidden
+          className="absolute inset-0 z-[1] bg-gradient-to-t from-[#180b02] via-[#180b02]/60 via-35% to-[#180b02]/10 lg:hidden"
+        />
       </div>
 
       {/* Slide indicator */}
-      <div className="absolute right-4 top-4 z-20 flex items-center gap-1.5 lg:right-8 lg:top-6">
+      <div className="absolute right-4 top-4 z-30 flex items-center gap-1.5 lg:right-8 lg:top-6">
         {SLIDES.map((_, i) => (
           <button
             key={i}
@@ -260,7 +276,7 @@ export function Hero() {
 
         {/* Bottom dock — action buttons + proof, pinned low on desktop, above
             the mobile nav on phones */}
-        <div className="mx-auto mt-8 flex w-full flex-col items-center gap-3 lg:mx-0 lg:mt-0 lg:items-start">
+        <div className="mx-auto mt-10 flex w-full flex-col items-center gap-4 sm:mt-12 sm:gap-5 lg:mx-0 lg:mt-16 lg:items-start">
           <CtaButtons />
           <SocialProof />
         </div>

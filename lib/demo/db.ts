@@ -42,6 +42,10 @@ export interface DbProduct extends Product {
   dbStatus: DbStatus;
   isCustom: boolean;
   updatedAt: string;
+  /** AI marketing pipeline blob (lib/marketing/types) — demo store mirror of
+   * Supabase's products.marketing jsonb column. Present when the product has
+   * ever entered the pipeline. Untyped here; parse via parseMarketing(). */
+  marketing?: unknown;
 }
 
 export interface StoredUser extends PublicUser {
@@ -88,7 +92,7 @@ function ensureDirs(): void {
 
 /* ------------------------------ seeding ------------------------------ */
 
-const ADMIN_EMAIL = "admin@ambika.in";
+const ADMIN_EMAIL = "admin@thetanti.in";
 const ADMIN_PASSWORD = "admin123";
 const SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 

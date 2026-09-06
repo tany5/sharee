@@ -18,6 +18,10 @@
 
 drop function if exists public.confirm_payment(text, text, text, text, text, integer);
 
+-- pgcrypto lives in the `extensions` schema on Supabase (it ships pre-installed
+-- there), so the function must include `extensions` on its search_path or the
+-- hmac() calls below fail with "function hmac(text, text, unknown) does not
+-- exist" — which surfaced as payments never completing after Razorpay success.
 create or replace function public.confirm_payment(
   p_razorpay_order_id text,
   p_razorpay_payment_id text,
@@ -29,7 +33,7 @@ create or replace function public.confirm_payment(
 ) returns jsonb
 language plpgsql
 security definer
-set search_path = public
+set search_path = extensions, public
 as $$
 declare
   v_key_secret text;

@@ -6,7 +6,7 @@ import { pageMetadata } from "@/lib/meta";
 export const metadata = pageMetadata({
   title: "Contact Us",
   description:
-    "Questions about an order, size, fabric or returns? Reach Ambika on WhatsApp, phone or email — we reply within a few hours on working days.",
+    "Questions about an order, size, fabric or returns? Reach TheTanti on WhatsApp, phone or email — we reply within a few hours on working days.",
   path: "/contact",
 });
 
@@ -44,7 +44,7 @@ export default function ContactPage() {
   return (
     <PageShell
       kicker="We're here to help"
-      title="Contact Ambika"
+      title="Contact TheTanti"
       lede="Order query, exchange, or just saree advice? Write, call or WhatsApp — a real human replies, usually within a few hours."
     >
       <div className="grid gap-4 sm:grid-cols-2">

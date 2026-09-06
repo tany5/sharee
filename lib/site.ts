@@ -6,8 +6,8 @@
 
 export const SITE = {
   /** Working brand name — change in one place. */
-  name: "Ambika",
-  legalName: "Ambika Sarees Pvt. Ltd.",
+  name: "TheTanti",
+  legalName: "TheTanti Sarees Pvt. Ltd.",
   tagline: "All Sarees ₹199",
   promise: "Beautiful sarees. One simple price.",
 
@@ -22,9 +22,9 @@ export const SITE = {
   announcementMain: "ALL SAREES ₹199",
   announcementSub: "FREE SHIPPING OVER ₹999",
 
-  email: "hello@ambikasarees.in",
+  email: "hello@thetanti.in",
   phone: "+91 98765 43210",
-  instagramHandle: "@ambikasarees",
+  instagramHandle: "@thetantisarees",
   address: "Sireh Deori Bazaar, Jaipur, Rajasthan 302003, India",
 
   /** Used for canonical URLs / sitemap. Override with NEXT_PUBLIC_SITE_URL in prod. */

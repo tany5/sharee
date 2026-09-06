@@ -7,7 +7,7 @@ import { pageMetadata } from "@/lib/meta";
 export const metadata = pageMetadata({
   title: "About Us",
   description:
-    "Ambika exists to prove a simple point: beautiful, well-made sarees should not cost a fortune. Every saree, ₹199. Quality assured, honest pricing, delivered across India.",
+    "TheTanti exists to prove a simple point: beautiful, well-made sarees should not cost a fortune. Every saree, ₹199. Quality assured, honest pricing, delivered across India.",
   path: "/about",
 });
 
@@ -39,7 +39,7 @@ export default function AboutPage() {
     <PageShell
       kicker="Our story"
       title="Beautiful sarees shouldn't cost a fortune"
-      lede={`Ambika started with a question: why should a well-made saree cost more than a week's groceries? We went to the looms, cut every middleman we could, and landed on a number that makes the answer simple — ${SITE.tagline}.`}
+      lede={`TheTanti started with a question: why should a well-made saree cost more than a week's groceries? We went to the looms, cut every middleman we could, and landed on a number that makes the answer simple — ${SITE.tagline}.`}
     >
       <Prose>
         <p>
@@ -71,7 +71,7 @@ export default function AboutPage() {
             One price. Zero compromise.
           </h2>
           <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-ink2">
-            Join the 2,000+ customers who already wear Ambika. Every saree ships
+            Join the 2,000+ customers who already wear TheTanti. Every saree ships
             with free returns within 7 days.
           </p>
           <div className="mt-5 flex justify-center gap-3">

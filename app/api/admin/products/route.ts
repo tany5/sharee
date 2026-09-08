@@ -42,17 +42,25 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: false, error: "Choose a valid category" }, { status: 400 });
   }
 
+  // Slug comes from the client; fall back to deriving it from the name so a
+  // missing slug never 400s on an otherwise valid product.
   const slug = String(body.slug ?? "")
     .trim()
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "")
     .slice(0, 60);
-  if (!slug || slug === "saree") {
+  const finalSlug = slug ||
+    name
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .slice(0, 60);
+  if (!finalSlug || finalSlug === "saree") {
     return NextResponse.json({ ok: false, error: "Choose a valid product slug" }, { status: 400 });
   }
   const existing = await adminProducts();
-  if (existing.some((p) => p.slug === slug)) {
+  if (existing.some((p) => p.slug === finalSlug)) {
     return NextResponse.json(
       { ok: false, error: "A product with that slug already exists" },
       { status: 409 },
@@ -65,8 +73,15 @@ export async function POST(request: Request) {
   };
 
   try {
+    // NOTE: AI model photos are NOT generated here — GPU renders take minutes
+    // and would blow the serverless timeout, killing the whole save. The
+    // product is persisted instantly; the editor kicks off the resumable
+    // generation loop right after (POST /api/admin/products/generate-photos).
+    const productImages = Array.isArray(body.images)
+      ? body.images.map(String).filter(Boolean)
+      : [];
     const row = await upsertProduct({
-      slug,
+      slug: finalSlug,
       name,
       category,
       description: String(body.description ?? ""),
@@ -83,7 +98,7 @@ export async function POST(request: Request) {
       reviewCount: Math.max(0, Math.round(num(body.reviewCount, 0))),
       tags: Array.isArray(body.tags) ? body.tags.map(String) : [],
       featured: Boolean(body.featured),
-      images: Array.isArray(body.images) ? body.images.map(String) : [],
+      images: productImages,
       dbStatus: body.dbStatus === "active" ? "active" : "draft",
     });
     return NextResponse.json({ ok: true, product: row });

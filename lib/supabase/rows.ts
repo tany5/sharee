@@ -100,26 +100,38 @@ export const toProduct = (r: ProductRow) => ({
   updatedAt: r.updated_at,
 });
 
+/**
+ * Map a product (partial or full) to its row. Fields left undefined stay
+ * undefined so partial updates never overwrite columns the caller didn't send
+ * (e.g. a dbStatus-only PATCH must not reset category/price/description).
+ */
 export const productToRow = (p: Record<string, unknown>) => ({
-  slug: String(p.slug),
-  name: String(p.name),
-  category: String(p.category),
-  description: String(p.description ?? ""),
-  details: String(p.details ?? ""),
-  fabric: String(p.fabric ?? ""),
-  occasion: String(p.occasion ?? ""),
-  colorway: String(p.colorway ?? "Maroon"),
-  colors: JSON.stringify(p.colors ?? []),
-  price: Math.round(Number(p.price) || 0),
-  compare_at: p.compareAt == null ? null : Math.round(Number(p.compareAt)),
-  cost: Math.round(Number(p.cost) || 0),
-  stock: Math.round(Number(p.stock) || 0),
-  rating: Number(p.rating) || 0,
-  review_count: Math.round(Number(p.reviewCount) || 0),
-  tags: JSON.stringify(p.tags ?? []),
-  featured: Boolean(p.featured),
-  images: JSON.stringify(p.images ?? []),
-  db_status: p.dbStatus === "active" ? "active" : p.dbStatus === "deleted" ? "deleted" : "draft",
-  is_custom: Boolean(p.isCustom),
-  ...(p.marketing !== undefined ? { marketing: JSON.stringify(p.marketing) } : {}),
+  slug: p.slug === undefined ? undefined : String(p.slug),
+  name: p.name === undefined ? undefined : String(p.name),
+  category: p.category === undefined ? undefined : String(p.category),
+  description: p.description === undefined ? undefined : String(p.description ?? ""),
+  details: p.details === undefined ? undefined : String(p.details ?? ""),
+  fabric: p.fabric === undefined ? undefined : String(p.fabric ?? ""),
+  occasion: p.occasion === undefined ? undefined : String(p.occasion ?? ""),
+  colorway: p.colorway === undefined ? undefined : String(p.colorway ?? "Maroon"),
+  colors: p.colors === undefined ? undefined : (p.colors ?? []),
+  price: p.price === undefined ? undefined : Math.round(Number(p.price) || 0),
+  compare_at: p.compareAt === undefined ? undefined : p.compareAt == null ? null : Math.round(Number(p.compareAt)),
+  cost: p.cost === undefined ? undefined : Math.round(Number(p.cost) || 0),
+  stock: p.stock === undefined ? undefined : Math.round(Number(p.stock) || 0),
+  rating: p.rating === undefined ? undefined : Number(p.rating) || 0,
+  review_count: p.reviewCount === undefined ? undefined : Math.round(Number(p.reviewCount) || 0),
+  tags: p.tags === undefined ? undefined : (p.tags ?? []),
+  featured: p.featured === undefined ? undefined : Boolean(p.featured),
+  images: p.images === undefined ? undefined : (p.images ?? []),
+  db_status:
+    p.dbStatus === undefined
+      ? undefined
+      : p.dbStatus === "active"
+        ? "active"
+        : p.dbStatus === "deleted"
+          ? "deleted"
+          : "draft",
+  is_custom: p.isCustom === undefined ? undefined : Boolean(p.isCustom),
+  ...(p.marketing !== undefined ? { marketing: p.marketing } : {}),
 });

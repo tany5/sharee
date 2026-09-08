@@ -13,12 +13,18 @@
  */
 import "server-only";
 import { loadPipelineSecrets } from "@/lib/marketing/secrets";
-import { runTryOn, tryOnFromContext } from "@/lib/marketing/tryon";
+import { runTryOn, tryOnGalleryFromContext } from "@/lib/marketing/tryon";
 import { generateAdCopy, type CopyLanguage } from "@/lib/marketing/copy";
 import { renderReel } from "@/lib/marketing/video";
+import { renderImagePosts } from "@/lib/marketing/posts";
 import { publishReel } from "@/lib/marketing/publish";
 import { uploadPipelineAsset, fetchImageBytes } from "@/lib/marketing/storage";
-import { baseModels, pipelineProduct, setMarketing } from "@/lib/marketing/store";
+import {
+  appendProductImages,
+  baseModels,
+  pipelineProduct,
+  setMarketing,
+} from "@/lib/marketing/store";
 import { advancePipeline } from "@/lib/marketing/status";
 import { productPhoto } from "@/lib/photos";
 import { SITE } from "@/lib/site";
@@ -26,6 +32,7 @@ import type {
   AdvanceContext,
   MarketingData,
   PipelineStatus,
+  TryOnRender,
 } from "@/lib/marketing/types";
 import type { DbProduct } from "@/lib/demo/db";
 
@@ -106,20 +113,41 @@ async function stageTryOn(
   const secrets = await loadPipelineSecrets();
   const models = await baseModels();
   const ctx = buildCtx(row, marketing);
-  const input = tryOnFromContext(ctx, models, { tryOnSpace: secrets.tryOnSpace });
-
-  const result = await runTryOn(input);
-  const stored = await uploadPipelineAsset(
-    "model-renders",
-    `${slug}-tryon.jpg`,
-    result.bytes,
-    result.contentType,
-  );
+  const inputs = tryOnGalleryFromContext(ctx, models, {
+    tryOnSpace: secrets.tryOnSpace,
+    hfToken: secrets.hfToken,
+  });
+  const renders: TryOnRender[] = [];
+  for (const input of inputs) {
+    const result = await runTryOn(input);
+    const stored = await uploadPipelineAsset(
+      "model-renders",
+      `${slug}-${input.pose}-tryon.jpg`,
+      result.bytes,
+      result.contentType,
+    );
+    renders.push({
+      kind: input.pose,
+      imageUrl: stored.url,
+      storagePath: stored.storagePath,
+      modelId: input.modelId,
+      provider: result.provider,
+    });
+  }
+  const first = renders[0];
+  if (!first) throw new Error("Try-on generated no catalogue images");
 
   const next = advancePipeline(
     await (await pipelineProduct(slug))!.marketing,
     "tryon_completed",
-    { tryOn: { imageUrl: stored.url, modelId: input.modelId, provider: result.provider } },
+    {
+      tryOn: {
+        imageUrl: first.imageUrl,
+        modelId: first.modelId,
+        provider: first.provider,
+        renders,
+      },
+    },
   );
   await setMarketing(slug, next);
   return { slug, from: "pending", to: "tryon_completed", marketing: next };
@@ -144,15 +172,46 @@ async function stageCopyAndVideo(
   const garmentUrl = row.images[0] ?? productPhoto(row.slug);
   if (!garmentUrl) throw new Error("Product has no photo — upload one in Admin → Products first");
   const fabric = await fetchImageBytes(garmentUrl);
-  const tryOnBytes = marketing.tryOn?.imageUrl
-    ? (await fetchImageBytes(marketing.tryOn.imageUrl)).bytes
+  const catalogueUrls = marketing.tryOn?.renders?.map((render) => render.imageUrl) ?? [];
+  const heroTryOnUrl = catalogueUrls[0] ?? marketing.tryOn?.imageUrl;
+  const tryOnBytes = heroTryOnUrl
+    ? (await fetchImageBytes(heroTryOnUrl)).bytes
     : fabric.bytes;
+  const catalogueBytes = await Promise.all(
+    catalogueUrls.slice(0, 3).map(async (url) => (await fetchImageBytes(url)).bytes),
+  );
+  const imagePosts = await renderImagePosts({
+    tryOnBytes,
+    sideBytes: catalogueBytes[1],
+    backBytes: catalogueBytes[2],
+    fabricBytes: fabric.bytes,
+    price: row.price,
+    productName: row.name,
+    copy,
+  });
+  const storedPosts = await Promise.all(
+    imagePosts.map(async (post) => {
+      const stored = await uploadPipelineAsset(
+        "model-renders",
+        `${slug}-${post.kind}-post.jpg`,
+        post.bytes,
+        post.contentType,
+      );
+      return {
+        kind: post.kind,
+        url: stored.url,
+        storagePath: stored.storagePath,
+      };
+    }),
+  );
 
   const reel = await renderReel({
     tryOnBytes,
     fabricBytes: fabric.bytes,
+    galleryBytes: catalogueBytes,
     price: row.price,
     productName: row.name,
+    musicUrl: secrets.musicUrl,
   });
   const stored = await uploadPipelineAsset(
     "reels",
@@ -160,10 +219,20 @@ async function stageCopyAndVideo(
     reel.mp4,
     "video/mp4",
   );
+  await appendProductImages(slug, [
+    ...(marketing.tryOn?.renders?.map((render) => render.imageUrl) ?? []),
+    ...(marketing.tryOn?.imageUrl ? [marketing.tryOn.imageUrl] : []),
+  ]);
 
   const next = advancePipeline(marketing, "publishing", {
     copy: { ...copy, language: `${copy.language} (${engine})` },
-    video: { url: stored.url, storagePath: stored.storagePath, engine: reel.engine },
+    posts: storedPosts,
+    video: {
+      url: stored.url,
+      storagePath: stored.storagePath,
+      engine: reel.engine,
+      durationSec: reel.durationSec,
+    },
   });
   await setMarketing(slug, next);
   return { slug, from: "tryon_completed", to: "publishing", marketing: next };
@@ -192,11 +261,16 @@ async function stagePublish(
     );
   }
 
-  const result = await publishReel(marketing.video.url, marketing.copy, {
-    metaPageToken: secrets.metaPageToken!,
-    fbPageId: secrets.fbPageId!,
-    igUserId: secrets.igUserId!,
-  });
+  const result = await publishReel(
+    marketing.video.url,
+    marketing.copy,
+    {
+      metaPageToken: secrets.metaPageToken!,
+      fbPageId: secrets.fbPageId!,
+      igUserId: secrets.igUserId!,
+    },
+    marketing.posts?.map((p) => p.url) ?? [],
+  );
 
   const next = advancePipeline(marketing, "published", {
     publish: { ...result, publishedAt: new Date().toISOString() },

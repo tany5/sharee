@@ -80,6 +80,16 @@ export interface TryOnData {
   modelId?: string;
   /** Try-on provider used ("kolors" | "idm-vton" | "mock"). */
   provider?: string;
+  /** Clean catalogue-style model renders for the product gallery. */
+  renders?: TryOnRender[];
+}
+
+export interface TryOnRender {
+  kind: "front" | "side" | "back";
+  imageUrl: string;
+  storagePath?: string;
+  modelId?: string;
+  provider?: string;
 }
 
 export interface AdCopy {
@@ -97,11 +107,20 @@ export interface VideoData {
   storagePath?: string;
   /** Render engine used ("ffmpeg" | "mock"). */
   engine?: string;
+  durationSec?: number;
+}
+
+export interface ImagePostData {
+  kind: "front" | "back" | "detail" | "price" | "model" | "catalogue";
+  url: string;
+  storagePath?: string;
 }
 
 export interface PublishData {
   fbPostId?: string;
   igMediaId?: string;
+  fbPhotoIds?: string[];
+  igImageIds?: string[];
   publishedAt?: string;
   caption?: string;
 }
@@ -111,6 +130,7 @@ export interface MarketingData {
   tryOn?: TryOnData;
   copy?: AdCopy;
   video?: VideoData;
+  posts?: ImagePostData[];
   publish?: PublishData;
 }
 
@@ -164,14 +184,41 @@ export function parseMarketing(raw: unknown): MarketingData {
     error: typeof pipelineRaw.error === "string" ? pipelineRaw.error : undefined,
   };
   const copy = obj.copy as AdCopy | undefined;
-  const tryOn = obj.tryOn as TryOnData | undefined;
+  const tryOnRaw = obj.tryOn as TryOnData | undefined;
+  const renders = Array.isArray(tryOnRaw?.renders)
+    ? tryOnRaw.renders.filter(
+        (r) =>
+          r &&
+          typeof r === "object" &&
+          typeof r.imageUrl === "string" &&
+          ["front", "side", "back"].includes(String(r.kind)),
+      )
+    : undefined;
+  const tryOn = tryOnRaw
+    ? { ...tryOnRaw, renders: renders?.length ? renders : undefined }
+    : undefined;
   const video = obj.video as VideoData | undefined;
+  const posts = Array.isArray(obj.posts)
+    ? (obj.posts as ImagePostData[]).filter(
+        (p) =>
+          p &&
+          typeof p === "object" &&
+          typeof p.url === "string" &&
+          ["front", "back", "detail", "price", "model", "catalogue"].includes(
+            String(p.kind),
+          ),
+      )
+    : undefined;
   const publish = obj.publish as PublishData | undefined;
   return {
     pipeline,
     copy: copy && typeof copy.headline === "string" ? copy : undefined,
-    tryOn: tryOn && typeof tryOn.imageUrl === "string" ? tryOn : undefined,
+    tryOn:
+      tryOn && (typeof tryOn.imageUrl === "string" || tryOn.renders?.length)
+        ? tryOn
+        : undefined,
     video: video && typeof video.url === "string" ? video : undefined,
+    posts: posts?.length ? posts : undefined,
     publish: publish && typeof publish.publishedAt === "string" ? publish : undefined,
   };
 }

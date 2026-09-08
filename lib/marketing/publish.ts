@@ -24,6 +24,8 @@ export interface PublishSecrets {
 export interface PublishResult {
   fbPostId?: string;
   igMediaId?: string;
+  fbPhotoIds?: string[];
+  igImageIds?: string[];
 }
 
 interface GraphError {
@@ -80,6 +82,25 @@ export async function publishFacebookVideo(
   return reply.id;
 }
 
+/** Publish one still image to the Facebook Page. */
+export async function publishFacebookPhoto(
+  imageUrl: string,
+  caption: string,
+  s: PublishSecrets,
+): Promise<string> {
+  const reply = await graphPost<IdReply>(
+    `${s.fbPageId}/photos`,
+    {
+      url: imageUrl,
+      caption,
+      published: "true",
+    },
+    s.metaPageToken,
+  );
+  if (!reply.id) throw new Error("Facebook photo publish returned no id");
+  return reply.id;
+}
+
 interface ContainerReply {
   id?: string;
 }
@@ -132,14 +153,39 @@ export async function publishInstagramReel(
   throw new Error("Instagram container processing timed out");
 }
 
+/** Publish one still image to Instagram. */
+export async function publishInstagramImage(
+  imageUrl: string,
+  caption: string,
+  s: PublishSecrets,
+): Promise<string> {
+  const container = await graphPost<ContainerReply>(
+    `${s.igUserId}/media`,
+    {
+      image_url: imageUrl,
+      caption,
+    },
+    s.metaPageToken,
+  );
+  if (!container.id) throw new Error("Instagram image container returned no id");
+  const publish = await graphPost<IdReply>(
+    `${s.igUserId}/media_publish`,
+    { creation_id: container.id },
+    s.metaPageToken,
+  );
+  if (!publish.id) throw new Error("Instagram image publish returned no id");
+  return publish.id;
+}
+
 /** Publish to both platforms (FB first — IG depends on the same video URL). */
 export async function publishReel(
   videoUrl: string,
   copy: AdCopy,
   s: PublishSecrets,
+  imageUrls: string[] = [],
 ): Promise<PublishResult> {
   const caption = copyToCaption(copy);
-  const result: PublishResult = {};
+  const result: PublishResult = { fbPhotoIds: [], igImageIds: [] };
   // FB failure should not block IG (or vice versa) — record both outcomes.
   try {
     result.fbPostId = await publishFacebookVideo(videoUrl, caption, s);
@@ -151,8 +197,25 @@ export async function publishReel(
   } catch (err) {
     console.warn("[marketing] Instagram publish failed:", (err as Error).message);
   }
-  if (!result.fbPostId && !result.igMediaId) {
-    throw new Error("Both Facebook and Instagram publishing failed");
+  for (const imageUrl of imageUrls.slice(0, 4)) {
+    try {
+      result.fbPhotoIds!.push(await publishFacebookPhoto(imageUrl, caption, s));
+    } catch (err) {
+      console.warn("[marketing] Facebook photo publish failed:", (err as Error).message);
+    }
+    try {
+      result.igImageIds!.push(await publishInstagramImage(imageUrl, caption, s));
+    } catch (err) {
+      console.warn("[marketing] Instagram image publish failed:", (err as Error).message);
+    }
+  }
+  if (
+    !result.fbPostId &&
+    !result.igMediaId &&
+    result.fbPhotoIds!.length === 0 &&
+    result.igImageIds!.length === 0
+  ) {
+    throw new Error("Facebook and Instagram publishing failed");
   }
   return result;
 }

@@ -7,6 +7,7 @@ import { usePathname, useRouter } from "next/navigation";
 import {
   Clapperboard,
   ExternalLink,
+  Images,
   LayoutDashboard,
   LogOut,
   Menu,
@@ -17,11 +18,13 @@ import {
   X,
 } from "lucide-react";
 import { cx } from "@/lib/utils";
+import { ToastProvider } from "@/components/admin/toast";
 
 const NAV = [
   { label: "Dashboard", href: "/admin", icon: LayoutDashboard, exact: true },
-  { label: "Marketing Studio", href: "/admin/marketing", icon: Clapperboard },
   { label: "Products", href: "/admin/products", icon: Package },
+  { label: "Saree Models", href: "/admin/models", icon: Images },
+  { label: "Marketing Studio", href: "/admin/marketing", icon: Clapperboard },
   { label: "Categories", href: "/admin/categories", icon: Tags },
   { label: "Orders", href: "/admin/orders", icon: ShoppingBag },
   { label: "Customers", href: "/admin/customers", icon: Users },
@@ -82,6 +85,7 @@ export function AdminShell({
   );
 
   return (
+    <ToastProvider>
     <div className="min-h-dvh bg-bg text-ink">
       {/* Desktop sidebar */}
       <aside className="fixed inset-y-0 left-0 z-30 hidden w-60 flex-col bg-[#2b1608] lg:flex">
@@ -164,5 +168,6 @@ export function AdminShell({
         <div className="mx-auto max-w-6xl">{children}</div>
       </main>
     </div>
+    </ToastProvider>
   );
 }

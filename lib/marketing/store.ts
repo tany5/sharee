@@ -16,22 +16,55 @@ import {
   type MarketingData,
 } from "@/lib/marketing/types";
 import { dbStatusFor } from "@/lib/marketing/status";
-import { pexels } from "@/lib/photos";
 import type { DbProduct } from "@/lib/demo/db";
 
 /**
- * Built-in fallback avatar so the try-on stage works before the admin uploads
- * curated base models (upload 2–3 of your own in Admin → Marketing Studio to
- * replace it — those are distributed across products deterministically).
+ * Built-in synthetic AI base models so the try-on stage works before the admin
+ * uploads curated brand-owned model photos.
  */
-const DEFAULT_BASE_MODEL: BaseModel = {
-  id: "default-model",
-  name: "Default model",
-  imageUrl: pexels(7486657),
-};
+const DEFAULT_BASE_MODELS: BaseModel[] = [
+  { id: "ai-model-1", name: "AI model 1", imageUrl: "/marketing/models/ai-model-01.png" },
+  { id: "ai-model-2", name: "AI model 2", imageUrl: "/marketing/models/ai-model-02.png" },
+  { id: "ai-model-3", name: "AI model 3", imageUrl: "/marketing/models/ai-model-03.png" },
+  { id: "ai-model-4", name: "AI model 4", imageUrl: "/marketing/models/ai-model-04.png" },
+  { id: "ai-model-5", name: "AI model 5", imageUrl: "/marketing/models/ai-model-05.png" },
+];
+
+const SYNTHETIC_MODEL_SEEDS = [
+  "/marketing/model-seeds/ai-seed-01.png",
+  "/marketing/model-seeds/ai-seed-02.png",
+  "/marketing/model-seeds/ai-seed-03.png",
+];
+
+function safeModelName(name: string): string {
+  return (
+    name
+      .replace(/\.[^.]+$/, "")
+      .replace(/[^a-z0-9._-]/gi, "-")
+      .replace(/-+/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .slice(0, 40) || "ai-model"
+  );
+}
+
+function displayBaseModelName(filename: string): string {
+  return filename
+    .replace(/\.[a-z0-9]+$/i, "")
+    .replace(/^\d+-[a-f0-9]{8}-/i, "")
+    .replace(/^bm-/i, "")
+    .replace(/[-_]+/g, " ")
+    .trim();
+}
+
+function assertManagedBaseModel(id: string): void {
+  if (DEFAULT_BASE_MODELS.some((m) => m.id === id)) {
+    throw new Error("Built-in AI models are protected. Generate or upload a managed copy first.");
+  }
+}
 
 /** db_status values that mark a product as part of the pipeline (Supabase). */
 const PIPELINE_DB_STATUS = new Set([
+  "pending",
   "tryon_processing",
   "tryon_completed",
   "rendering_video",
@@ -126,7 +159,7 @@ async function writeProductRow(
     const { error } = await supabase
       .from("products")
       .update({
-        marketing: JSON.stringify(marketing),
+        marketing,
         marketing_updated_at: new Date().toISOString(),
         db_status: dbStatus,
       })
@@ -167,6 +200,39 @@ export async function enqueueProduct(slug: string): Promise<MarketingData> {
   return marketing;
 }
 
+/** Append generated marketing images to the product gallery without duplicates. */
+export async function appendProductImages(
+  slug: string,
+  urls: string[],
+  maxImages = 6,
+): Promise<string[]> {
+  const clean = urls.map((u) => u.trim()).filter(Boolean);
+  if (clean.length === 0) return [];
+
+  const current = await pipelineProduct(slug);
+  if (!current) throw new Error("Product not found");
+  const nextImages = [...current.images];
+  for (const url of clean) {
+    if (!nextImages.includes(url)) nextImages.push(url);
+  }
+  const capped = nextImages.slice(0, maxImages);
+
+  if (isSupabaseBackend()) {
+    const supabase = await supabaseServer();
+    const { error } = await supabase
+      .from("products")
+      .update({ images: capped, updated_at: new Date().toISOString() })
+      .eq("slug", slug);
+    if (error) throw new Error(error.message);
+  } else {
+    const db = await import("@/lib/demo/db");
+    await db.upsertProduct({ slug, images: capped } as Partial<DbProduct> & {
+      slug: string;
+    });
+  }
+  return capped;
+}
+
 /** Cancel: mark failed-by-admin; product returns to a normal draft/active. */
 export async function cancelPipeline(slug: string): Promise<MarketingData> {
   const current = await pipelineProduct(slug);
@@ -199,7 +265,7 @@ export async function baseModels(): Promise<BaseModel[]> {
         .filter((f) => /\.(jpe?g|png|webp)$/i.test(f.name))
         .map((f) => ({
           id: f.name,
-          name: f.name.replace(/\.[a-z]+$/i, "").replace(/[-_]+/g, " "),
+          name: displayBaseModelName(f.name),
           imageUrl: `${root}/${encodeURIComponent(f.name)}`,
         }));
     }
@@ -213,14 +279,14 @@ export async function baseModels(): Promise<BaseModel[]> {
         .filter((f) => /^bm-.*\.(jpe?g|png|webp)$/i.test(f))
         .map((f) => ({
           id: f,
-          name: f.replace(/^bm-/, "").replace(/\.[a-z]+$/i, "").replace(/[-_]+/g, " "),
+          name: displayBaseModelName(f),
           imageUrl: `/api/media/${f}`,
         }));
     } catch {
       models = [];
     }
   }
-  return models.length > 0 ? models : [DEFAULT_BASE_MODEL];
+  return [...models, ...DEFAULT_BASE_MODELS];
 }
 
 /** Upload a base model avatar (prefix `bm-` so demo listing finds it). */
@@ -232,17 +298,57 @@ export async function uploadBaseModel(file: File): Promise<BaseModel> {
   if (!["jpg", "jpeg", "png", "webp"].includes(ext)) {
     throw new Error("Base model must be a JPG/PNG/WebP image");
   }
-  const name =
-    file.name
-      .replace(/\.[^.]+$/, "")
-      .replace(/[^a-z0-9._-]/gi, "-")
-      .slice(0, 40) || "model";
+  const name = safeModelName(file.name);
   const { uploadPipelineAsset } = await import("@/lib/marketing/storage");
-  const { url } = await uploadPipelineAsset(
+  const filename = `bm-${name}.${ext === "jpeg" ? "jpg" : ext}`;
+  const { url, storagePath } = await uploadPipelineAsset(
     "base-models",
-    `bm-${name}.${ext === "jpeg" ? "jpg" : ext}`,
+    filename,
     buf,
     file.type || "image/jpeg",
   );
-  return { id: `bm-${name}`, name, imageUrl: url };
+  return { id: storagePath ?? filename, name, imageUrl: url };
+}
+
+export async function generateSyntheticBaseModel(name?: string): Promise<BaseModel> {
+  const managedCount = (await baseModels()).filter((m) => !DEFAULT_BASE_MODELS.some((d) => d.id === m.id)).length;
+  const source = SYNTHETIC_MODEL_SEEDS[managedCount % SYNTHETIC_MODEL_SEEDS.length];
+  const { fetchImageBytes, uploadPipelineAsset } = await import("@/lib/marketing/storage");
+  const { bytes, contentType } = await fetchImageBytes(source);
+  const ext = contentType.includes("png") ? "png" : contentType.includes("webp") ? "webp" : "jpg";
+  const label = safeModelName(name?.trim() || "ai-saree-model");
+  const filename = `bm-${label}.${ext}`;
+  const { url, storagePath } = await uploadPipelineAsset("base-models", filename, bytes, contentType);
+  return { id: storagePath ?? filename, name: label.replace(/[-_]+/g, " "), imageUrl: url };
+}
+
+export async function deleteBaseModel(id: string): Promise<void> {
+  assertManagedBaseModel(id);
+  const safeId = id.split(/[\\/]/).pop();
+  if (!safeId) throw new Error("Choose a valid model");
+  if (isSupabaseBackend()) {
+    const supabase = await supabaseServer();
+    const { error } = await supabase.storage.from("base-models").remove([safeId]);
+    if (error) throw new Error(error.message);
+    return;
+  }
+  const fs = await import("node:fs");
+  const path = await import("node:path");
+  const abs = path.join(process.cwd(), ".demo-data", "uploads", safeId);
+  if (!fs.existsSync(abs)) throw new Error("Model not found");
+  fs.unlinkSync(abs);
+}
+
+export async function renameBaseModel(id: string, name: string): Promise<BaseModel> {
+  assertManagedBaseModel(id);
+  const current = (await baseModels()).find((m) => m.id === id);
+  if (!current) throw new Error("Model not found");
+  const { fetchImageBytes, uploadPipelineAsset } = await import("@/lib/marketing/storage");
+  const { bytes, contentType } = await fetchImageBytes(current.imageUrl);
+  const ext = current.id.split(".").pop()?.toLowerCase().replace(/[^a-z0-9]/g, "") || "jpg";
+  const safeName = safeModelName(name);
+  const filename = `bm-${safeName}.${["jpg", "jpeg", "png", "webp"].includes(ext) ? ext : "jpg"}`;
+  const { url, storagePath } = await uploadPipelineAsset("base-models", filename, bytes, contentType);
+  await deleteBaseModel(id);
+  return { id: storagePath ?? filename, name: safeName.replace(/[-_]+/g, " "), imageUrl: url };
 }

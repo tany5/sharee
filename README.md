@@ -119,6 +119,31 @@ confirmed; the admin panel blocks dispatching them.
 Set `NEXT_PUBLIC_USE_DEMO=0` once production integrations are configured
 (`isDemoMode()` currently gates only the demo-checkout notice).
 
+### Free AI marketing workflow
+
+`/admin/marketing` can create social assets without paid AI services:
+
+- 5 built-in synthetic AI model photos are available by default; uploaded
+  brand-owned base models appear beside them when you want a custom branded
+  look.
+- One saree photo is enough: the pipeline picks a random model, creates a
+  try-on render, generates 4 branded image posts, appends those images to the
+  product gallery, and renders a 24-second vertical reel with local FFmpeg.
+- CatVTON is the recommended free try-on Space for sarees because its
+  `overall` garment mode fits full drapes better. If CatVTON is busy, the app
+  can fall back to IDM-VTON.
+- Add a free Hugging Face access token in `HF_TOKEN` to reduce anonymous
+  ZeroGPU queue failures.
+- Captions use Gemini/Groq when free keys are present, otherwise the local
+  bilingual template keeps the flow working.
+- Music is free by default through generated FFmpeg audio; set `MUSIC_URL` only
+  when you have a royalty-free MP3/track URL.
+- Facebook/Instagram posting uses the free Meta Graph API after
+  `META_PAGE_ACCESS_TOKEN`, `META_FB_PAGE_ID`, and `META_IG_USER_ID` are set.
+
+For fully local testing, set `TRYON_MOCK=1`; this skips Hugging Face and uses
+the local try-on preview renderer.
+
 ## Project structure
 
 ```

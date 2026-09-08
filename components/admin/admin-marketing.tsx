@@ -4,14 +4,13 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Clapperboard,
   Film,
-  ImagePlus,
   Play,
   RefreshCcw,
   Rocket,
   Square,
-  Users,
 } from "lucide-react";
 import { PageHeader } from "@/components/admin/shared";
+import { useToast } from "@/components/admin/toast";
 import { formatINR } from "@/lib/format";
 import { cx } from "@/lib/utils";
 import type { PipelineStatus } from "@/lib/marketing/types";
@@ -29,17 +28,16 @@ interface QueueItem {
   updatedAt: string;
   tryOnUrl: string | null;
   tryOnProvider: string | null;
+  catalogueUrls: string[];
   copy: { headline: string; bullets: string[]; cta: string; hashtags: string[] } | null;
+  postUrls: string[];
   videoUrl: string | null;
+  videoDurationSec: number | null;
   publishedAt: string | null;
   fbPostId: string | null;
   igMediaId: string | null;
-}
-
-interface BaseModel {
-  id: string;
-  name: string;
-  imageUrl: string;
+  fbPhotoIds: string[];
+  igImageIds: string[];
 }
 
 const SETUP_HINT =
@@ -77,8 +75,8 @@ function stageIndex(status: PipelineStatus): number {
 }
 
 export function AdminMarketing() {
+  const toast = useToast();
   const [queue, setQueue] = useState<QueueItem[]>([]);
-  const [models, setModels] = useState<BaseModel[]>([]);
   const [catalogue, setCatalogue] = useState<CatalogueItem[]>([]);
   const [backend, setBackend] = useState<string>("demo");
   const [loading, setLoading] = useState(true);
@@ -101,7 +99,6 @@ export function AdminMarketing() {
       setNeedsMigration(mkt.needsMigration === true);
       if (mkt.ok) {
         setQueue(mkt.queue as QueueItem[]);
-        setModels(mkt.models as BaseModel[]);
         setBackend(mkt.backend as string);
       }
       if (prod.ok) {
@@ -134,16 +131,19 @@ export function AdminMarketing() {
         });
         const data = await res.json();
         if (!data.ok) {
-          setMessage(`${slug}: ${data.error ?? "Action failed"}`);
+          const msg = `${slug}: ${data.error ?? "Action failed"}`;
+          setMessage(msg);
+          toast.error(data.error ?? "Action failed");
         } else if (data.status === "failed") {
           setMessage(`${slug}: ${data.error ?? "Stage failed"}`);
+          toast.error(`${slug}: ${data.error ?? "Stage failed"}`);
         }
         await load();
       } finally {
         setBusy(null);
       }
     },
-    [load],
+    [load, toast],
   );
 
   const enqueue = useCallback(
@@ -158,14 +158,19 @@ export function AdminMarketing() {
           body: JSON.stringify({ slugs }),
         });
         const data = await res.json();
-        if (!data.ok) setMessage(data.error ?? "Could not queue products");
+        if (!data.ok) {
+          setMessage(data.error ?? "Could not queue products");
+          toast.error(data.error ?? "Could not queue products");
+        } else {
+          toast.success(`Queued ${slugs.length} product${slugs.length === 1 ? "" : "s"} for processing.`);
+        }
         setSelected(new Set());
         await load();
       } finally {
         setBusy(null);
       }
     },
-    [load],
+    [load, toast],
   );
 
   const processQueue = useCallback(async () => {
@@ -180,12 +185,17 @@ export function AdminMarketing() {
             ? "Nothing in flight — queue some products first."
             : `Processed ${data.processed} product(s)${data.failed ? `, ${data.failed} failed` : ""}.`,
         );
+        if (data.processed > 0) {
+          toast.success(
+            `Processed ${data.processed} product${data.processed === 1 ? "" : "s"}${data.failed ? `, ${data.failed} failed` : ""}.`,
+          );
+        }
       }
       await load();
     } finally {
       setBusy(null);
     }
-  }, [load]);
+  }, [load, toast]);
 
   // Auto-run: process the queue every 20s while enabled (deferred so the
   // effect body itself never sets state synchronously).
@@ -216,29 +226,11 @@ export function AdminMarketing() {
     });
   };
 
-  const uploadModel = async (file: File) => {
-    setBusy("upload-model");
-    setMessage(null);
-    try {
-      const form = new FormData();
-      form.append("file", file);
-      const res = await fetch("/api/admin/marketing/base-models", {
-        method: "POST",
-        body: form,
-      });
-      const data = await res.json();
-      if (!data.ok) setMessage(data.error ?? "Upload failed");
-      else setModels(data.models as BaseModel[]);
-    } finally {
-      setBusy(null);
-    }
-  };
-
   return (
     <div>
       <PageHeader
         title="Marketing Studio"
-        sub="Saree → AI try-on → ad copy → reel → Facebook + Instagram, fully automated."
+        sub="Free mode: one saree photo → model catalogue gallery → social posts → 24s reel."
         action={
           <div className="flex gap-2">
             <button
@@ -301,55 +293,6 @@ export function AdminMarketing() {
           backend: {backend}
         </span>
       </div>
-
-      {/* Base models */}
-      <section className="mb-8 rounded-2xl border border-line bg-surface p-5">
-        <div className="mb-3 flex items-center justify-between gap-3">
-          <h2 className="flex items-center gap-2 font-display text-lg font-bold text-ink">
-            <Users size={18} className="text-bronze" /> Base models
-          </h2>
-          <label className="flex h-9 cursor-pointer items-center gap-2 rounded-full border border-line px-3.5 text-sm font-semibold text-ink2 hover:text-ink">
-            <ImagePlus size={15} />
-            {busy === "upload-model" ? "Uploading…" : "Add model photo"}
-            <input
-              type="file"
-              accept="image/jpeg,image/png,image/webp"
-              className="hidden"
-              onChange={(e) => {
-                const f = e.target.files?.[0];
-                if (f) void uploadModel(f);
-                e.target.value = "";
-              }}
-            />
-          </label>
-        </div>
-        <p className="mb-3 text-sm text-ink2">
-          2–3 photos of real Indian women in simple postures (home / veranda backdrops).
-          The AI drapes each saree onto one of these.
-        </p>
-        {models.length === 1 && models[0].id === "default-model" ? (
-          <p className="rounded-xl bg-bg px-4 py-3 text-sm text-muted">
-            Using the built-in default avatar — upload 2–3 of your own model photos
-            above for a consistent, branded look across products.
-          </p>
-        ) : (
-          <div className="flex flex-wrap gap-3">
-            {models.map((m) => (
-              <figure key={m.id} className="w-24">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={m.imageUrl}
-                  alt={m.name}
-                  className="h-32 w-24 rounded-xl border border-line object-cover"
-                />
-                <figcaption className="mt-1 truncate text-center text-[11px] capitalize text-muted">
-                  {m.name}
-                </figcaption>
-              </figure>
-            ))}
-          </div>
-        )}
-      </section>
 
       {/* Pipeline queue */}
       <section className="mb-8">
@@ -452,6 +395,40 @@ export function AdminMarketing() {
                         — {q.copy.bullets[0]}
                       </p>
                     )}
+                    {q.catalogueUrls.length > 0 && (
+                      <div className="mt-3 flex flex-wrap items-center gap-2">
+                        {q.catalogueUrls.slice(0, 3).map((url) => (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            key={url}
+                            src={url}
+                            alt={`${q.name} catalogue render`}
+                            className="h-20 w-16 rounded-lg border border-line object-cover"
+                          />
+                        ))}
+                        <span className="text-xs font-semibold text-muted">
+                          {q.catalogueUrls.length} clean catalogue render
+                          {q.catalogueUrls.length === 1 ? "" : "s"} added to product
+                        </span>
+                      </div>
+                    )}
+                    {q.postUrls.length > 0 && (
+                      <div className="mt-3 flex flex-wrap items-center gap-2">
+                        {q.postUrls.slice(0, 4).map((url) => (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            key={url}
+                            src={url}
+                            alt={`${q.name} generated post`}
+                            className="h-16 w-13 rounded-lg border border-line object-cover"
+                          />
+                        ))}
+                        <span className="text-xs font-semibold text-muted">
+                          {q.postUrls.length} image post{q.postUrls.length === 1 ? "" : "s"}
+                          {q.videoDurationSec ? ` · ${q.videoDurationSec}s reel` : ""}
+                        </span>
+                      </div>
+                    )}
                     {q.error && (
                       <p className="mt-2 rounded-lg bg-danger/10 px-3 py-2 text-xs text-danger">
                         {q.error}
@@ -462,6 +439,8 @@ export function AdminMarketing() {
                         Published {new Date(q.publishedAt).toLocaleString("en-IN")}
                         {q.fbPostId && " · FB ✓"}
                         {q.igMediaId && " · IG ✓"}
+                        {q.fbPhotoIds.length > 0 && ` · FB photos ${q.fbPhotoIds.length}`}
+                        {q.igImageIds.length > 0 && ` · IG images ${q.igImageIds.length}`}
                       </p>
                     )}
                   </div>

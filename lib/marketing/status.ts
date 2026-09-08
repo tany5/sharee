@@ -62,7 +62,7 @@ export function timestampKeyFor(status: PipelineStatus): keyof MarketingData["pi
 export function advancePipeline(
   marketing: MarketingData,
   to: PipelineStatus,
-  patch?: Partial<Pick<MarketingData, "tryOn" | "copy" | "video" | "publish">> & {
+  patch?: Partial<Pick<MarketingData, "tryOn" | "copy" | "video" | "posts" | "publish">> & {
     error?: string;
   },
 ): MarketingData {
@@ -94,6 +94,7 @@ export function advancePipeline(
     ...(patch?.tryOn ? { tryOn: { ...marketing.tryOn, ...patch.tryOn } } : {}),
     ...(patch?.copy ? { copy: { ...marketing.copy, ...patch.copy } } : {}),
     ...(patch?.video ? { video: { ...marketing.video, ...patch.video } } : {}),
+    ...(patch?.posts ? { posts: patch.posts } : {}),
     ...(patch?.publish ? { publish: { ...marketing.publish, ...patch.publish } } : {}),
   };
 }

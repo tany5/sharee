@@ -6,7 +6,7 @@ published Facebook Page video + Instagram Reel — automatically:
 ```
 Queue product (pending)
       ↓
-Stage 2 · AI Virtual Try-On   → IDM-VTON on Hugging Face Spaces (free)
+Stage 2 · AI Virtual Try-On   → CatVTON on Hugging Face Spaces (free)
       ↓                         renders the saree draped on a model
 Stage 3 · Vernacular Ad Copy  → Gemini Flash → Groq → template fallback
       ↓                         (Hinglish/Banglish, ₹199 + COD contract)
@@ -60,7 +60,8 @@ insert into public.app_secrets (name, value) values
   ('meta_page_access_token', '<long-lived Page token>'),
   ('meta_fb_page_id',        '<Facebook Page id>'),
   ('meta_ig_user_id',        '<IG professional account id linked to the Page>'),
-  ('tryon_space_id',         'yisol/IDM-VTON')
+  ('tryon_space_id',         'zhengchong/CatVTON'),
+  ('hf_token',               '<optional free Hugging Face token>')
 on conflict (name) do update set value = excluded.value;
 ```
 
@@ -69,17 +70,36 @@ on conflict (name) do update set value = excluded.value;
 | gemini_api_key | tries Groq, then a deterministic Hinglish template |
 | groq_api_key | (only used if Gemini fails/missing) |
 | meta_* (any) | publish stage fails with the missing names listed — try-on/copy/reel are kept |
-| tryon_space_id | uses `yisol/IDM-VTON` |
+| tryon_space_id | uses IDM-VTON first (verified working), then CatVTON as fallback |
+| hf_token | anonymous Hugging Face requests are used |
+
+> **`hf_token` is strongly recommended.** The try-on Spaces run on ZeroGPU,
+> which rations *anonymous* traffic harshly — a few renders per IP, then
+> `GPU quota exhausted` errors. A **free** Hugging Face token
+> (huggingface.co → Settings → Access Tokens) lifts the quota massively and
+> takes one minute to add to `app_secrets`.
+
+### Product photos on upload (resumable generation)
+
+When you upload a saree photo in **Admin → Add a saree**, the product saves
+instantly; the editor then generates **front / side / back photos of a model
+wearing your saree** (IDM-VTON, full-body drape). Generation is *resumable*:
+each request generates what it can inside a ~55 s budget and saves every photo
+the moment it lands — if a GPU queue stalls or the quota runs out mid-way, the
+generated photos are kept and "Generate wearing photos" (or the automatic
+retry) resumes with the missing poses only.
 
 Env fallbacks (`GEMINI_API_KEY`, `GROQ_API_KEY`, `META_PAGE_ACCESS_TOKEN`,
-`META_FB_PAGE_ID`, `META_IG_USER_ID`, `TRYON_SPACE_ID`) work in demo mode.
+`META_FB_PAGE_ID`, `META_IG_USER_ID`, `TRYON_SPACE_ID`, `HF_TOKEN`) work in
+demo mode.
 
 ## 3. Base models (Stage 2 avatars)
 
-Upload 2–3 photos of real Indian women in simple postures (home / veranda
-backdrops) via **Marketing Studio → Base models → Add model photo**. They
-land in the `base-models` bucket and are assigned to products
-deterministically. Until then a built-in default avatar is used.
+The free workflow ships with synthetic AI base models, so the built-in choices
+do not depend on third-party model photography. If you want a custom brand
+look, upload 2–3 brand-owned model photos in simple postures via
+**Admin → Saree Models → Upload model**. They land in the
+`base-models` bucket and are assigned to products deterministically.
 
 ## 4. Running the pipeline
 
@@ -114,8 +134,9 @@ will fail with a Meta-side error (everything else still runs).
 
 - **ZeroGPU quota**: anonymous Space calls get limited free GPU minutes per
   IP; when exhausted the Space errors. Retry later or deploy your own Space
-  from the open-source IDM-VTON repo and set `tryon_space_id`. A local
-  **mock render** is the final fallback so demos/CI never break.
+  from the open-source CatVTON or IDM-VTON repo and set `tryon_space_id`.
+  A local **mock render** is the final fallback for non-product marketing
+  demos/CI.
 - **Renders are ~10–20 s** (ffmpeg-static, bundled — no ffmpeg install
   needed); try-on is 1–8 min depending on Space queue.
 - **Music**: reels are silent by design; add an audio track later by

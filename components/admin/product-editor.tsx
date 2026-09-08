@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -13,6 +13,7 @@ import {
   X,
 } from "lucide-react";
 import { Button, Field, SelectInput, TextArea, TextInput } from "@/components/ui";
+import { useToast } from "@/components/admin/toast";
 import { AdminThumb, PageHeader } from "@/components/admin/shared";
 import type { Category, DbStatus } from "@/lib/types";
 import type { DbProduct } from "@/lib/demo/db";
@@ -95,6 +96,7 @@ function chipClass(on: boolean): string {
 
 export function ProductEditor({ slug }: { slug?: string }) {
   const router = useRouter();
+  const toast = useToast();
   const editing = Boolean(slug);
 
   const [draft, setDraft] = useState<Draft>(EMPTY);
@@ -104,8 +106,12 @@ export function ProductEditor({ slug }: { slug?: string }) {
   const [missing, setMissing] = useState(false);
   const [slugTouched, setSlugTouched] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [aiBusy, setAiBusy] = useState(false);
+  const [aiProgress, setAiProgress] = useState<{ done: number; total: number } | null>(null);
+  const [garmentSource, setGarmentSource] = useState<string | null>(null);
+  const aiPhotoUrlsRef = useRef<string[]>([]);
+  const autoStartedRef = useRef(false);
   const [error, setError] = useState<string | null>(null);
-  const [saved, setSaved] = useState(false);
 
   /** While creating (slug untouched), typing the name keeps the slug in sync. */
   const setName = (value: string) => {
@@ -133,6 +139,7 @@ export function ProductEditor({ slug }: { slug?: string }) {
         }
         setDraft(toDraft(row));
         setImages(row.images ?? []);
+        setGarmentSource(row.images?.find((u) => !u.includes("-catalogue")) ?? null);
       })
       .catch(() => {
         if (active) setError("Could not load the product list");
@@ -172,6 +179,7 @@ export function ProductEditor({ slug }: { slug?: string }) {
       const data = (await res.json()) as { ok: boolean; url?: string; error?: string };
       if (!res.ok || !data.ok || !data.url) throw new Error(data.error ?? "Upload failed");
       setImages((prev) => (prev.length >= 6 ? [...prev.slice(0, 5), data.url!] : [...prev, data.url!]));
+      setGarmentSource((prev) => prev ?? data.url!);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Upload failed");
     } finally {
@@ -179,16 +187,117 @@ export function ProductEditor({ slug }: { slug?: string }) {
     }
   };
 
+  /**
+   * Resumable generation loop: each POST generates the still-missing poses it
+   * can within its time budget and persists them immediately; we keep calling
+   * until all three are done. Partial progress is never lost.
+   */
+  const runGeneration = async () => {
+    const source = garmentSource ?? images.find((u) => !u.includes("-catalogue"));
+    if (!source) {
+      const msg = "Upload a saree photo first";
+      setError(msg);
+      toast.error(msg);
+      return;
+    }
+    setAiBusy(true);
+    setError(null);
+    setAiProgress({ done: 0, total: 3 });
+    let landed = 0;
+    try {
+      for (let round = 0; round < 5; round++) {
+        const res = await fetch("/api/admin/products/generate-photos", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            garmentUrl: source,
+            name: draft.name.trim() || "Saree",
+            slug: slugify(draft.slug || draft.name || "saree"),
+          }),
+        });
+        const data = (await res.json()) as {
+          ok: boolean;
+          urls?: string[];
+          done?: boolean;
+          remaining?: string[];
+          error?: string;
+        };
+        const generated = data.urls ?? [];
+        if (generated.length > 0) {
+          landed += generated.length;
+          aiPhotoUrlsRef.current = [...aiPhotoUrlsRef.current, ...generated];
+          setAiProgress({ done: Math.min(3, landed), total: 3 });
+          setImages((prev) => {
+            const keep = prev.filter((url) => !generated.includes(url));
+            return [...generated, ...keep].slice(0, 8);
+          });
+        }
+        if (!res.ok || (!data.ok && generated.length === 0)) {
+          throw new Error(data.error ?? "Could not generate model photos");
+        }
+        if (data.error && generated.length > 0) {
+          // Partial success — keep what landed, surface the failure.
+          toast.info(`Some photos need a retry: ${data.error}`, { duration: 8000 });
+          break;
+        }
+        if (data.done || (data.remaining ?? []).length === 0) {
+          toast.success(
+            landed > 0
+              ? `Generated ${landed} model wearing photo${landed === 1 ? "" : "s"}.`
+              : "Model wearing photos are up to date.",
+          );
+          break;
+        }
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Could not generate model photos";
+      setError(message);
+      toast.error(message);
+    } finally {
+      setAiBusy(false);
+      setAiProgress(null);
+    }
+  };
+
+  /**
+   * Auto-start generation right after creating a product (redirect carries
+   * ?generate=1). Runs once, only when the product has a saree photo but no
+   * model renders yet.
+   */
+  useEffect(() => {
+    if (!editing || !loaded || autoStartedRef.current) return;
+    if (typeof window === "undefined") return;
+    if (!window.location.search.includes("generate=1")) return;
+    if (images.length === 0) return; // product data still loading
+    autoStartedRef.current = true;
+    // Clear the flag so a refresh doesn't re-trigger.
+    window.history.replaceState({}, "", window.location.pathname);
+    const hasGarment = images.some((u) => !u.includes("-catalogue"));
+    const hasRenders = images.some((u) => u.includes("-catalogue"));
+    if (hasGarment && !hasRenders) {
+      // Deferred so the effect body itself stays setState-free.
+      const t = setTimeout(() => void runGeneration(), 0);
+      return () => clearTimeout(t);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editing, loaded, images]);
+
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
-    setSaved(false);
     if (draft.name.trim().length < 2) {
       setError("Give the saree a name");
+      toast.error("Give the saree a name");
+      return;
+    }
+    if (!editing && draft.slug.trim().length < 2) {
+      setError("Choose a valid product slug");
+      toast.error("Choose a valid product slug");
       return;
     }
     const body: Record<string, unknown> = {
       name: draft.name.trim(),
+      slug: slugify(draft.slug || draft.name),
       category: draft.category,
       dbStatus: draft.dbStatus,
       price: Number(draft.price) || 199,
@@ -222,15 +331,25 @@ export function ProductEditor({ slug }: { slug?: string }) {
           body: JSON.stringify(body),
         },
       );
-      const data = (await res.json()) as { ok: boolean; product?: DbProduct; error?: string };
+      const data = (await res.json()) as {
+        ok: boolean;
+        product?: DbProduct;
+        error?: string;
+      };
       if (!res.ok || !data.ok) throw new Error(data.error ?? "Could not save");
-      setSaved(true);
+      toast.success(editing ? "Product updated." : "Product created.");
       router.refresh();
       if (!editing) {
-        router.replace(`/admin/products/${data.product!.slug}`);
+        // The new edit page auto-starts AI model-photo generation (?generate=1).
+        const wantsPhotos = images.some((u) => !u.includes("-catalogue"));
+        router.replace(
+          `/admin/products/${data.product!.slug}${wantsPhotos ? "?generate=1" : ""}`,
+        );
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not save");
+      const message = err instanceof Error ? err.message : "Could not save";
+      setError(message);
+      toast.error(message);
       setBusy(false);
       return;
     }
@@ -289,7 +408,7 @@ export function ProductEditor({ slug }: { slug?: string }) {
               ) : (
                 <Save size={16} />
               )}
-              {saved ? "Saved" : "Save product"}
+              {editing ? "Save product" : "Create saree & photos"}
             </Button>
           </div>
         }
@@ -298,11 +417,6 @@ export function ProductEditor({ slug }: { slug?: string }) {
       {error && (
         <p role="alert" className="mb-4 rounded-lg bg-danger/10 px-3 py-2 text-sm font-semibold text-danger">
           {error}
-        </p>
-      )}
-      {saved && !busy && (
-        <p role="status" className="mb-4 rounded-lg bg-[#4c7a4f]/10 px-3 py-2 text-sm font-semibold text-[#3f6b43]">
-          Product saved.
         </p>
       )}
 
@@ -428,9 +542,9 @@ export function ProductEditor({ slug }: { slug?: string }) {
               <ImagePlus size={17} className="text-bronze" /> Photos
             </h2>
             <p className="mb-4 text-xs leading-5 text-muted">
-              Upload real photography (JPG, PNG or WebP, up to 8 MB each). Without
-              photos, the store renders a fabric preview automatically — add at least
-              one photo before going live.
+              Upload one saree photo (JPG, PNG or WebP, up to 8 MB). On create,
+              the store picks a random saree model and adds front, side and back
+              wearing photos automatically.
             </p>
             <div className="flex flex-wrap items-start gap-3">
               {images.map((url) => (
@@ -470,6 +584,26 @@ export function ProductEditor({ slug }: { slug?: string }) {
                   }}
                 />
               </label>
+            </div>
+            <div className="mt-4 flex flex-wrap items-center gap-3">
+              <Button
+                type="button"
+                variant="outline"
+                disabled={busy || aiBusy || images.length === 0}
+                onClick={runGeneration}
+              >
+                {aiBusy ? <Loader2 size={16} className="animate-spin" /> : <ImagePlus size={16} />}
+                {aiBusy
+                  ? `Generating photo ${aiProgress ? Math.min(aiProgress.done + 1, aiProgress.total) : 1} of ${aiProgress?.total ?? 3}…`
+                  : images.some((u) => u.includes("-catalogue"))
+                    ? "Regenerate wearing photos"
+                    : "Generate wearing photos"}
+              </Button>
+              <p className="text-xs leading-5 text-muted">
+                {aiBusy
+                  ? "Real AI try-on running — this takes a minute or two per photo. Photos appear as they finish."
+                  : "Creates front, side and back photos of a model wearing your saree. Safe to leave and retry — finished photos are kept."}
+              </p>
             </div>
           </section>
         </div>
@@ -600,7 +734,7 @@ export function ProductEditor({ slug }: { slug?: string }) {
         </Button>
         <Button type="submit" disabled={busy} size="lg">
           {busy ? <Loader2 size={17} className="animate-spin" /> : <Save size={17} />}
-          {saved ? "Saved" : editing ? "Save changes" : "Create saree"}
+          {editing ? "Save changes" : "Create saree & AI photos"}
         </Button>
       </div>
     </form>

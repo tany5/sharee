@@ -14,6 +14,7 @@ import {
 import type { FulfilmentStatus, Order } from "@/lib/types";
 import { formatDate, formatINR } from "@/lib/format";
 import { cx } from "@/lib/utils";
+import { useToast } from "@/components/admin/toast";
 
 type Filter = "all" | FulfilmentStatus;
 
@@ -35,6 +36,7 @@ function OrderCard({ order, onUpdated }: { order: Order; onUpdated: () => void }
   const [open, setOpen] = useState(false);
   const [updating, setUpdating] = useState<FulfilmentStatus | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const toast = useToast();
   const current = order.fulfilment ?? "pending";
 
   const setStatus = async (status: FulfilmentStatus) => {
@@ -50,8 +52,10 @@ function OrderCard({ order, onUpdated }: { order: Order; onUpdated: () => void }
     setUpdating(null);
     if (!data.ok) {
       setError(data.error ?? "Could not update the order");
+      toast.error(data.error ?? "Could not update the order");
       return;
     }
+    toast.success(`${order.number} marked ${FULFILMENT_LABEL[status].toLowerCase()}.`);
     onUpdated();
   };
 

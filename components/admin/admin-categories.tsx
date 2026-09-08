@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Check, Pencil, Plus, Tags, Trash2, X } from "lucide-react";
 import { Button, Field, TextInput } from "@/components/ui";
 import { PageHeader } from "@/components/admin/shared";
+import { useToast } from "@/components/admin/toast";
 import type { Category } from "@/lib/types";
 
 interface CatRow extends Category {
@@ -20,6 +21,7 @@ const EMPTY_FORM = { name: "", short: "", blurb: "" };
 
 export function AdminCategories() {
   const router = useRouter();
+  const toast = useToast();
   const [rows, setRows] = useState<CatRow[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
@@ -45,11 +47,6 @@ export function AdminCategories() {
   }, []);
   useEffect(load, [load]);
 
-  const showError = (msg: string) => {
-    setError(msg);
-    window.setTimeout(() => setError(null), 6000);
-  };
-
   const add = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!addForm.name.trim()) return;
@@ -62,9 +59,10 @@ export function AdminCategories() {
     const data = (await res.json()) as { ok: boolean; error?: string };
     setBusy(false);
     if (!data.ok) {
-      showError(data.error ?? "Could not add the category");
+      toast.error(data.error ?? "Could not add the category");
       return;
     }
+    toast.success(`Category "${addForm.name.trim()}" created.`);
     setAddForm(EMPTY_FORM);
     setAdding(false);
     load();
@@ -88,9 +86,10 @@ export function AdminCategories() {
     const data = (await res.json()) as { ok: boolean; error?: string };
     setBusy(false);
     if (!data.ok) {
-      showError(data.error ?? "Could not update the category");
+      toast.error(data.error ?? "Could not update the category");
       return;
     }
+    toast.success("Category updated.");
     setEditingId(null);
     load();
     router.refresh();
@@ -101,9 +100,10 @@ export function AdminCategories() {
     const res = await fetch(`/api/admin/categories?slug=${row.slug}`, { method: "DELETE" });
     const data = (await res.json()) as { ok: boolean; error?: string };
     if (!data.ok) {
-      showError(data.error ?? "Could not delete the category");
+      toast.error(data.error ?? "Could not delete the category");
       return;
     }
+    toast.success(`Category "${row.name}" deleted.`);
     load();
     router.refresh();
   };

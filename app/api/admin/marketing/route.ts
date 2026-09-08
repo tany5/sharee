@@ -55,11 +55,16 @@ export async function GET() {
     updatedAt: p.updatedAt,
     tryOnUrl: p.marketing.tryOn?.imageUrl ?? null,
     tryOnProvider: p.marketing.tryOn?.provider ?? null,
+    catalogueUrls: p.marketing.tryOn?.renders?.map((render) => render.imageUrl) ?? [],
     copy: p.marketing.copy ?? null,
+    postUrls: p.marketing.posts?.map((post) => post.url) ?? [],
     videoUrl: p.marketing.video?.url ?? null,
+    videoDurationSec: p.marketing.video?.durationSec ?? null,
     publishedAt: p.marketing.publish?.publishedAt ?? null,
     fbPostId: p.marketing.publish?.fbPostId ?? null,
     igMediaId: p.marketing.publish?.igMediaId ?? null,
+    fbPhotoIds: p.marketing.publish?.fbPhotoIds ?? [],
+    igImageIds: p.marketing.publish?.igImageIds ?? [],
   }));
 
   const summary = queue.reduce(

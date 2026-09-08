@@ -20,6 +20,7 @@ import {
 } from "@/components/admin/shared";
 import type { Category, DbStatus } from "@/lib/types";
 import type { DbProduct } from "@/lib/demo/db";
+import { useToast } from "@/components/admin/toast";
 
 interface Row extends DbProduct {
   marginPct: number;
@@ -31,6 +32,7 @@ function categoryName(slug: string, categories: Category[]): string {
 
 export function AdminProducts() {
   const router = useRouter();
+  const toast = useToast();
   const [rows, setRows] = useState<Row[] | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -60,13 +62,14 @@ export function AdminProducts() {
       const res = await fetch(`/api/admin/products/${slug}`, { method: "DELETE" });
       const data = (await res.json()) as { ok: boolean; error?: string };
       if (!data.ok) {
-        window.alert(data.error ?? "Could not delete the product");
+        toast.error(data.error ?? "Could not delete the product");
         return;
       }
+      toast.success(`"${name}" deleted.`);
       setRows((prev) => prev?.filter((p) => p.slug !== slug) ?? null);
       router.refresh();
     },
-    [router],
+    [router, toast],
   );
 
   const filtered = useMemo(() => {

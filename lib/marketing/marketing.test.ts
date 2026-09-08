@@ -13,9 +13,60 @@ import {
   parseCopyReply,
 } from "@/lib/marketing/copy";
 import { emptyPipeline, parseMarketing, type MarketingData } from "@/lib/marketing/types";
-import { pickBaseModel } from "@/lib/marketing/tryon";
+import { pickBaseModel, pickRandomBaseModel, silhouetteToBodyMask } from "@/lib/marketing/tryon";
 
 const base = (): MarketingData => ({ pipeline: emptyPipeline() });
+
+describe("silhouetteToBodyMask (full-body saree mask)", () => {
+  /** Synthetic person: 100×200. Head rows 40–69 (narrow), shoulders from 70. */
+  async function syntheticSilhouette() {
+    const sharp = (await import("sharp")).default;
+    const width = 100;
+    const height = 200;
+    const rgba = Buffer.alloc(width * height * 4, 0);
+    const paint = (row: number, from: number, to: number) => {
+      for (let c = from; c <= to; c++) rgba[(row * width + c) * 4 + 3] = 255;
+    };
+    for (let r = 40; r <= 69; r++) paint(r, 38, 61); // head: width 24
+    for (let r = 70; r <= 190; r++) paint(r, 15, 84); // body: width 70
+    return sharp(rgba, { raw: { width, height, channels: 4 } }).png().toBuffer();
+  }
+
+  it("cuts the head off so fabric never paints the face", async () => {
+    const sharp = (await import("sharp")).default;
+    const mask = await silhouetteToBodyMask(await syntheticSilhouette());
+    const { data, info } = await sharp(mask).raw().toBuffer({ resolveWithObject: true });
+    expect(info.width).toBe(100);
+    expect(info.height).toBe(200);
+    const at = (r: number, c: number) => data[(r * info.width + c) * 3];
+    // Head rows must be black (fabric-free face)…
+    expect(at(45, 50)).toBe(0);
+    expect(at(69, 50)).toBe(0);
+    // …shoulders and body white where the person is…
+    expect(at(75, 50)).toBe(255);
+    expect(at(180, 20)).toBe(255);
+    // …and the background stays black.
+    expect(at(100, 5)).toBe(0);
+  });
+
+  it("trims the bottom so fabric does not pool past the ankles", async () => {
+    const sharp = (await import("sharp")).default;
+    const mask = await silhouetteToBodyMask(await syntheticSilhouette());
+    const { data, info } = await sharp(mask).raw().toBuffer({ resolveWithObject: true });
+    const at = (r: number, c: number) => data[(r * info.width + c) * 3];
+    // Last ~2% of height (rows > ~188) must be black even though person pixels exist.
+    expect(at(189, 50)).toBe(0);
+  });
+
+  it("keeps the whole mask black for an empty silhouette is impossible — throws instead", async () => {
+    const sharp = (await import("sharp")).default;
+    const empty = await sharp(
+      Buffer.alloc(50 * 50 * 4, 0),
+      { raw: { width: 50, height: 50, channels: 4 } },
+    ).png().toBuffer();
+    await expect(silhouetteToBodyMask(empty)).rejects.toThrow();
+  });
+});
 
 describe("pipeline status machine", () => {
   it("walks the full happy path", () => {
@@ -70,10 +121,12 @@ describe("pipeline status machine", () => {
     m = advancePipeline(m, "rendering_video");
     m = advancePipeline(m, "publishing", {
       copy: { headline: "h", bullets: ["a", "b"], cta: "c", hashtags: ["#x"], language: "hinglish" },
+      posts: [{ kind: "front", url: "https://x/post.jpg" }],
       video: { url: "https://x/reel.mp4" },
     });
     expect(m.tryOn?.imageUrl).toBe("https://x/render.jpg");
     expect(m.copy?.headline).toBe("h");
+    expect(m.posts?.[0]?.kind).toBe("front");
     expect(m.video?.url).toBe("https://x/reel.mp4");
   });
 
@@ -90,11 +143,13 @@ describe("parseMarketing", () => {
       pipeline: { status: "published", attempts: 3, publishedAt: "2026-01-01T00:00:00Z" },
       tryOn: { imageUrl: "https://x/r.jpg", provider: "kolors" },
       copy: { headline: "Hi", bullets: [], cta: "", hashtags: [] },
+      posts: [{ kind: "price", url: "https://x/post.jpg" }],
     });
     expect(parsed.pipeline.status).toBe("published");
     expect(parsed.pipeline.attempts).toBe(3);
     expect(parsed.tryOn?.provider).toBe("kolors");
     expect(parsed.copy?.headline).toBe("Hi");
+    expect(parsed.posts).toHaveLength(1);
 
     const junk = parseMarketing("not-an-object");
     expect(junk.pipeline.status).toBe("pending");
@@ -185,5 +240,10 @@ describe("pickBaseModel", () => {
   it("varies across products", () => {
     const picks = new Set(["p1", "p2", "p3", "p4", "p5", "p6"].map((id) => pickBaseModel(models, id)?.id));
     expect(picks.size).toBeGreaterThan(1);
+  });
+
+  it("can pick a random model for fresh marketing runs", () => {
+    const picked = pickRandomBaseModel(models);
+    expect(models.map((m) => m.id)).toContain(picked?.id);
   });
 });

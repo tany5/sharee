@@ -15,7 +15,9 @@
 --     ('meta_page_access_token',  '<LONG_LIVED_PAGE_TOKEN>'),
 --     ('meta_ig_user_id',         '<IG_PROFESSIONAL_ACCOUNT_ID>'),
 --     ('meta_fb_page_id',         '<FACEBOOK_PAGE_ID>'),
---     ('tryon_space_id',          'Kwai-Kolors/Kolors-Virtual-Try-On')
+--     ('tryon_space_id',          'zhengchong/CatVTON'),
+--     ('hf_token',                '<optional free Hugging Face token>'),
+--     ('music_url',               '<OPTIONAL_ROYALTY_FREE_MP3_URL>')
 --   on conflict (name) do update set value = excluded.value;
 -- ---------------------------------------------------------------------------
 

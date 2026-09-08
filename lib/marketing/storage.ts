@@ -48,9 +48,13 @@ export async function uploadPipelineAsset(
     const { data: pub } = supabase.storage.from(bucket).getPublicUrl(storagePath);
     return { url: pub.publicUrl, storagePath };
   }
-  // Demo mode: hex name in the uploads dir, served by /api/media.
+  // Demo mode: files land in the uploads dir, served by /api/media. Base
+  // models keep their bm-* prefix so the model manager can list them.
   const ext = (safe.split(".").pop() ?? "jpg").toLowerCase();
-  const file = `${randomBytes(10).toString("hex")}.${ext}`;
+  const file =
+    bucket === "base-models"
+      ? `${safe.replace(/\.[^.]+$/, "")}-${randomBytes(3).toString("hex")}.${ext}`
+      : `${randomBytes(10).toString("hex")}.${ext}`;
   writeFileSync(path.join(demoUploadsDir(), file), data);
   return { url: `/api/media/${file}`, storagePath: file };
 }
@@ -66,13 +70,23 @@ const EXT_TYPES: Record<string, string> = {
 /** Download an image (or read a demo-mode local file) as bytes. */
 export async function fetchImageBytes(url: string): Promise<{ bytes: Buffer; contentType: string }> {
   // Demo storage returns relative /api/media URLs — read the file from disk
-  // (server-side fetch cannot resolve relative URLs).
+  // (server-side fetch cannot resolve relative URLs). Public project assets
+  // such as /marketing/models/ai-model-01.png are read from public/.
   if (url.startsWith("/")) {
     const fs = await import("node:fs");
     const path = await import("node:path");
-    const file = path.basename(url.replace("/api/media/", ""));
-    const abs = path.join(process.cwd(), ".demo-data", "uploads", file);
-    if (!fs.existsSync(abs)) throw new Error(`Stored asset not found on disk: ${file}`);
+    const clean = url.split("?")[0] ?? url;
+    const file = path.basename(clean.replace("/api/media/", ""));
+    const root = clean.startsWith("/api/media/")
+      ? path.resolve(process.cwd(), ".demo-data", "uploads")
+      : path.resolve(process.cwd(), "public");
+    const abs = clean.startsWith("/api/media/")
+      ? path.resolve(root, file)
+      : path.resolve(root, clean.replace(/^\/+/, ""));
+    if (abs !== root && !abs.startsWith(`${root}${path.sep}`)) {
+      throw new Error(`Stored asset path is not allowed: ${clean}`);
+    }
+    if (!fs.existsSync(abs)) throw new Error(`Stored asset not found on disk: ${clean}`);
     const ext = file.split(".").pop()?.toLowerCase() ?? "jpg";
     return { bytes: fs.readFileSync(abs), contentType: EXT_TYPES[ext] ?? "image/jpeg" };
   }

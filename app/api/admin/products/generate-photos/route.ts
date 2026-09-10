@@ -32,9 +32,10 @@ export async function POST(request: Request) {
       .slice(0, 60) || "saree";
   const name = String(body.name ?? "Saree").trim() || "Saree";
   const garmentUrl = String(body.garmentUrl ?? "").trim() || undefined;
+  const force = body.force === true;
 
   try {
-    const progress = await generateProductTryOnGallery({ slug, name, garmentUrl });
+    const progress = await generateProductTryOnGallery({ slug, name, garmentUrl, force });
     const done = progress.remaining.length === 0 && !progress.error;
     return NextResponse.json({
       ok: progress.urls.length > 0 || done,

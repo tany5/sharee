@@ -115,6 +115,7 @@ async function stageTryOn(
   const ctx = buildCtx(row, marketing);
   const inputs = tryOnGalleryFromContext(ctx, models, {
     tryOnSpace: secrets.tryOnSpace,
+    localTryOnUrl: secrets.localTryOnUrl,
     hfToken: secrets.hfToken,
   });
   const renders: TryOnRender[] = [];
@@ -143,6 +144,7 @@ async function stageTryOn(
     {
       tryOn: {
         imageUrl: first.imageUrl,
+        garmentUrl: inputGarmentFromRow(row, marketing),
         modelId: first.modelId,
         provider: first.provider,
         renders,
@@ -169,7 +171,7 @@ async function stageCopyAndVideo(
   const { copy, engine } = await generateAdCopy(ctx, language, secrets);
 
   // Scene B: the raw saree fabric photo (admin upload, else the editorial shot).
-  const garmentUrl = row.images[0] ?? productPhoto(row.slug);
+  const garmentUrl = inputGarmentFromRow(row, marketing);
   if (!garmentUrl) throw new Error("Product has no photo — upload one in Admin → Products first");
   const fabric = await fetchImageBytes(garmentUrl);
   const catalogueUrls = marketing.tryOn?.renders?.map((render) => render.imageUrl) ?? [];
@@ -295,4 +297,11 @@ function buildCtx(row: DbProduct, marketing: MarketingData): AdvanceContext {
     marketing,
     siteUrl: siteUrl(),
   };
+}
+
+function inputGarmentFromRow(row: DbProduct, marketing: MarketingData): string | undefined {
+  if (marketing.tryOn?.garmentUrl) return marketing.tryOn.garmentUrl;
+  const generated = new Set(marketing.tryOn?.renders?.map((render) => render.imageUrl) ?? []);
+  if (marketing.tryOn?.imageUrl) generated.add(marketing.tryOn.imageUrl);
+  return row.images?.find((url) => !generated.has(url)) ?? productPhoto(row.slug);
 }

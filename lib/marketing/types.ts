@@ -76,6 +76,8 @@ export interface PipelineState {
 export interface TryOnData {
   /** Public URL of the AI-rendered "model wearing the saree" image. */
   imageUrl?: string;
+  /** Original admin-uploaded saree image used as the garment reference. */
+  garmentUrl?: string;
   /** Which base model avatar was used. */
   modelId?: string;
   /** Try-on provider used ("kolors" | "idm-vton" | "mock"). */
@@ -85,9 +87,11 @@ export interface TryOnData {
 }
 
 export interface TryOnRender {
-  kind: "front" | "side" | "back";
+  kind: "front" | "side" | "back" | "full_saree";
   imageUrl: string;
   storagePath?: string;
+  /** Local filesystem copy of the generated image, when produced on this PC. */
+  localFile?: string;
   modelId?: string;
   provider?: string;
 }
@@ -191,11 +195,15 @@ export function parseMarketing(raw: unknown): MarketingData {
           r &&
           typeof r === "object" &&
           typeof r.imageUrl === "string" &&
-          ["front", "side", "back"].includes(String(r.kind)),
+          ["front", "side", "back", "full_saree"].includes(String(r.kind)),
       )
     : undefined;
   const tryOn = tryOnRaw
-    ? { ...tryOnRaw, renders: renders?.length ? renders : undefined }
+    ? {
+        ...tryOnRaw,
+        garmentUrl: typeof tryOnRaw.garmentUrl === "string" ? tryOnRaw.garmentUrl : undefined,
+        renders: renders?.length ? renders : undefined,
+      }
     : undefined;
   const video = obj.video as VideoData | undefined;
   const posts = Array.isArray(obj.posts)

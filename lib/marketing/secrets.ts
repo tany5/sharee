@@ -17,6 +17,7 @@ export interface PipelineSecrets {
   igUserId?: string;
   fbPageId?: string;
   tryOnSpace?: string;
+  localTryOnUrl?: string;
   hfToken?: string;
   musicUrl?: string;
 }
@@ -28,6 +29,7 @@ const SECRET_NAMES = [
   "meta_ig_user_id",
   "meta_fb_page_id",
   "tryon_space_id",
+  "local_tryon_url",
   "hf_token",
   "music_url",
 ] as const;
@@ -44,7 +46,7 @@ async function readSecret(name: string): Promise<string | undefined> {
 }
 
 export async function loadPipelineSecrets(): Promise<PipelineSecrets> {
-  const [geminiKey, groqKey, metaPageToken, igUserId, fbPageId, tryOnSpace, hfToken, musicUrl] =
+  const [geminiKey, groqKey, metaPageToken, igUserId, fbPageId, tryOnSpace, localTryOnUrl, hfToken, musicUrl] =
     await Promise.all(SECRET_NAMES.map(readSecret));
   return {
     geminiKey: geminiKey ?? process.env.GEMINI_API_KEY,
@@ -53,6 +55,7 @@ export async function loadPipelineSecrets(): Promise<PipelineSecrets> {
     igUserId: igUserId ?? process.env.META_IG_USER_ID,
     fbPageId: fbPageId ?? process.env.META_FB_PAGE_ID,
     tryOnSpace: tryOnSpace ?? process.env.TRYON_SPACE_ID,
+    localTryOnUrl: localTryOnUrl ?? process.env.LOCAL_TRYON_URL,
     hfToken: hfToken ?? process.env.HF_TOKEN ?? process.env.HUGGINGFACE_TOKEN,
     musicUrl: musicUrl ?? process.env.MUSIC_URL,
   };

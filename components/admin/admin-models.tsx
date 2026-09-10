@@ -165,7 +165,9 @@ export function AdminModels() {
         <p className="mt-3 text-xs leading-5 text-muted">
           This free mode creates a managed copy from the packaged synthetic AI
           model set. Replace it later with your own generated or photographed
-          model if you want a unique brand face.
+          model if you want a unique brand face. For CatVTON, upload a same-model
+          pose set named with front, side, back and full_saree so each catalogue
+          view gets the correct base pose.
         </p>
       </section>
 

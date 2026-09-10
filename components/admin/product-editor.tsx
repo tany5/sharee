@@ -17,6 +17,7 @@ import { useToast } from "@/components/admin/toast";
 import { AdminThumb, PageHeader } from "@/components/admin/shared";
 import type { Category, DbStatus } from "@/lib/types";
 import type { DbProduct } from "@/lib/demo/db";
+import { parseMarketing } from "@/lib/marketing/types";
 
 function slugify(text: string): string {
   return (
@@ -109,9 +110,11 @@ export function ProductEditor({ slug }: { slug?: string }) {
   const [aiBusy, setAiBusy] = useState(false);
   const [aiProgress, setAiProgress] = useState<{ done: number; total: number } | null>(null);
   const [garmentSource, setGarmentSource] = useState<string | null>(null);
+  const [hasAiRenders, setHasAiRenders] = useState(false);
   const aiPhotoUrlsRef = useRef<string[]>([]);
   const autoStartedRef = useRef(false);
   const [error, setError] = useState<string | null>(null);
+  const aiPhotoTotal = 4;
 
   /** While creating (slug untouched), typing the name keeps the slug in sync. */
   const setName = (value: string) => {
@@ -137,9 +140,17 @@ export function ProductEditor({ slug }: { slug?: string }) {
           setMissing(true);
           return;
         }
+        const marketing = parseMarketing(row.marketing);
+        const generatedUrls = new Set(marketing.tryOn?.renders?.map((render) => render.imageUrl) ?? []);
+        if (marketing.tryOn?.imageUrl) generatedUrls.add(marketing.tryOn.imageUrl);
         setDraft(toDraft(row));
         setImages(row.images ?? []);
-        setGarmentSource(row.images?.find((u) => !u.includes("-catalogue")) ?? null);
+        setHasAiRenders(Boolean(marketing.tryOn?.renders?.length));
+        setGarmentSource(
+          marketing.tryOn?.garmentUrl ??
+            row.images?.find((url) => !generatedUrls.has(url)) ??
+            null,
+        );
       })
       .catch(() => {
         if (active) setError("Could not load the product list");
@@ -190,10 +201,10 @@ export function ProductEditor({ slug }: { slug?: string }) {
   /**
    * Resumable generation loop: each POST generates the still-missing poses it
    * can within its time budget and persists them immediately; we keep calling
-   * until all three are done. Partial progress is never lost.
+   * until all four are done. Partial progress is never lost.
    */
   const runGeneration = async () => {
-    const source = garmentSource ?? images.find((u) => !u.includes("-catalogue"));
+    const source = garmentSource;
     if (!source) {
       const msg = "Upload a saree photo first";
       setError(msg);
@@ -202,7 +213,8 @@ export function ProductEditor({ slug }: { slug?: string }) {
     }
     setAiBusy(true);
     setError(null);
-    setAiProgress({ done: 0, total: 3 });
+    setAiProgress({ done: 0, total: aiPhotoTotal });
+    const force = hasAiRenders;
     let landed = 0;
     try {
       for (let round = 0; round < 5; round++) {
@@ -213,6 +225,7 @@ export function ProductEditor({ slug }: { slug?: string }) {
             garmentUrl: source,
             name: draft.name.trim() || "Saree",
             slug: slugify(draft.slug || draft.name || "saree"),
+            force: round === 0 && force,
           }),
         });
         const data = (await res.json()) as {
@@ -226,11 +239,12 @@ export function ProductEditor({ slug }: { slug?: string }) {
         if (generated.length > 0) {
           landed += generated.length;
           aiPhotoUrlsRef.current = [...aiPhotoUrlsRef.current, ...generated];
-          setAiProgress({ done: Math.min(3, landed), total: 3 });
+          setAiProgress({ done: Math.min(aiPhotoTotal, landed), total: aiPhotoTotal });
           setImages((prev) => {
             const keep = prev.filter((url) => !generated.includes(url));
             return [...generated, ...keep].slice(0, 8);
           });
+          setHasAiRenders(true);
         }
         if (!res.ok || (!data.ok && generated.length === 0)) {
           throw new Error(data.error ?? "Could not generate model photos");
@@ -272,15 +286,15 @@ export function ProductEditor({ slug }: { slug?: string }) {
     autoStartedRef.current = true;
     // Clear the flag so a refresh doesn't re-trigger.
     window.history.replaceState({}, "", window.location.pathname);
-    const hasGarment = images.some((u) => !u.includes("-catalogue"));
-    const hasRenders = images.some((u) => u.includes("-catalogue"));
+    const hasGarment = garmentSource !== null;
+    const hasRenders = hasAiRenders;
     if (hasGarment && !hasRenders) {
       // Deferred so the effect body itself stays setState-free.
       const t = setTimeout(() => void runGeneration(), 0);
       return () => clearTimeout(t);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [editing, loaded, images]);
+  }, [editing, loaded, images, garmentSource, hasAiRenders]);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -341,7 +355,7 @@ export function ProductEditor({ slug }: { slug?: string }) {
       router.refresh();
       if (!editing) {
         // The new edit page auto-starts AI model-photo generation (?generate=1).
-        const wantsPhotos = images.some((u) => !u.includes("-catalogue"));
+        const wantsPhotos = garmentSource !== null || images.length > 0;
         router.replace(
           `/admin/products/${data.product!.slug}${wantsPhotos ? "?generate=1" : ""}`,
         );
@@ -543,8 +557,8 @@ export function ProductEditor({ slug }: { slug?: string }) {
             </h2>
             <p className="mb-4 text-xs leading-5 text-muted">
               Upload one saree photo (JPG, PNG or WebP, up to 8 MB). On create,
-              the store picks a random saree model and adds front, side and back
-              wearing photos automatically.
+              the store picks one saree model and adds front, side, back and
+              full-saree photos automatically.
             </p>
             <div className="flex flex-wrap items-start gap-3">
               {images.map((url) => (
@@ -558,7 +572,12 @@ export function ProductEditor({ slug }: { slug?: string }) {
                   <button
                     type="button"
                     aria-label="Remove photo"
-                    onClick={() => setImages((prev) => prev.filter((u) => u !== url))}
+                    onClick={() => {
+                      setImages((prev) => prev.filter((u) => u !== url));
+                      if (garmentSource === url) {
+                        setGarmentSource(images.find((u) => u !== url) ?? null);
+                      }
+                    }}
                     className="absolute -right-2 -top-2 flex h-6 w-6 items-center justify-center rounded-full bg-ink text-btntext shadow transition-transform hover:scale-110"
                   >
                     <X size={13} />
@@ -595,14 +614,14 @@ export function ProductEditor({ slug }: { slug?: string }) {
                 {aiBusy ? <Loader2 size={16} className="animate-spin" /> : <ImagePlus size={16} />}
                 {aiBusy
                   ? `Generating photo ${aiProgress ? Math.min(aiProgress.done + 1, aiProgress.total) : 1} of ${aiProgress?.total ?? 3}…`
-                  : images.some((u) => u.includes("-catalogue"))
-                    ? "Regenerate wearing photos"
-                    : "Generate wearing photos"}
+                  : hasAiRenders
+                    ? "Regenerate model photos"
+                    : "Generate model photos (front · side · back · full)"}
               </Button>
               <p className="text-xs leading-5 text-muted">
                 {aiBusy
-                  ? "Real AI try-on running — this takes a minute or two per photo. Photos appear as they finish."
-                  : "Creates front, side and back photos of a model wearing your saree. Safe to leave and retry — finished photos are kept."}
+                  ? "AI model photoshoot running on the local GPU — 1–3 min per photo, previews appear as each finishes."
+                  : "One consistent AI model drapes your saree in four full-body views with a matching blouse. Photos save with the product; safe to leave and retry — finished ones are kept."}
               </p>
             </div>
           </section>

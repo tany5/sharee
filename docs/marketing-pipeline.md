@@ -60,6 +60,7 @@ insert into public.app_secrets (name, value) values
   ('meta_page_access_token', '<long-lived Page token>'),
   ('meta_fb_page_id',        '<Facebook Page id>'),
   ('meta_ig_user_id',        '<IG professional account id linked to the Page>'),
+  ('local_tryon_url',        'http://127.0.0.1:8787/model-images'),
   ('tryon_space_id',         'zhengchong/CatVTON'),
   ('hf_token',               '<optional free Hugging Face token>')
 on conflict (name) do update set value = excluded.value;
@@ -70,6 +71,7 @@ on conflict (name) do update set value = excluded.value;
 | gemini_api_key | tries Groq, then a deterministic Hinglish template |
 | groq_api_key | (only used if Gemini fails/missing) |
 | meta_* (any) | publish stage fails with the missing names listed — try-on/copy/reel are kept |
+| local_tryon_url | falls back to Hugging Face Spaces |
 | tryon_space_id | uses IDM-VTON first (verified working), then CatVTON as fallback |
 | hf_token | anonymous Hugging Face requests are used |
 
@@ -90,8 +92,47 @@ generated photos are kept and "Generate wearing photos" (or the automatic
 retry) resumes with the missing poses only.
 
 Env fallbacks (`GEMINI_API_KEY`, `GROQ_API_KEY`, `META_PAGE_ACCESS_TOKEN`,
-`META_FB_PAGE_ID`, `META_IG_USER_ID`, `TRYON_SPACE_ID`, `HF_TOKEN`) work in
-demo mode.
+`META_FB_PAGE_ID`, `META_IG_USER_ID`, `LOCAL_TRYON_URL`, `TRYON_SPACE_ID`,
+`HF_TOKEN`) work in demo mode.
+
+### Local try-on endpoint
+
+For best free try-on quality, run CatVTON on a free Google Colab T4 and set
+`local_tryon_url` / `LOCAL_TRYON_URL` to the public `/tryon` endpoint. The app
+prefers that external endpoint first because it uses the uploaded saree image
+directly. If no external endpoint is configured, the admin photo generator
+checks the local TheTanti engine at `http://127.0.0.1:8787/model-images`. Keep
+`D:\TheTanti-AI\start-comfyui.cmd` and `D:\TheTanti-AI\start-engine.cmd`
+running for that fallback.
+
+The Colab runner lives at `D:\TheTanti-AI\colab`:
+
+- `catvton_colab_endpoint.py`: FastAPI wrapper around the official CatVTON
+  pipeline.
+- `README.md`: Colab install, Cloudflare tunnel and store connection steps.
+
+The local engine accepts JSON:
+
+- `slug`
+- `pose`: `front`, `side`, `back` or `full_saree`
+- `name`, `color`, `fabric`
+- `image_path`: temporary copy of the uploaded saree photo
+
+Each local run writes the generated catalogue image to
+`D:\TheTanti-AI\generated\local-images` and a matching full-body saree mask to
+`D:\TheTanti-AI\generated\masks`. The mask is white where ComfyUI should replace
+the blouse, pallu, pleats and lower drape, and black where it should preserve
+face, hair, hands, feet and background.
+
+Every completed try-on image is also copied on this PC to
+`D:\TheTanti-AI\generated\tryon-downloads` before it is uploaded into the
+product gallery. Override the folder with `TRYON_DOWNLOAD_DIR` if needed.
+
+For front/side/back/full model views with the same face, upload a pose set in
+**Admin -> Saree Models** using the same model name plus pose suffixes, for
+example `brand-model-front.jpg`, `brand-model-side.jpg`,
+`brand-model-back.jpg`, `brand-model-full_saree.jpg`. Workflow B will choose
+the matching pose image when calling CatVTON.
 
 ## 3. Base models (Stage 2 avatars)
 

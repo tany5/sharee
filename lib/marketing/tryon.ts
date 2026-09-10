@@ -21,8 +21,8 @@ import type { AdvanceContext } from "@/lib/marketing/types";
 import { productPhoto } from "@/lib/photos";
 import { randomInt } from "node:crypto";
 
-export type TryOnProviderId = "catvton" | "idm-vton" | "custom-space" | "mock";
-export type TryOnPose = "front" | "side" | "back";
+export type TryOnProviderId = "local" | "catvton" | "idm-vton" | "custom-space" | "mock";
+export type TryOnPose = "front" | "side" | "back" | "full_saree";
 
 export interface TryOnResult {
   bytes: Buffer;
@@ -97,6 +97,61 @@ async function prepGarmentImage(bytes: Buffer): Promise<Buffer> {
       .toBuffer();
   } catch {
     return bytes;
+  }
+}
+
+function maskPath(points: [number, number][]): string {
+  return points.map(([x, y], index) => `${index === 0 ? "M" : "L"} ${x} ${y}`).join(" ") + " Z";
+}
+
+async function createTemplateSareeMask(bytes: Buffer, pose: TryOnPose = "front"): Promise<Buffer | null> {
+  try {
+    const sharp = (await import("sharp")).default;
+    const meta = await sharp(bytes).metadata();
+    const width = meta.width ?? 768;
+    const height = meta.height ?? 1024;
+    const sx = width / 768;
+    const sy = height / 1024;
+    const scalePath = (points: [number, number][]) =>
+      maskPath(points.map(([x, y]) => [Math.round(x * sx), Math.round(y * sy)]));
+    const ellipse = (cx: number, cy: number, rx: number, ry: number) =>
+      `<ellipse cx="${Math.round(cx * sx)}" cy="${Math.round(cy * sy)}" rx="${Math.round(rx * sx)}" ry="${Math.round(ry * sy)}"/>`;
+
+    const lower =
+      pose === "side"
+        ? scalePath([[330, 378], [518, 414], [585, 948], [312, 965], [275, 650], [305, 465]])
+        : pose === "back"
+          ? scalePath([[250, 382], [524, 392], [602, 952], [172, 960], [210, 530]])
+          : scalePath([[232, 380], [536, 390], [620, 954], [148, 962], [205, 528]]);
+    const torso =
+      pose === "side"
+        ? scalePath([[330, 210], [480, 205], [538, 462], [420, 528], [342, 420]])
+        : scalePath([[250, 210], [470, 205], [548, 452], [475, 520], [298, 505], [215, 392]]);
+    const pallu =
+      pose === "back"
+        ? scalePath([[235, 210], [400, 230], [575, 672], [530, 920], [420, 515], [270, 320]])
+        : scalePath([[250, 205], [402, 230], [610, 662], [558, 928], [425, 510], [285, 308]]);
+
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}">
+      <rect width="100%" height="100%" fill="black"/>
+      <g fill="white">
+        ${ellipse(384, 330, pose === "side" ? 95 : 138, pose === "side" ? 140 : 132)}
+        <path d="${torso}"/>
+        <path d="${lower}"/>
+        <path d="${pallu}"/>
+      </g>
+      <g fill="black">
+        ${ellipse(384, 126, 78, 88)}
+        <ellipse cx="${Math.round(260 * sx)}" cy="${Math.round(520 * sy)}" rx="${Math.round(48 * sx)}" ry="${Math.round(135 * sy)}" transform="rotate(-12 ${Math.round(260 * sx)} ${Math.round(520 * sy)})"/>
+        <ellipse cx="${Math.round(522 * sx)}" cy="${Math.round(520 * sy)}" rx="${Math.round(48 * sx)}" ry="${Math.round(135 * sy)}" transform="rotate(12 ${Math.round(522 * sx)} ${Math.round(520 * sy)})"/>
+        ${ellipse(318, 980, 54, 24)}
+        ${ellipse(452, 980, 54, 24)}
+      </g>
+    </svg>`;
+
+    return await sharp(Buffer.from(svg)).greyscale().blur(3).png().toBuffer();
+  } catch {
+    return null;
   }
 }
 
@@ -378,6 +433,77 @@ async function downloadOutput(
   throw new Error("Space returned no image output");
 }
 
+async function callLocalTryOn(
+  url: string,
+  modelBytes: Buffer,
+  garmentBytes: Buffer,
+  productName: string,
+  pose: TryOnPose = "front",
+  seed = 42,
+  maskBytes?: Buffer | null,
+): Promise<{ bytes: Buffer; contentType: string }> {
+  const form = new FormData();
+  form.append("model", new Blob([new Uint8Array(modelBytes)], { type: "image/jpeg" }), "model.jpg");
+  form.append("person", new Blob([new Uint8Array(modelBytes)], { type: "image/jpeg" }), "person.jpg");
+  form.append("garment", new Blob([new Uint8Array(garmentBytes)], { type: "image/jpeg" }), "saree.jpg");
+  if (maskBytes) {
+    form.append("mask", new Blob([new Uint8Array(maskBytes)], { type: "image/png" }), "saree-mask.png");
+  }
+  form.append("pose", pose);
+  form.append("category", "overall");
+  form.append("seed", String(seed));
+  form.append("steps", process.env.CATVTON_STEPS ?? "24");
+  form.append("guidance_scale", process.env.CATVTON_GUIDANCE_SCALE ?? "1.0");
+  form.append("repaint_background", "false");
+  form.append("productName", productName);
+  form.append(
+    "prompt",
+    [
+      "full body Indian saree drape",
+      "replace the full plain saree area from shoulder to ankles",
+      "visible pallu over shoulder, pleats at waist, border continuing to hem",
+      "preserve face, body, hands and background",
+    ].join(", "),
+  );
+
+  const res = await fetch(url, {
+    method: "POST",
+    body: form,
+    signal: AbortSignal.timeout(CALL_TIMEOUT_MS),
+  });
+  if (!res.ok) throw new Error(`Local try-on HTTP ${res.status}`);
+
+  const contentType = res.headers.get("content-type")?.split(";")[0] ?? "image/jpeg";
+  if (contentType.startsWith("image/")) {
+    return { bytes: Buffer.from(await res.arrayBuffer()), contentType };
+  }
+
+  const json = (await res.json()) as {
+    imageUrl?: string;
+    url?: string;
+    imageBase64?: string;
+    base64?: string;
+    contentType?: string;
+  };
+  const remote = json.imageUrl ?? json.url;
+  if (remote) {
+    const image = await fetch(remote, { signal: AbortSignal.timeout(60_000) });
+    if (!image.ok) throw new Error(`Local try-on image download HTTP ${image.status}`);
+    return {
+      bytes: Buffer.from(await image.arrayBuffer()),
+      contentType: image.headers.get("content-type")?.split(";")[0] ?? json.contentType ?? "image/jpeg",
+    };
+  }
+  const encoded = json.imageBase64 ?? json.base64;
+  if (encoded) {
+    return {
+      bytes: Buffer.from(encoded.replace(/^data:image\/[a-z]+;base64,/i, ""), "base64"),
+      contentType: json.contentType ?? "image/png",
+    };
+  }
+  throw new Error("Local try-on returned no image");
+}
+
 /**
  * Call an IDM-VTON-style Space. Verified live against yisol/IDM-VTON
  * (gradio 4.24, legacy routes; new-route fallbacks included).
@@ -601,7 +727,7 @@ export interface TryOnInput {
   /** Base model avatar photo. */
   modelUrl: string;
   productName: string;
-  secrets: { tryOnSpace?: string; hfToken?: string };
+  secrets: { tryOnSpace?: string; localTryOnUrl?: string; hfToken?: string };
   pose?: TryOnPose;
   allowMock?: boolean;
 }
@@ -616,6 +742,7 @@ export async function runTryOn(input: TryOnInput): Promise<TryOnResult> {
     fetchImageInput(input.garmentUrl),
   ]);
   const allowMock = input.allowMock !== false;
+  const seed = seedFor(input.productName, input.pose);
 
   // Admin photos are frequently small/flat/cluttered — normalise both inputs
   // so the Spaces receive clean, consistently-sized portraits.
@@ -635,11 +762,31 @@ export async function runTryOn(input: TryOnInput): Promise<TryOnResult> {
     };
   }
 
+  const errors: string[] = [];
+  const localTryOnUrl = input.secrets.localTryOnUrl?.trim() ?? process.env.LOCAL_TRYON_URL?.trim();
+  if (localTryOnUrl) {
+    try {
+      const maskBytes = await createTemplateSareeMask(modelBytes, input.pose);
+      const local = await callLocalTryOn(
+        localTryOnUrl,
+        modelBytes,
+        garmentBytes,
+        input.productName,
+        input.pose,
+        seed,
+        maskBytes,
+      );
+      return { ...local, provider: "local" };
+    } catch (err) {
+      errors.push(`local (${localTryOnUrl}): ${(err as Error).message}`);
+    }
+  }
+
   const customSpace = input.secrets.tryOnSpace?.trim();
   const customIsCatVton = customSpace?.toLowerCase().includes("catvton") === true;
-  // IDM-VTON first: verified working end-to-end; the public CatVTON Space
-  // currently errors mid-run. CatVTON stays as the "overall"-mode fallback
-  // (and as the target for the tryon_space_id secret).
+  // Sarees need full-body/dress-style transfer. CatVTON's "overall" mode is
+  // a better first attempt; IDM-VTON remains a fallback because public demos
+  // often mask sarees as upper-body garments.
   const candidates: { space: string; provider: TryOnProviderId }[] = customSpace
     ? [
         {
@@ -648,15 +795,13 @@ export async function runTryOn(input: TryOnInput): Promise<TryOnResult> {
         },
         ...(customIsCatVton
           ? [{ space: TRYON_SPACES.idmVton, provider: "idm-vton" as const }]
-          : []),
+          : [{ space: TRYON_SPACES.catVton, provider: "catvton" as const }]),
       ]
     : [
-        { space: TRYON_SPACES.idmVton, provider: "idm-vton" },
         { space: TRYON_SPACES.catVton, provider: "catvton" },
+        { space: TRYON_SPACES.idmVton, provider: "idm-vton" },
       ];
 
-  const errors: string[] = [];
-  const seed = seedFor(input.productName, input.pose);
   // Full-body mask (best effort — null → the Space's own upper-body mask).
   let bodyMask: Buffer | null = null;
   try {
@@ -716,15 +861,6 @@ export function pickRandomBaseModel(
   return models[randomInt(models.length)];
 }
 
-function shuffleModels<T>(models: T[]): T[] {
-  const next = [...models];
-  for (let i = next.length - 1; i > 0; i--) {
-    const j = randomInt(i + 1);
-    [next[i], next[j]] = [next[j], next[i]];
-  }
-  return next;
-}
-
 /** Convenience for the orchestrator. */
 export function tryOnFromContext(
   ctx: AdvanceContext,
@@ -736,9 +872,7 @@ export function tryOnFromContext(
     : undefined;
   const model = existing ?? pickRandomBaseModel(models);
   if (!model) throw new Error("No saree models available — add one in Admin → Saree Models");
-  // Prefer the admin-uploaded photo; fall back to the product's editorial
-  // photography (the same "worn" shot the storefront shows).
-  const garment = ctx.product.images[0] ?? productPhoto(ctx.product.slug);
+  const garment = garmentFromContext(ctx);
   if (!garment) {
     throw new Error(
       "Product has no photo — upload one in Admin → Products first",
@@ -757,39 +891,37 @@ export function tryOnFromContext(
 export function tryOnGalleryFromContext(
   ctx: AdvanceContext,
   models: { id: string; imageUrl: string }[],
-  secrets: { tryOnSpace?: string; hfToken?: string },
+  secrets: { tryOnSpace?: string; localTryOnUrl?: string; hfToken?: string },
 ): (TryOnInput & { modelId: string; pose: TryOnPose })[] {
-  const garment = ctx.product.images[0] ?? productPhoto(ctx.product.slug);
+  const garment = garmentFromContext(ctx);
   if (!garment) {
     throw new Error(
       "Product has no photo — upload one in Admin → Products first",
     );
   }
 
-  const existingIds = ctx.marketing.tryOn?.renders
-    ?.map((r) => r.modelId)
-    .filter(Boolean) as string[] | undefined;
-  const existingModels = existingIds
-    ?.map((id) => models.find((m) => m.id === id))
-    .filter(Boolean) as { id: string; imageUrl: string }[] | undefined;
-  const picked = existingModels?.length
-    ? existingModels
-    : shuffleModels(models).slice(0, Math.min(3, models.length));
-  const finalModels = picked.length > 0 ? picked : [];
-  if (finalModels.length === 0) {
+  const existingId = ctx.marketing.tryOn?.modelId ?? ctx.marketing.tryOn?.renders?.find((r) => r.modelId)?.modelId;
+  const model = existingId
+    ? models.find((m) => m.id === existingId)
+    : pickRandomBaseModel(models);
+  if (!model) {
     throw new Error("No saree models available — add one in Admin → Saree Models");
   }
 
   const poses: TryOnPose[] = ["front", "side", "back"];
-  return poses.map((pose, index) => {
-    const model = finalModels[index % finalModels.length];
-    return {
-      garmentUrl: garment,
-      modelUrl: model.imageUrl,
-      productName: ctx.product.name,
-      secrets,
-      modelId: model.id,
-      pose,
-    };
-  });
+  return poses.map((pose) => ({
+    garmentUrl: garment,
+    modelUrl: model.imageUrl,
+    productName: ctx.product.name,
+    secrets,
+    modelId: model.id,
+    pose,
+  }));
+}
+
+function garmentFromContext(ctx: AdvanceContext): string | undefined {
+  if (ctx.marketing.tryOn?.garmentUrl) return ctx.marketing.tryOn.garmentUrl;
+  const generated = new Set(ctx.marketing.tryOn?.renders?.map((render) => render.imageUrl) ?? []);
+  if (ctx.marketing.tryOn?.imageUrl) generated.add(ctx.marketing.tryOn.imageUrl);
+  return ctx.product.images.find((url) => !generated.has(url)) ?? productPhoto(ctx.product.slug);
 }

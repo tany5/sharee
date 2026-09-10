@@ -397,7 +397,7 @@ export function AdminMarketing() {
                     )}
                     {q.catalogueUrls.length > 0 && (
                       <div className="mt-3 flex flex-wrap items-center gap-2">
-                        {q.catalogueUrls.slice(0, 3).map((url) => (
+                        {q.catalogueUrls.slice(0, 4).map((url) => (
                           // eslint-disable-next-line @next/next/no-img-element
                           <img
                             key={url}

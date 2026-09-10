@@ -38,12 +38,13 @@ export async function POST(request: Request) {
     const progress = await generateProductTryOnGallery({ slug, name, garmentUrl, force });
     const done = progress.remaining.length === 0 && !progress.error;
     return NextResponse.json({
-      ok: progress.urls.length > 0 || done,
+      ok: progress.urls.length > 0 || done || progress.pending === true,
       urls: progress.urls,
       done,
       remaining: progress.remaining,
       error: progress.error,
       provider: progress.provider,
+      pending: progress.pending === true,
     });
   } catch (err) {
     return NextResponse.json(

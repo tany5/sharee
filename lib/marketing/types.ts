@@ -84,6 +84,15 @@ export interface TryOnData {
   provider?: string;
   /** Clean catalogue-style model renders for the product gallery. */
   renders?: TryOnRender[];
+  /** Kaggle FLUX.2 job tracking (free cloud GPU, async). */
+  kaggle?: {
+    submittedAt: string;
+    completedAt?: string;
+    state?: string;
+    /** Poses already fetched from the finished run. */
+    fetched?: string[];
+    error?: string;
+  };
 }
 
 export interface TryOnRender {

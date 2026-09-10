@@ -217,7 +217,7 @@ export function ProductEditor({ slug }: { slug?: string }) {
     const force = hasAiRenders;
     let landed = 0;
     try {
-      for (let round = 0; round < 5; round++) {
+      for (let round = 0; round < 40; round++) {
         const res = await fetch("/api/admin/products/generate-photos", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -234,6 +234,8 @@ export function ProductEditor({ slug }: { slug?: string }) {
           done?: boolean;
           remaining?: string[];
           error?: string;
+          /** Kaggle FLUX.2 job queued/running — the next round polls it. */
+          pending?: boolean;
         };
         const generated = data.urls ?? [];
         if (generated.length > 0) {
@@ -245,6 +247,15 @@ export function ProductEditor({ slug }: { slug?: string }) {
             return [...generated, ...keep].slice(0, 8);
           });
           setHasAiRenders(true);
+        }
+        if (data.pending && generated.length === 0) {
+          // Kaggle job is queued/running on the free cloud GPU. Wait and poll;
+          // the job renders all poses in one session and lands together.
+          toast.info("Kaggle GPU job running — photos land in a few minutes…", {
+            duration: 4000,
+          });
+          await new Promise((r) => setTimeout(r, 20_000));
+          continue;
         }
         if (!res.ok || (!data.ok && generated.length === 0)) {
           throw new Error(data.error ?? "Could not generate model photos");

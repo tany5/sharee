@@ -2,6 +2,13 @@ import "server-only";
 import { baseModels, pipelineProduct } from "@/lib/marketing/store";
 import { loadPipelineSecrets } from "@/lib/marketing/secrets";
 import { pickRandomBaseModel, runTryOn, type TryOnPose } from "@/lib/marketing/tryon";
+import {
+  submitKaggleTryOn,
+  kaggleRunStatus,
+  fetchKaggleOutputs,
+  kaggleAvailable,
+  type KagglePose,
+} from "@/lib/marketing/kaggle";
 import { fetchImageBytes, uploadPipelineAsset } from "@/lib/marketing/storage";
 import { parseMarketing, type MarketingData, type TryOnRender } from "@/lib/marketing/types";
 import { isSupabaseBackend } from "@/lib/backend/env";
@@ -123,6 +130,8 @@ export interface GenerateGalleryProgress {
   /** Set when a pose failed — message is admin-presentable. */
   error?: string;
   provider?: string;
+  /** True when a Kaggle FLUX.2 job is queued/running — keep polling. */
+  pending?: boolean;
 }
 
 /** Dedupe + cap an image list, keeping new URLs first. */
@@ -287,6 +296,23 @@ function withoutPreviousRenders(row: DbProduct, marketing: MarketingData): strin
   return (row.images ?? []).filter((url) => !previous.has(url));
 }
 
+/** Download any image URL (Supabase, /api/media, http) to a temp file. */
+async function downloadImageToFile(url: string, name: string): Promise<string | undefined> {
+  try {
+    const { bytes } = await fetchImageBytes(url);
+    const fs = await import("node:fs");
+    const os = await import("node:os");
+    const path = await import("node:path");
+    const dir = path.join(os.tmpdir(), "thetanti-kaggle");
+    fs.mkdirSync(dir, { recursive: true });
+    const file = path.join(dir, name);
+    fs.writeFileSync(file, bytes);
+    return file;
+  } catch {
+    return undefined;
+  }
+}
+
 async function renderFullSareeCatalogueImage(
   garmentUrl: string,
   productName: string,
@@ -368,6 +394,128 @@ export async function generateProductTryOnGallery({
   const configuredTryOnUrl = secrets.localTryOnUrl?.trim();
   const useExternalTryOn = Boolean(configuredTryOnUrl && !isTheTantiLocalEngine(configuredTryOnUrl));
   const useLocalEngine = !useExternalTryOn && (await engineHealthy());
+
+  // ---- Kaggle FLUX.2 path (free cloud GPU, async job) ----
+  // Priority: collect a finished run → report a running one → submit a new one.
+  // Falls back to the local engine below on any Kaggle failure.
+  const kaggleState = storedMarketing.tryOn?.kaggle;
+  if (kaggleState && !kaggleState.error) {
+    const { state } = await kaggleRunStatus();
+    if (state === "COMPLETE") {
+      const wanted = remaining.filter((p): p is KagglePose => true);
+      const kaggleUrls: string[] = [];
+      const outputs = await fetchKaggleOutputs(slug, wanted.length ? wanted : ["front"]);
+      const fs = await import("node:fs");
+      for (const pose of wanted) {
+        const file = outputs[pose];
+        if (!file) continue;
+        try {
+          const bytes = fs.readFileSync(file);
+          const stored = await uploadPipelineAsset(
+            "model-renders",
+            `${slug}-${pose}-catalogue.png`,
+            bytes,
+            "image/png",
+          );
+          landed.push({
+            kind: pose,
+            imageUrl: stored.url,
+            storagePath: stored.storagePath,
+            localFile: file,
+            modelId: "kaggle-flux2",
+            provider: "kaggle-flux2",
+          });
+          kaggleUrls.push(stored.url);
+        } catch {
+          /* skip this pose; local fallback can cover it later */
+        }
+      }
+      if (kaggleUrls.length > 0) {
+        const nextMarketing: MarketingData = {
+          ...marketing,
+          tryOn: {
+            ...(marketing.tryOn ?? {}),
+            imageUrl: landed[0]?.imageUrl,
+            garmentUrl: garment,
+            modelId: "kaggle-flux2",
+            provider: "kaggle-flux2",
+            kaggle: undefined,
+            renders: [...landed],
+          },
+        };
+        await persistGallery(slug, mergeImages(baseImages, kaggleUrls), nextMarketing);
+        const doneKinds = new Set(landed.map((r) => r.kind));
+        return {
+          urls: kaggleUrls,
+          done: ALL_POSES.filter((p) => doneKinds.has(p)),
+          remaining: ALL_POSES.filter((p) => !doneKinds.has(p)),
+          provider: "kaggle-flux2",
+        };
+      }
+      // Outputs missing → treat as failed and fall through to local.
+      storedMarketing.tryOn = { ...storedMarketing.tryOn, kaggle: { submittedAt: kaggleState.submittedAt, error: "run completed but no outputs downloaded" } };
+    } else if (state === "ERROR" || state === "CANCEL_ACKNOWLEDGED") {
+      storedMarketing.tryOn = { ...storedMarketing.tryOn, kaggle: { submittedAt: kaggleState.submittedAt, error: `kaggle run ${state}` } };
+      // fall through to the local engine
+    } else if (state === "QUEUED" || state === "RUNNING" || state === "NO_SESSION") {
+      return {
+        urls: [],
+        done: ALL_POSES.filter((p) => landedKinds.has(p)),
+        remaining,
+        provider: "kaggle-flux2",
+        pending: true,
+      };
+    }
+  }
+
+  // Try submitting a fresh Kaggle job when the CLI is available and there is
+  // no previous attempt for this product (retries = press Generate again).
+  if (!kaggleState && !process.env.TRYON_MOCK && (await kaggleAvailable())) {
+    const person = await (async () => {
+      const models = await baseModels();
+      if (models.length === 0) return undefined;
+      const envPreferred = process.env.TRYON_BASE_MODEL_ID?.trim();
+      const pick =
+        models.find((m) => m.id === envPreferred) ??
+        models.find((m) => m.id === marketing.tryOn?.modelId) ??
+        models[0];
+      const file = await downloadImageToFile(pick.imageUrl, "person.png");
+      return file ? { id: pick.id, file } : undefined;
+    })();
+    if (person) {
+      const garmentFile = await downloadImageToFile(garment, "saree.jpg");
+      if (garmentFile) {
+        const submit = await submitKaggleTryOn({
+          slug,
+          personImagePath: person.file,
+          sareeImagePath: garmentFile,
+          poses: remaining.filter((p): p is KagglePose => true),
+          colorHint: row.colorway,
+          fabric: row.fabric,
+          productName: name ?? row.name,
+        });
+        if (submit.ok) {
+          const nextMarketing: MarketingData = {
+            ...marketing,
+            tryOn: {
+              ...(marketing.tryOn ?? {}),
+              garmentUrl: garment,
+              modelId: person.id,
+              kaggle: { submittedAt: new Date().toISOString(), state: "QUEUED" },
+            },
+          };
+          await persistGallery(slug, mergeImages(baseImages, []), nextMarketing);
+          return {
+            urls: [],
+            done: ALL_POSES.filter((p) => landedKinds.has(p)),
+            remaining,
+            provider: "kaggle-flux2",
+            pending: true,
+          };
+        }
+      }
+    }
+  }
   let models: Awaited<ReturnType<typeof baseModels>> = [];
   let modelSet: ModelPoseSet | undefined;
   if (!useLocalEngine) {
@@ -474,5 +622,6 @@ export async function generateProductTryOnGallery({
     error = "Ran out of time before the first photo finished — press retry";
   }
 
-  return { urls, done, remaining, error, provider };
+  const kaggleErr = storedMarketing.tryOn?.kaggle?.error;
+  return { urls, done, remaining, error: error ?? (kaggleErr ? `Kaggle fallback: ${kaggleErr}` : undefined), provider };
 }

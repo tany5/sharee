@@ -241,11 +241,14 @@ export async function supabaseUpsertProduct(
 
 export async function supabaseDeleteProduct(slug: string): Promise<void> {
   const supabase = await supabaseServer();
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("products")
     .update({ db_status: "deleted", updated_at: new Date().toISOString() })
-    .eq("slug", slug);
+    .eq("slug", slug)
+    .select("id")
+    .maybeSingle();
   if (error) fail(error, "Could not delete the product");
+  if (!data) throw new SupabaseError("Product not found", "not_found");
 }
 
 /* --------------------------- categories --------------------------- */

@@ -171,7 +171,7 @@ export function SiteHeader() {
     <header
       className={cx(
         "top-0 z-40 transition-[background-color,box-shadow,border-color] duration-300",
-        glassHeader ? "fixed inset-x-0" : "sticky",
+        "sticky",
       )}
     >
       <AnnouncementBar glass={glassHeader} scrolled={strongerGlass} />

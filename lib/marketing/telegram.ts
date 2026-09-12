@@ -84,18 +84,25 @@ function readTokenFile(): ParsedTokenFile {
   }
 }
 
+async function telegramBotToken(): Promise<string | undefined> {
+  const { loadPipelineSecrets } = await import("@/lib/marketing/secrets");
+  const s = await loadPipelineSecrets();
+  const fromFile = readTokenFile();
+  return s.telegramBotToken?.trim() || process.env.TELEGRAM_BOT_TOKEN?.trim() || fromFile.botToken;
+}
+
 /**
  * Resolve creds: app_secrets RPC → env → local token file. Chat id comes from
  * app_secrets/env/JSON-in-file; when only the bare token is in the file the
  * chat id can be discovered later via the sync route (getUpdates chat ids).
  */
 export async function telegramCreds(): Promise<TelegramCreds | null> {
+  const botToken = await telegramBotToken();
   const { loadPipelineSecrets } = await import("@/lib/marketing/secrets");
   const s = await loadPipelineSecrets();
   const fromFile = readTokenFile();
-  const botToken = s.telegramBotToken?.trim() || fromFile.botToken;
   const chatId =
-    s.telegramChatId?.trim() || fromFile.chatId || (await linkedChatId());
+    s.telegramChatId?.trim() || process.env.TELEGRAM_CHAT_ID?.trim() || fromFile.chatId || (await linkedChatId());
   if (!botToken || !chatId) return null;
   return { botToken, chatId };
 }
@@ -272,7 +279,7 @@ interface BotUser {
 
 /** Bot identity (username only — never the token). null when not reachable. */
 export async function telegramBotUsername(): Promise<string | null> {
-  const { botToken } = (await telegramCreds()) ?? {};
+  const botToken = await telegramBotToken();
   if (!botToken) return null;
   try {
     const res = await fetch(`${API}/bot${botToken}/getMe`, {
@@ -306,7 +313,7 @@ export interface TelegramChatSummary {
  * messaging the bot once, then linking it. Token never leaves the server.
  */
 export async function fetchTelegramChats(): Promise<TelegramChatSummary[]> {
-  const { botToken } = (await telegramCreds()) ?? {};
+  const botToken = await telegramBotToken();
   if (!botToken) return [];
   try {
     const res = await fetch(`${API}/bot${botToken}/getUpdates?limit=50`, {

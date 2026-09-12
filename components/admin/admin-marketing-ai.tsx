@@ -279,7 +279,9 @@ export function AdminMarketingAI() {
     void act(
       "/api/admin/marketing-ai/social",
       { productSlug: genSlug, kind: genKind, language: genLanguage },
-              "Puter promo post generated — approve it below or in Telegram.",
+      telegram?.hasChat
+        ? "Puter promo post generated — approve it below or in Telegram."
+        : "Puter promo post generated — approve it below. Link Telegram to receive bot approvals.",
     );
     if (genKind === "promo_poster") {
       window.setTimeout(() => void pollPuterJobs(), 200);
@@ -292,7 +294,9 @@ export function AdminMarketingAI() {
     void act(
       "/api/admin/marketing-ai/ads",
       { productSlug: genSlug, objective: genObjective, language: genLanguage, dailyBudgetInr: genBudget },
-      "Ad generated — approve it below or in Telegram (PAUSED, then a second approval to spend).",
+      telegram?.hasChat
+        ? "Ad generated — approve it below or in Telegram (PAUSED, then a second approval to spend)."
+        : "Ad generated — approve it below. Link Telegram to receive bot approvals.",
     );
   };
 

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   Boxes,
+  FolderInput,
   Package,
   PackagePlus,
   Pencil,
@@ -49,11 +50,12 @@ export function AdminProducts() {
   const [rows, setRows] = useState<Row[] | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [intakeBusy, setIntakeBusy] = useState(false);
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState<"all" | DbStatus>("all");
 
-  useEffect(() => {
-    fetch("/api/admin/products", { cache: "no-store" })
+  const loadProducts = useCallback(() => {
+    return fetch("/api/admin/products", { cache: "no-store" })
       .then((r) => r.json() as Promise<{ ok: boolean; products?: DbProduct[]; categories?: Category[] }>)
       .then((d) => {
         if (!d.ok) throw new Error("Failed to load products");
@@ -68,6 +70,44 @@ export function AdminProducts() {
       })
       .catch((e: Error) => setError(e.message));
   }, []);
+
+  useEffect(() => {
+    void loadProducts();
+  }, [loadProducts]);
+
+  const processIncoming = useCallback(async () => {
+    setIntakeBusy(true);
+    try {
+      const res = await fetch("/api/admin/products/process-incoming", {
+        method: "POST",
+        cache: "no-store",
+      });
+      const data = (await res.json()) as {
+        ok: boolean;
+        error?: string;
+        result?: {
+          processed?: boolean;
+          reason?: string;
+          slug?: string;
+          product_id?: string;
+        };
+      };
+      if (!res.ok || !data.ok) {
+        throw new Error(data.error ?? "Could not process incoming image");
+      }
+      if (data.result?.processed === false) {
+        toast.info(data.result.reason ?? "No incoming saree images found.");
+      } else {
+        toast.success("Incoming saree processed. Draft product created.");
+        await loadProducts();
+        router.refresh();
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not process incoming image");
+    } finally {
+      setIntakeBusy(false);
+    }
+  }, [loadProducts, router, toast]);
 
   const remove = useCallback(
     async (slug: string, name: string) => {
@@ -106,12 +146,23 @@ export function AdminProducts() {
         title="Products"
         sub={`${rows?.length ?? "…"} sarees in the catalogue`}
         action={
-          <Link
-            href="/admin/products/new"
-            className="inline-flex h-11 items-center gap-2 rounded-full bg-btn px-5 text-[15px] font-semibold text-btntext transition-opacity hover:opacity-90"
-          >
-            <PackagePlus size={16} /> Add saree
-          </Link>
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={processIncoming}
+              disabled={intakeBusy}
+              className="inline-flex h-11 items-center gap-2 rounded-full border border-line bg-surface px-5 text-[15px] font-semibold text-ink transition-colors hover:bg-surface2 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <FolderInput size={16} />
+              {intakeBusy ? "Processing..." : "Process incoming"}
+            </button>
+            <Link
+              href="/admin/products/new"
+              className="inline-flex h-11 items-center gap-2 rounded-full bg-btn px-5 text-[15px] font-semibold text-btntext transition-opacity hover:opacity-90"
+            >
+              <PackagePlus size={16} /> Add saree
+            </Link>
+          </div>
         }
       />
 

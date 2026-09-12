@@ -122,7 +122,7 @@ export function Hero() {
           <div
             key={s.src}
             className={cx(
-              "absolute inset-0 transition-[opacity,transform] duration-[1400ms] ease-out motion-reduce:transition-none top-[15%] md:top-[5%] lg:top-[14%] sm:right-0 right-[-50%]",
+              "absolute inset-0 transition-[opacity,transform] duration-[1400ms] ease-out motion-reduce:transition-none top-[15%] md:top-[5%] lg:top-[12%] sm:right-0 right-[-50%]",
               i === index ? "opacity-100" : "opacity-0",
               !reducedMotion && i === index && "scale-[1.005]",
             )}

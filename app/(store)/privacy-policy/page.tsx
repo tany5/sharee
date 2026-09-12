@@ -5,71 +5,69 @@ import { pageMetadata } from "@/lib/meta";
 export const metadata = pageMetadata({
   title: "Privacy Policy",
   description:
-    "How TheTanti handles your data: we collect only what’s needed to deliver sarees, we never sell your information, and you can ask us to delete it any time.",
+    "How TheTanti protects your privacy, order information, payment data and customer rights.",
   path: "/privacy-policy",
 });
 
 export default function PrivacyPolicyPage() {
   return (
     <PageShell
-      kicker="Your data, protected"
+      kicker="Your privacy"
       title="Privacy Policy"
-      lede="We collect the minimum needed to deliver your order — and nothing else. Here’s exactly what that means."
+      lede="At TheTanti, protecting your privacy and secure personal data is our primary commitment. We collect only the baseline essential information required to accurately process and deliver your orders."
     >
       <div className="space-y-6">
-        <PolicySection title="What we collect & why">
+        <PolicySection title="1. Information We Collect">
           <ul className="list-disc space-y-2 pl-5">
             <li>
-              <strong>Delivery details</strong> (name, phone, address) — used
-              only to fulfil and deliver your order.
+              <strong>Delivery Credentials:</strong> Your name, shipping address,
+              contact phone number, and email address are captured at checkout
+              solely to package and ship your items.
             </li>
             <li>
-              <strong>Cart & wishlist</strong> — stored locally in your own
-              browser so your basket follows you around the store.
-            </li>
-            <li>
-              <strong>Payment information</strong> — processed by our payment
-              partners (e.g. Razorpay/UPI apps). We never see or store full card
-              or UPI credentials.
-            </li>
-            <li>
-              <strong>Anonymous analytics</strong> (page views, ad attribution)
-              — helps us understand which sarees people love and measure our
-              ads honestly.
+              <strong>Session Data:</strong> Items added to your cart or wishlist
+              are stored locally inside your personal browser ecosystem to
+              maintain basket integrity during your visit.
             </li>
           </ul>
         </PolicySection>
 
-        <PolicySection title="What we never do">
+        <PolicySection title="2. Information Sharing & Third Parties">
           <ul className="list-disc space-y-2 pl-5">
-            <li>We never sell or rent your personal information.</li>
             <li>
-              We never send unsolicited marketing — you’ll only hear from us
-              about your orders.
+              <strong>Payment Processing:</strong> Your financial information
+              (UPI handles, cards, net banking details) is passed directly to our
+              encrypted payment gateway partner, such as Razorpay. TheTanti never
+              sees, processes, or stores your raw card credentials or banking
+              passwords.
             </li>
             <li>
-              We never store payment card numbers or UPI credentials on our
-              servers.
+              <strong>Logistics Partners:</strong> Your address and phone numbers
+              are shared securely with verified domestic courier networks to
+              facilitate accurate delivery.
+            </li>
+            <li>
+              <strong>No Commercial Sale:</strong> We strictly never rent, sell,
+              or trade your personal data to external marketing companies.
             </li>
           </ul>
         </PolicySection>
 
-        <PolicySection title="Cookies & advertising">
+        <PolicySection title="3. Cookies and Analytics">
           <p>
-            This store uses a Meta Pixel and Google Analytics (when configured)
-            to measure ad performance — the same tools virtually every online
-            store uses. If you’ve arrived from a Facebook or Instagram ad, the
-            link carries campaign information that helps us understand which
-            ads work; it never reveals your identity to us beyond what you
-            voluntarily share at checkout.
+            Our platform utilizes industry-standard tracking elements, such as
+            Google Analytics and Meta Pixels, to evaluate general advertisement
+            metrics and see which regional saree styles perform best. These
+            tools measure anonymous browser trends and never access your private
+            data files.
           </p>
         </PolicySection>
 
-        <PolicySection title="Your rights">
+        <PolicySection title="4. Your Rights">
           <p>
-            You can ask us to export or delete your data at any time by writing
-            to {SITE.email}. Order records are kept only as long as needed for
-            accounting, returns and customer support.
+            You hold full authority to request the complete modification, export,
+            or total deletion of your personal account record database at any
+            time by contacting us directly at {SITE.email}.
           </p>
         </PolicySection>
       </div>

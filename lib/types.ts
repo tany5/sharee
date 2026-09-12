@@ -50,6 +50,7 @@ export interface CartItem {
   /** Snapshot captured at add-time so admin-edited / new products render correctly. */
   name?: string;
   price?: number;
+  image?: string;
 }
 
 export type PaymentMethodId = "upi" | "card" | "netbanking" | "cod";

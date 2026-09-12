@@ -11,6 +11,7 @@ const STATIC: Array<[string, string]> = [
   ["/shipping-policy", "0.3"],
   ["/return-policy", "0.3"],
   ["/privacy-policy", "0.2"],
+  ["/terms-and-conditions", "0.2"],
 ];
 
 export default function sitemap(): MetadataRoute.Sitemap {

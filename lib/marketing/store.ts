@@ -18,16 +18,27 @@ import {
 import { dbStatusFor } from "@/lib/marketing/status";
 import type { DbProduct } from "@/lib/demo/db";
 
-/**
- * Built-in synthetic AI base models so the try-on stage works before the admin
- * uploads curated brand-owned model photos.
- */
 const DEFAULT_BASE_MODELS: BaseModel[] = [
-  { id: "ai-model-1", name: "AI model 1", imageUrl: "/marketing/models/ai-model-01.png" },
-  { id: "ai-model-2", name: "AI model 2", imageUrl: "/marketing/models/ai-model-02.png" },
-  { id: "ai-model-3", name: "AI model 3", imageUrl: "/marketing/models/ai-model-03.png" },
-  { id: "ai-model-4", name: "AI model 4", imageUrl: "/marketing/models/ai-model-04.png" },
-  { id: "ai-model-5", name: "AI model 5", imageUrl: "/marketing/models/ai-model-05.png" },
+  {
+    id: "bengali-model-1",
+    name: "Bengali model 1",
+    imageUrl: "/marketing/models/bengali-model-01.png",
+  },
+  {
+    id: "bengali-model-2",
+    name: "Bengali model 2",
+    imageUrl: "/marketing/models/bengali-model-02.png",
+  },
+  {
+    id: "bengali-model-3",
+    name: "Bengali model 3",
+    imageUrl: "/marketing/models/bengali-model-03.png",
+  },
+  {
+    id: "bengali-model-4",
+    name: "Bengali model 4",
+    imageUrl: "/marketing/models/bengali-model-04.png",
+  },
 ];
 
 const SYNTHETIC_MODEL_SEEDS = [

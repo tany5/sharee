@@ -1,5 +1,5 @@
 /**
- * Stage 3 — Vernacular ad copy generation (Gemini Flash → Groq → fallback).
+ * Stage 3 — Vernacular ad copy generation (local Ollama → Gemini Flash → Groq → fallback).
  *
  * Tone contract (from the marketing spec): homely, warm, respectful,
  * family-oriented. Always highlights the flat ₹199 price, daily comfort,
@@ -153,6 +153,47 @@ interface GroqReply {
   choices?: { message?: { content?: string } }[];
 }
 
+interface OllamaReply {
+  response?: string;
+}
+
+function ollamaEnabled(): boolean {
+  return (
+    process.env.OLLAMA_ENABLE?.trim().toLowerCase() === "true" ||
+    Boolean(process.env.OLLAMA_TEXT_MODEL?.trim()) ||
+    Boolean(process.env.OLLAMA_BASE_URL?.trim())
+  );
+}
+
+function ollamaModel(): string {
+  return process.env.OLLAMA_TEXT_MODEL?.trim() || "qwen2.5:3b-instruct";
+}
+
+async function callOllama(prompt: string, system: string): Promise<string> {
+  const baseUrl = (process.env.OLLAMA_BASE_URL?.trim() || "http://127.0.0.1:11434").replace(
+    /\/+$/,
+    "",
+  );
+  const timeoutMs = Number(process.env.OLLAMA_TIMEOUT_MS ?? 5000);
+  const res = await fetch(`${baseUrl}/api/generate`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    signal: AbortSignal.timeout(Number.isFinite(timeoutMs) ? timeoutMs : 5000),
+    body: JSON.stringify({
+      model: ollamaModel(),
+      stream: false,
+      format: "json",
+      prompt: `${system}\n\n${prompt}`,
+      options: { temperature: 0.7, num_predict: 360 },
+    }),
+  });
+  if (!res.ok) throw new Error(`Ollama HTTP ${res.status}`);
+  const json = (await res.json()) as OllamaReply;
+  const text = json.response ?? "";
+  if (!text.trim()) throw new Error("Ollama returned empty reply");
+  return text;
+}
+
 async function callGroq(key: string, prompt: string, system: string): Promise<string> {
   const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
     method: "POST",
@@ -180,7 +221,7 @@ export interface CopySecrets {
 }
 
 /**
- * Generate ad copy: Gemini Flash first, then Groq, then the deterministic
+ * Generate ad copy: local Ollama first, then hosted LLMs, then the deterministic
  * template. Never throws — falls back so the pipeline always produces copy.
  */
 export async function generateAdCopy(
@@ -191,6 +232,7 @@ export async function generateAdCopy(
   const system = copySystemPrompt();
   const user = copyUserPrompt(ctx, language);
   const attempts: [string, (() => Promise<string>) | null][] = [
+    [`ollama-${ollamaModel()}`, ollamaEnabled() ? () => callOllama(user, system) : null],
     ["gemini-flash", secrets.geminiKey ? () => callGemini(secrets.geminiKey!, user, system) : null],
     ["groq-llama33", secrets.groqKey ? () => callGroq(secrets.groqKey!, user, system) : null],
   ];

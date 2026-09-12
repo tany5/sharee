@@ -1,10 +1,11 @@
 import { NextResponse } from "next/server";
 import { requireAdmin, unauthorized } from "@/lib/admin/guard";
+import { adminProducts } from "@/lib/backend";
 import { generateProductTryOnGallery } from "@/lib/marketing/product-gallery";
 
 export const dynamic = "force-dynamic";
-// Matches the generator's internal time budget (one GPU render + slack).
-export const maxDuration = 60;
+// One remote image-edit render can take a couple of minutes.
+export const maxDuration = 240;
 
 /**
  * Generate "model wearing saree" catalogue photos for a product.
@@ -37,9 +38,11 @@ export async function POST(request: Request) {
   try {
     const progress = await generateProductTryOnGallery({ slug, name, garmentUrl, force });
     const done = progress.remaining.length === 0 && !progress.error;
+    const product = (await adminProducts()).find((p) => p.slug === slug);
     return NextResponse.json({
       ok: progress.urls.length > 0 || done || progress.pending === true,
       urls: progress.urls,
+      images: product?.images ?? [],
       done,
       remaining: progress.remaining,
       error: progress.error,

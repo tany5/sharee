@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { saveMediaFile } from "@/lib/backend";
+import { deleteMediaFiles, saveMediaFile } from "@/lib/backend";
 import { requireAdmin, unauthorized } from "@/lib/admin/guard";
 
 const MAX_BYTES = 8 * 1024 * 1024;
@@ -29,6 +29,33 @@ export async function POST(request: Request) {
     const e = err as { message?: string };
     return NextResponse.json(
       { ok: false, error: e.message ?? "Upload failed" },
+      { status: 400 },
+    );
+  }
+}
+
+export async function DELETE(request: Request) {
+  if (!(await requireAdmin())) return unauthorized();
+
+  let body: Record<string, unknown>;
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ ok: false, error: "Invalid request" }, { status: 400 });
+  }
+
+  const urls = Array.isArray(body.urls)
+    ? body.urls.map(String)
+    : body.url
+      ? [String(body.url)]
+      : [];
+  try {
+    await deleteMediaFiles(urls);
+    return NextResponse.json({ ok: true });
+  } catch (err) {
+    const e = err as { message?: string };
+    return NextResponse.json(
+      { ok: false, error: e.message ?? "Delete failed" },
       { status: 400 },
     );
   }

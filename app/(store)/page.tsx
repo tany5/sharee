@@ -166,13 +166,13 @@ export default async function HomePage() {
           <span className="flex h-14 w-14 items-center justify-center rounded-full bg-accent/15 text-accent">
             <InstagramIcon width={26} height={26} strokeWidth={1.7} />
           </span>
-          <h2 className="text-2xl text-ink sm:text-3xl">@thetantisarees</h2>
+          <h2 className="text-2xl text-ink sm:text-3xl">{SITE.instagramHandle}</h2>
           <p className="max-w-md text-sm leading-6 text-ink2">
             Tag your look with <strong className="text-ink">#TheTantiSarees</strong> —
             the best daily-wear drapes from our community, featured every week.
           </p>
           <ButtonLink
-            href="https://www.instagram.com/"
+            href={SITE.instagramUrl}
             size="md"
             variant="outline"
             target="_blank"

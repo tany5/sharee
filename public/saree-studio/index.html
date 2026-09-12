@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Saree AI Studio — TheTanti</title>
+<script src="https://js.puter.com/v2/"></script>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="topbar">
+  <div>
+    <h1>Saree AI Studio</h1>
+    <p class="sub">Create premium saree advertisements in seconds.</p>
+  </div>
+  <div id="puter-auth" class="authbox">
+    <span id="auth-status" class="auth-status">Checking Puter sign-in…</span>
+    <button id="btn-signin" class="btn btn-ghost hidden">Sign in to Puter</button>
+  </div>
+</header>
+
+<main class="studio">
+  <section class="panel">
+    <h2>1 · Upload Saree Image</h2>
+    <div id="drop" class="drop" tabindex="0">
+      <p><b>Drop</b> a saree photo here, or <b>click to browse</b>.</p>
+      <p class="hint">The model will wear a saree matching this product: colour, border, pattern, pallu.</p>
+      <input id="file" type="file" accept="image/*" hidden>
+    </div>
+    <div id="preview-wrap" class="preview-wrap hidden">
+      <img id="preview" alt="Uploaded saree">
+      <button id="btn-clear" class="btn btn-ghost btn-small">Remove</button>
+    </div>
+    <p id="file-error" class="error hidden"></p>
+  </section>
+
+  <section class="panel">
+    <h2>2 · Campaign text <span class="hint-inline">(rendered exactly, never left to the AI)</span></h2>
+    <div class="fields">
+      <label>Brand name <input id="f-brand" value="TheTanti"></label>
+      <label>Headline <input id="f-headline" value="OUR SAREE"></label>
+      <label>Main offer <input id="f-offer" value="₹199 FLAT"></label>
+      <label>Shipping <input id="f-ship" value="SHIPPING INCLUDED"></label>
+    </div>
+    <p class="hint">Puter AI paints the model + scene; the overlay step stamps this text pixel-perfectly.</p>
+  </section>
+
+  <section class="panel">
+    <h2>3 · Style &amp; format</h2>
+    <div class="row">
+      <label>Style preset
+        <select id="f-style">
+          <option value="premium_editorial" selected>Premium Editorial</option>
+          <option value="bengali_traditional">Bengali Traditional</option>
+          <option value="modern_minimal">Modern Minimal</option>
+          <option value="festive">Festive</option>
+          <option value="luxury_wedding">Luxury Wedding</option>
+          <option value="boutique_fashion">Boutique Fashion</option>
+        </select>
+      </label>
+      <label>Model
+        <select id="f-model">
+          <option value="gpt-image-2.5-flare" selected>gpt-image-2.5-flare</option>
+          <option value="gpt-image-2.5-sunburst">gpt-image-2.5-sunburst</option>
+          <option value="gpt-image-2.5">gpt-image-2.5</option>
+          <option value="gpt-image-1-mini">gpt-image-1-mini</option>
+        </select>
+      </label>
+      <label>Format
+        <select id="f-format">
+          <option value="square" selected>Square 1:1 · 1080×1080</option>
+          <option value="portrait">Portrait 4:5 · 1080×1350</option>
+          <option value="story">Story 9:16 · 1080×1920</option>
+        </select>
+      </label>
+    </div>
+    <button id="btn-generate" class="btn btn-primary" disabled>Generate Post</button>
+    <p id="gen-status" class="status hidden"></p>
+    <p id="gen-error" class="error hidden"></p>
+  </section>
+
+  <section class="panel">
+    <h2>4 · Result</h2>
+    <div id="result-empty" class="empty">Your generated campaign appears here.</div>
+    <div id="result" class="result hidden">
+      <img id="result-img" alt="Generated post">
+      <div class="result-actions">
+        <button id="btn-download" class="btn btn-primary">Download PNG</button>
+        <button id="btn-again" class="btn">Generate Again</button>
+      </div>
+    </div>
+  </section>
+</main>
+
+<script src="image-generator.js"></script>
+<script src="text-overlay.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

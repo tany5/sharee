@@ -9,6 +9,7 @@ import {
   Info,
   Loader2,
   Lock,
+  MapPin,
   Smartphone,
   TriangleAlert,
 } from "lucide-react";
@@ -30,7 +31,7 @@ import { WornThumb } from "@/components/product/worn-image";
 import { trackAddPaymentInfo, trackInitiateCheckout } from "@/lib/analytics";
 import { formatINR } from "@/lib/format";
 import { swatchFor } from "@/lib/color-dots";
-import type { DeliveryAddress } from "@/lib/types";
+import type { AddressBookAddress, DeliveryAddress } from "@/lib/types";
 
 const METHOD_ICONS: Record<PaymentMethodId, typeof Smartphone> = {
   upi: Smartphone,
@@ -59,6 +60,7 @@ export function CheckoutView() {
   const [form, setForm] = useState<FormState>(EMPTY);
   const [errors, setErrors] = useState<AddressErrors>({});
   const [method, setMethod] = useState<PaymentMethodId>("upi");
+  const [selectedAddressId, setSelectedAddressId] = useState<string>("manual");
   const [apiError, setApiError] = useState<string | null>(null);
   const [placing, setPlacing] = useState(false);
   const [verifying, setVerifying] = useState(false);
@@ -88,17 +90,32 @@ export function CheckoutView() {
     const def = user?.addresses.find((a) => a.isDefault) ?? user?.addresses[0];
     if (!def || prefilledFor.current === user?.id) return;
     prefilledFor.current = user?.id ?? null;
-    setForm({
-      fullName: def.fullName,
-      phone: def.phone,
-      pincode: def.pincode,
-      line1: def.line1,
-      landmark: def.landmark ?? "",
-      city: def.city,
-      state: def.state,
-    });
+    setSelectedAddressId(def.id);
+    setForm(addressToForm(def));
     setErrors({});
   }, [user]);
+
+  function addressToForm(address: DeliveryAddress): FormState {
+    return {
+      fullName: address.fullName,
+      phone: address.phone,
+      pincode: address.pincode,
+      line1: address.line1,
+      landmark: address.landmark ?? "",
+      city: address.city,
+      state: address.state,
+    };
+  }
+
+  function chooseAddress(address: AddressBookAddress | "manual") {
+    if (address === "manual") {
+      setSelectedAddressId("manual");
+      return;
+    }
+    setSelectedAddressId(address.id);
+    setForm(addressToForm(address));
+    setErrors({});
+  }
 
   function prettySlug(slug: string): string {
     return slug.split("-").map((w) => w[0]?.toUpperCase() + w.slice(1)).join(" ");
@@ -127,6 +144,7 @@ export function CheckoutView() {
   const set = (key: keyof FormState) => (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>,
   ) => {
+    setSelectedAddressId("manual");
     setForm((f) => ({ ...f, [key]: e.target.value }));
     setErrors((prev) => ({ ...prev, [key]: undefined }));
   };
@@ -430,6 +448,55 @@ export function CheckoutView() {
               </span>
               Delivery Details
             </h2>
+
+            {user && user.addresses.length > 0 && (
+              <div className="mt-5">
+                <div className="mb-2 flex items-center justify-between gap-3">
+                  <p className="text-xs font-bold uppercase tracking-[0.18em] text-ink">
+                    Choose saved address
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => chooseAddress("manual")}
+                    className="text-xs font-semibold text-accent underline underline-offset-4"
+                  >
+                    Use a different address
+                  </button>
+                </div>
+                <div className="grid gap-3 md:grid-cols-2">
+                  {user.addresses.map((address) => {
+                    const active = selectedAddressId === address.id;
+                    return (
+                      <button
+                        key={address.id}
+                        type="button"
+                        onClick={() => chooseAddress(address)}
+                        className={`rounded-xl border p-4 text-left transition-all ${
+                          active
+                            ? "border-accent bg-accent/10 ring-1 ring-accent/40"
+                            : "border-line bg-bg/40 hover:border-accent/50"
+                        }`}
+                      >
+                        <span className="flex items-center gap-2 text-sm font-bold text-ink">
+                          <MapPin size={16} className="text-bronze" />
+                          {address.label ?? "Saved address"}
+                          {address.isDefault && (
+                            <span className="rounded-full bg-[#4c7a4f]/15 px-2 py-0.5 text-[10px] font-bold text-[#3f6b43]">
+                              Primary
+                            </span>
+                          )}
+                        </span>
+                        <span className="mt-2 block text-xs leading-5 text-ink2">
+                          {address.fullName} · {address.line1}
+                          {address.landmark ? `, ${address.landmark}` : ""}, {address.city}, {address.state} {address.pincode}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
             <div className="mt-5 grid gap-4 sm:grid-cols-2">
               <Field label="Full Name" required error={errors.fullName}>
                 <TextInput
@@ -594,6 +661,7 @@ export function CheckoutView() {
                       colorway={meta?.colorway ?? line.color}
                       category={meta?.category}
                       name={line.name}
+                      image={line.image}
                       className="h-full w-full"
                     />
                   </div>

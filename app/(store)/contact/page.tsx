@@ -16,7 +16,7 @@ const CARDS = [
     t: "WhatsApp",
     v: SITE.phone,
     hint: "Fastest — reply within minutes",
-    href: `https://wa.me/919876543210`,
+    href: `https://wa.me/${SITE.phone.replace(/\D/g, "")}`,
   },
   {
     Icon: Phone,
@@ -35,7 +35,7 @@ const CARDS = [
   {
     Icon: MapPin,
     t: "Visit",
-    v: "Jaipur, Rajasthan",
+    v: "Liluah, Howrah",
     hint: "Our fulfilment hub",
   },
 ];
@@ -84,6 +84,27 @@ export default function ContactPage() {
           </a>
           , with estimated delivery dates and full details.
         </p>
+      </div>
+
+      <div className="mt-6 grid gap-4 sm:grid-cols-2">
+        <div className="rounded-2xl border border-line bg-surface p-6">
+          <h2 className="font-display text-xl font-bold text-ink">
+            Registered office
+          </h2>
+          <p className="mt-2 text-sm leading-6 text-ink2">
+            {SITE.legalName}, {SITE.address}
+          </p>
+        </div>
+        <div className="rounded-2xl border border-line bg-surface p-6">
+          <h2 className="font-display text-xl font-bold text-ink">
+            Grievance and support
+          </h2>
+          <p className="mt-2 text-sm leading-6 text-ink2">
+            For order, payment, return, refund, privacy, or account concerns,
+            contact {SITE.email} or {SITE.phone}. We aim to respond within 24
+            working hours.
+          </p>
+        </div>
       </div>
     </PageShell>
   );

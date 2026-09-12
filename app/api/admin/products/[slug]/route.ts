@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
-import { deleteProduct, upsertProduct } from "@/lib/backend";
+import { adminProducts, deleteMediaFiles, deleteProduct, upsertProduct } from "@/lib/backend";
 import { requireAdmin, unauthorized } from "@/lib/admin/guard";
+import { parseMarketing } from "@/lib/marketing/types";
 import type { DbStatus } from "@/lib/types";
 
 export async function PATCH(
@@ -23,6 +24,33 @@ export async function PATCH(
   };
 
   try {
+    const images = Array.isArray(body.images) ? body.images.map(String).filter(Boolean) : undefined;
+    const removedImages = Array.isArray(body.removedImages)
+      ? body.removedImages.map(String).filter(Boolean)
+      : [];
+    const removedSet = new Set(removedImages);
+    const nextImageSet = new Set(images ?? []);
+    const cleanupUrls = removedImages.filter((url) => !nextImageSet.has(url));
+    const existingRow = cleanupUrls.length > 0
+      ? (await adminProducts()).find((p) => p.slug === slug)
+      : undefined;
+    const marketing = existingRow ? parseMarketing(existingRow.marketing) : undefined;
+    const cleanedTryOn = (() => {
+      if (!marketing?.tryOn) return undefined;
+      const { imageUrl, renders, ...rest } = marketing.tryOn;
+      return {
+        ...rest,
+        ...(imageUrl && !removedSet.has(imageUrl) ? { imageUrl } : {}),
+        renders: renders?.filter((render) => !removedSet.has(render.imageUrl)),
+      };
+    })();
+    if (cleanedTryOn?.renders?.length === 0) delete cleanedTryOn.renders;
+    const cleanedMarketing = marketing
+      ? {
+          ...marketing,
+          ...(cleanedTryOn ? { tryOn: cleanedTryOn } : {}),
+        }
+      : undefined;
     const row = await upsertProduct({
       slug,
       name: body.name !== undefined ? String(body.name) : undefined,
@@ -51,7 +79,8 @@ export async function PATCH(
           ? String(body.tags).split(",").map((s) => s.trim()).filter(Boolean)
           : undefined,
       featured: body.featured !== undefined ? Boolean(body.featured) : undefined,
-      images: Array.isArray(body.images) ? body.images.map(String) : undefined,
+      images,
+      marketing: cleanedMarketing,
       dbStatus:
         body.dbStatus === "active" || body.dbStatus === "draft"
           ? (body.dbStatus as DbStatus)
@@ -59,6 +88,7 @@ export async function PATCH(
             ? "deleted"
             : undefined,
     });
+    await deleteMediaFiles(cleanupUrls);
     return NextResponse.json({ ok: true, product: row });
   } catch (err) {
     const e = err as { code?: string; message?: string };

@@ -46,5 +46,8 @@ next-env.d.ts
 # local credentials — never commit these
 /secret/
 
+# local Codex scratch files
+/.codex-work/
+
 # freebuff client workspace state
 /.freebuff/

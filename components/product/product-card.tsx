@@ -23,6 +23,8 @@ export interface ProductCardData {
   tags: string[];
   /** Optional real photo URL (uploaded / demo-DB image). */
   image?: string;
+  /** Optional real gallery URLs (uploaded / AI-generated). */
+  images?: string[];
 }
 
 function TagBadge({ tag }: { tag: string }) {
@@ -41,12 +43,22 @@ function TagBadge({ tag }: { tag: string }) {
   );
 }
 
+function imagePoseRank(url: string): number {
+  const text = url.toLowerCase();
+  if (/(^|[-_/])front[-_/.]/.test(text)) return 0;
+  if (/(^|[-_/])side[-_/.]/.test(text)) return 1;
+  if (/(^|[-_/])back[-_/.]/.test(text)) return 2;
+  if (/(^|[-_/])full[-_]?saree[-_/.]/.test(text)) return 3;
+  return 4;
+}
+
 export function ProductCard({ product }: { product: ProductCardData }) {
   const { add } = useCart();
   const { has, toggle } = useWishlist();
   const [justAdded, setJustAdded] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const wished = has(product.slug);
+  const primaryImage = product.images?.[0] ?? product.image;
 
   useEffect(() => () => {
     if (timer.current) clearTimeout(timer.current);
@@ -58,6 +70,7 @@ export function ProductCard({ product }: { product: ProductCardData }) {
     add(product.slug, product.colorway, 1, {
       name: product.name,
       price: product.price,
+      image: primaryImage,
     });
     trackAddToCart(product.slug, product.name);
     setJustAdded(true);
@@ -69,27 +82,40 @@ export function ProductCard({ product }: { product: ProductCardData }) {
   // worn shot, and a fabric-only artwork. Admin-uploaded photos come first.
   const art = artForProduct(product.slug, product.colorway, product.category);
   const slides: CardSlide[] = [];
-  const worn1 = product.image ?? productPhotoThumb(product.slug);
-  const worn2 = productPhotoAltThumb(product.slug);
-  if (worn1) {
+  const savedImages = product.images?.length
+    ? [...product.images].sort((a, b) => imagePoseRank(a) - imagePoseRank(b))
+    : product.image ? [product.image] : [];
+  if (savedImages.length > 0) {
+    for (const src of savedImages.slice(0, 5)) {
+      slides.push({
+        kind: "img",
+        src,
+        alt: `${product.name} saree at ${formatINR(product.price)}`,
+      });
+    }
+  } else {
+    const worn1 = productPhotoThumb(product.slug);
+    const worn2 = productPhotoAltThumb(product.slug);
+    if (worn1) {
+      slides.push({
+        kind: "img",
+        src: worn1,
+        alt: `${product.name} saree at ${formatINR(product.price)} — worn by a woman`,
+      });
+    }
+    if (worn2) {
+      slides.push({
+        kind: "img",
+        src: worn2,
+        alt: `${product.name} saree at ${formatINR(product.price)} — worn by a woman, alternate shot`,
+      });
+    }
     slides.push({
-      kind: "img",
-      src: worn1,
-      alt: `${product.name} saree at ${formatINR(product.price)} — worn by a woman`,
+      kind: "art",
+      spec: art,
+      label: `${product.name} saree at ${formatINR(product.price)} — the saree alone`,
     });
   }
-  if (worn2) {
-    slides.push({
-      kind: "img",
-      src: worn2,
-      alt: `${product.name} saree at ${formatINR(product.price)} — worn by a woman, alternate shot`,
-    });
-  }
-  slides.push({
-    kind: "art",
-    spec: art,
-    label: `${product.name} saree at ${formatINR(product.price)} — the saree alone`,
-  });
 
   return (
     <div className="group relative">

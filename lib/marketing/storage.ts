@@ -11,7 +11,11 @@ import path from "node:path";
 import { supabaseServer } from "@/lib/supabase/server";
 import { isSupabaseBackend } from "@/lib/backend/env";
 
-export type PipelineBucket = "base-models" | "model-renders" | "reels";
+export type PipelineBucket =
+  | "base-models"
+  | "model-renders"
+  | "reels"
+  | "social-media";
 
 /**
  * Demo mode writes into the demo store's uploads folder (served by
@@ -55,8 +59,12 @@ export async function uploadPipelineAsset(
     bucket === "base-models"
       ? `${safe.replace(/\.[^.]+$/, "")}-${randomBytes(3).toString("hex")}.${ext}`
       : `${randomBytes(10).toString("hex")}.${ext}`;
-  writeFileSync(path.join(demoUploadsDir(), file), data);
-  return { url: `/api/media/${file}`, storagePath: file };
+  // social-media keeps a slug prefix in demo mode so posts can be matched
+  // back to products; the random hex suffix keeps uploads unique.
+  const finalName =
+    bucket === "social-media" ? `${safe.replace(/\.[^.]+$/, "")}-${randomBytes(4).toString("hex")}.${ext}` : file;
+  writeFileSync(path.join(demoUploadsDir(), finalName), data);
+  return { url: `/api/media/${finalName}`, storagePath: finalName };
 }
 
 const EXT_TYPES: Record<string, string> = {

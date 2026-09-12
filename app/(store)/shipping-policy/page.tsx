@@ -5,59 +5,62 @@ import { pageMetadata } from "@/lib/meta";
 export const metadata = pageMetadata({
   title: "Shipping Policy",
   description:
-    "Free shipping on saree orders above ₹999, flat ₹49 below. We deliver across India in 3–5 working days from our Jaipur fulfilment hub.",
+    "TheTanti shipping and delivery timelines, charges, COD support and tracking information.",
   path: "/shipping-policy",
 });
 
 export default function ShippingPolicyPage() {
   return (
     <PageShell
-      kicker="Good to know"
-      title="Shipping Policy"
-      lede="Fast, trackable delivery across India — every order packed with care from our Jaipur hub."
+      kicker="Delivery support"
+      title="Shipping and Delivery Policy"
+      lede="Thank you for choosing TheTanti. We strive to provide premium Indian textile weaves with fast, reliable, and trackable delivery directly to your doorstep."
     >
       <div className="space-y-6">
-        <PolicySection title="Delivery time & charges">
+        <PolicySection title="1. Processing Timelines">
           <ul className="list-disc space-y-2 pl-5">
             <li>
-              Orders of ₹999 and above ship <strong>free</strong> — every other
-              order ships for a flat ₹{SITE.shippingFee}.
+              All orders placed prior to 1:00 PM IST on standard working days
+              (Monday through Saturday) are typically dispatched from our Howrah
+              fulfillment hub on the same day.
             </li>
-            <li>Standard delivery: 3–5 working days across India.</li>
-            <li>Metro cities usually receive orders in 2–4 days.</li>
             <li>
-              Cash on Delivery is available on eligible pincodes with no extra
-              fee.
+              Orders placed during national holidays, regional festivals, or
+              Sundays will be processed on the following immediate business
+              working day.
             </li>
           </ul>
         </PolicySection>
 
-        <PolicySection title="Order processing">
+        <PolicySection title="2. Delivery Timelines">
+          <ul className="list-disc space-y-2 pl-5">
+            <li><strong>Standard National Delivery:</strong> 3 to 5 working days across India.</li>
+            <li><strong>Metro City Shipments:</strong> 2 to 4 business days in primary metropolitan zones.</li>
+          </ul>
+        </PolicySection>
+
+        <PolicySection title="3. Shipping Charges">
           <ul className="list-disc space-y-2 pl-5">
             <li>
-              Orders placed before 1 pm IST on working days are usually shipped
-              the same day.
+              All single or combined cart orders valued at ₹999 and above qualify
+              for <strong>Free Shipping</strong> across India.
             </li>
             <li>
-              You’ll receive a WhatsApp/SMS update with tracking once your
-              saree leaves our hub.
+              Flat shipping of ₹{SITE.shippingFee} is strictly applied to all
+              individual or multi-piece orders totaling under ₹999.
             </li>
             <li>
-              If an item is unexpectedly out of stock, we’ll reach out within
-              24 hours to confirm a replacement or full refund.
+              Cash on Delivery (COD) services are available for valid regional
+              pincodes at no incremental processing fee.
             </li>
           </ul>
         </PolicySection>
 
-        <PolicySection title="Track your order">
+        <PolicySection title="4. Tracking Support">
           <p>
-            Orders placed from your device appear under{" "}
-            <a href="/account" className="font-semibold text-accent underline">
-              My Account → My Orders
-            </a>{" "}
-            with status and the estimated delivery date. For anything else,
-            message us on WhatsApp at {SITE.phone} — quote your order number
-            (e.g. AMB-260903-1234) and we’ll take it from there.
+            Once your product leaves our warehouse facility, an automated
+            shipment status link containing live courier tracking digits will be
+            routed to your registered WhatsApp or SMS contact channel.
           </p>
         </PolicySection>
       </div>

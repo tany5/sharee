@@ -15,6 +15,7 @@ import {
 import { getOrderById } from "@/lib/client-store";
 import { ButtonLink, Button, EmptyState } from "@/components/ui";
 import { formatINR } from "@/lib/format";
+import { SITE } from "@/lib/site";
 import type { Order } from "@/lib/types";
 
 /**
@@ -193,10 +194,10 @@ export function OrderFailureView({ id }: { id: string }) {
             </p>
             <p className="mt-2 text-sm leading-6 text-ink2">
               Write to us at{" "}
-              <a className="text-accent underline" href="mailto:hello@thetanti.in">
-                hello@thetanti.in
+              <a className="text-accent underline" href={`mailto:${SITE.email}`}>
+                {SITE.email}
               </a>{" "}
-              or WhatsApp +91 98765 43210 — we&apos;ll finish your order for you.
+              or WhatsApp {SITE.phone} — we&apos;ll finish your order for you.
             </p>
           </div>
           <div className="rounded-2xl border border-line p-5">

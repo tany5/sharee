@@ -72,6 +72,7 @@ export function CartView() {
                   colorway={meta?.colorway ?? line.color}
                   category={meta?.category}
                   name={name}
+                  image={line.image}
                   className="h-full w-full"
                 />
               </Link>

@@ -11,9 +11,10 @@
  * page. Secrets come from app_secrets / env (see lib/marketing/secrets.ts).
  */
 import { copyToCaption } from "@/lib/marketing/copy";
+import { META_GRAPH_BASE } from "@/lib/marketing/meta-graph";
 import type { AdCopy } from "@/lib/marketing/types";
 
-const GRAPH = "https://graph.facebook.com/v21.0";
+const GRAPH = META_GRAPH_BASE;
 
 export interface PublishSecrets {
   metaPageToken: string;
@@ -32,7 +33,9 @@ interface GraphError {
   error?: { message?: string; type?: string; code?: number };
 }
 
-async function graphPost<T>(
+// Exported for the ads engine (lib/marketing/ads-engine.ts) — same Graph
+// client, no duplication. Behaviour unchanged for the reel pipeline.
+export async function graphPost<T>(
   path: string,
   params: Record<string, string>,
   token: string,
@@ -51,7 +54,7 @@ async function graphPost<T>(
   return json;
 }
 
-async function graphGet<T>(path: string, token: string): Promise<T> {
+export async function graphGet<T>(path: string, token: string): Promise<T> {
   const res = await fetch(`${GRAPH}/${path}?access_token=${encodeURIComponent(token)}`);
   const json = (await res.json()) as T & GraphError;
   if (!res.ok || json.error) {

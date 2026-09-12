@@ -9,6 +9,7 @@ const HELP_LINKS = [
   { label: "Shipping Policy", href: "/shipping-policy" },
   { label: "Return Policy", href: "/return-policy" },
   { label: "Privacy Policy", href: "/privacy-policy" },
+  { label: "Terms & Conditions", href: "/terms-and-conditions" },
   { label: "Track / Order Help", href: "/account" },
 ];
 
@@ -38,8 +39,8 @@ export function SiteFooter() {
             </p>
             <div className="flex gap-2">
               {[
-                { Icon: InstagramIcon, label: "Instagram", href: "https://www.instagram.com/" },
-                { Icon: FacebookIcon, label: "Facebook", href: "https://www.facebook.com/" },
+                { Icon: InstagramIcon, label: "Instagram", href: SITE.instagramUrl },
+                { Icon: FacebookIcon, label: "Facebook", href: SITE.facebookUrl },
               ].map(({ Icon, label, href }) => (
                 <a
                   key={label}

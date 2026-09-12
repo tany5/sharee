@@ -33,6 +33,7 @@ export function ProductGrid({
           reviewCount: p.reviewCount,
           tags: p.tags,
           image: p.images?.[0],
+          images: p.images,
         };
         return <ProductCard key={p.slug} product={card} />;
       })}

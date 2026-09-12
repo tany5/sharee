@@ -25,7 +25,7 @@ interface CartValue {
     slug: string,
     color: string,
     qty?: number,
-    meta?: { name?: string; price?: number },
+    meta?: { name?: string; price?: number; image?: string },
   ) => void;
   setQty: (slug: string, color: string, qty: number) => void;
   remove: (slug: string, color: string) => void;
@@ -52,7 +52,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const slugs = useLocalValue<string[]>(WISHLIST_KEY, []);
 
   const add = useCallback(
-    (slug: string, color: string, qty = 1, meta?: { name?: string; price?: number }) => {
+    (slug: string, color: string, qty = 1, meta?: { name?: string; price?: number; image?: string }) => {
       commitLocalValue(
         CART_KEY,
         addItemToCart(snapshotCart(), {
@@ -61,6 +61,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
           qty: Math.max(1, Math.min(qty, MAX_QTY_PER_ITEM)),
           name: meta?.name,
           price: meta?.price,
+          image: meta?.image,
         }),
       );
     },

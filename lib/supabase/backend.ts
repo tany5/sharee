@@ -544,6 +544,21 @@ export async function supabaseSaveMedia(
   return data.publicUrl;
 }
 
+export async function supabaseDeleteMedia(url: string): Promise<void> {
+  const clean = url.trim();
+  if (!clean) return;
+  const marker = `/storage/v1/object/public/${SUPABASE_STORAGE_BUCKET}/`;
+  const index = clean.indexOf(marker);
+  if (index === -1) return;
+  const storagePath = decodeURIComponent(clean.slice(index + marker.length));
+  if (!storagePath || storagePath.includes("..")) return;
+  const supabase = await supabaseServer();
+  const { error } = await supabase.storage
+    .from(SUPABASE_STORAGE_BUCKET)
+    .remove([storagePath]);
+  if (error) fail(error, "Could not delete image from storage");
+}
+
 /* ------------------------------- seed ------------------------------- */
 
 /**

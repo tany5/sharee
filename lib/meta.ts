@@ -93,12 +93,26 @@ export function storeJsonLd(): string {
     "@context": "https://schema.org",
     "@type": "OnlineStore",
     name: SITE.name,
+    legalName: SITE.legalName,
     description: `${SITE.tagline}. ${SITE.promise}`,
     url: SITE.url,
+    email: SITE.email,
+    sameAs: [SITE.facebookUrl, SITE.instagramUrl],
+    address: {
+      "@type": "PostalAddress",
+      streetAddress: "Chakpara Dagabagan, Liluah",
+      addressLocality: "Howrah",
+      addressRegion: "West Bengal",
+      postalCode: "711204",
+      addressCountry: "IN",
+    },
     contactPoint: {
       "@type": "ContactPoint",
       telephone: SITE.phone,
+      email: SITE.email,
       contactType: "customer service",
+      areaServed: "IN",
+      availableLanguage: ["en", "bn", "hi"],
     },
   });
 }

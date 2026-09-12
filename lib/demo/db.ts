@@ -12,11 +12,14 @@
  */
 import "server-only";
 import {
+  copyFileSync,
   existsSync,
   mkdirSync,
   readFileSync,
   renameSync,
+  rmSync,
   statSync,
+  unlinkSync,
   writeFileSync,
 } from "node:fs";
 import { randomBytes } from "node:crypto";
@@ -163,7 +166,31 @@ function persist(db: DbShape): void {
   ensureDirs();
   const tmp = `${DB_PATH}.${process.pid}.tmp`;
   writeFileSync(tmp, JSON.stringify(db, null, 2));
-  renameSync(tmp, DB_PATH);
+  try {
+    renameSync(tmp, DB_PATH);
+  } catch (err) {
+    // Windows: a reader holding db.json (another process / antivirus) makes
+    // rename fail with EPERM — retry briefly, then copy over the locked file.
+    const message = (err as Error).message ?? "";
+    if (!/EPERM|EACCES|EBUSY/i.test(message)) throw err;
+    let renamed = false;
+    for (let attempt = 0; attempt < 5 && !renamed; attempt += 1) {
+      try {
+        renameSync(tmp, DB_PATH);
+        renamed = true;
+      } catch {
+        void attempt;
+      }
+    }
+    if (!renamed) {
+      copyFileSync(tmp, DB_PATH);
+      try {
+        rmSync(tmp, { force: true });
+      } catch {
+        /* best effort */
+      }
+    }
+  }
   cached = db;
   try {
     cacheMtime = statSync(DB_PATH).mtimeMs;
@@ -535,6 +562,15 @@ export function saveMedia(buffer: Buffer, ext: string): string {
 export function mediaPath(filename: string): string {
   const safe = path.basename(filename); // strip any traversal
   return path.join(UPLOADS_DIR, safe);
+}
+
+export function deleteMedia(url: string): void {
+  const clean = url.trim();
+  if (!clean.startsWith("/api/media/")) return;
+  const file = path.basename(clean.replace("/api/media/", ""));
+  if (!file) return;
+  const target = path.join(UPLOADS_DIR, file);
+  if (existsSync(target)) unlinkSync(target);
 }
 
 /** Credentials for the demo admin login hint. */

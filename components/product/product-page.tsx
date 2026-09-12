@@ -63,6 +63,15 @@ const SAMPLE_REVIEWS = [
   },
 ];
 
+function imagePoseRank(url: string): number {
+  const text = url.toLowerCase();
+  if (/(^|[-_/])front[-_/.]/.test(text)) return 0;
+  if (/(^|[-_/])side[-_/.]/.test(text)) return 1;
+  if (/(^|[-_/])back[-_/.]/.test(text)) return 2;
+  if (/(^|[-_/])full[-_]?saree[-_/.]/.test(text)) return 3;
+  return 4;
+}
+
 export function ProductPage({ product, related }: ProductPageProps) {
   const router = useRouter();
   const { add } = useCart();
@@ -71,6 +80,7 @@ export function ProductPage({ product, related }: ProductPageProps) {
   const [viewIdx, setViewIdx] = useState(0);
   const [qty, setQty] = useState(1);
   const [added, setAdded] = useState(false);
+  const [zoomPos, setZoomPos] = useState<{ x: number; y: number } | null>(null);
   const addedTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Some admin/Supabase rows arrive without a colors array — fall back to the
@@ -91,27 +101,35 @@ export function ProductPage({ product, related }: ProductPageProps) {
   const modelPhoto = productPhoto(product.slug);
   const altPhoto = productPhotoAlt(product.slug);
 
-  // Every saree shows at least 3 gallery images: two "worn" model shots (when
-  // photography is mapped) plus fabric-only artwork.
+  // Admin-uploaded/generated product images are the source of truth. Seeded
+  // stock photos and SVG art are only fallbacks for catalogue rows with no
+  // saved images yet.
   const galleryViews = useMemo(() => {
     const views: {
       kind: "photo" | "art";
       src?: string;
       spec?: ReturnType<typeof artForProduct>;
     }[] = [];
-    if (modelPhoto) views.push({ kind: "photo", src: modelPhoto });
-    if (altPhoto) views.push({ kind: "photo", src: altPhoto });
-    const artStart = views.length;
-    views.push({
-      kind: "art",
-      spec: artForProduct(product.slug, product.colorway, product.category, artStart),
-    });
-    views.push({
-      kind: "art",
-      spec: artForProduct(product.slug, product.colorway, product.category, artStart + 1),
-    });
-    return views.slice(0, 4);
-  }, [modelPhoto, altPhoto, product.slug, product.colorway, product.category]);
+    for (const src of [...(product.images ?? [])].sort((a, b) => imagePoseRank(a) - imagePoseRank(b))) {
+      if (src && !views.some((view) => view.src === src)) {
+        views.push({ kind: "photo", src });
+      }
+    }
+    if (views.length === 0) {
+      if (modelPhoto) views.push({ kind: "photo", src: modelPhoto });
+      if (altPhoto) views.push({ kind: "photo", src: altPhoto });
+      const artStart = views.length;
+      views.push({
+        kind: "art",
+        spec: artForProduct(product.slug, product.colorway, product.category, artStart),
+      });
+      views.push({
+        kind: "art",
+        spec: artForProduct(product.slug, product.colorway, product.category, artStart + 1),
+      });
+    }
+    return views.slice(0, 6);
+  }, [modelPhoto, altPhoto, product.images, product.slug, product.colorway, product.category]);
 
   const activeView = Math.min(viewIdx, galleryViews.length - 1);
 
@@ -128,8 +146,16 @@ export function ProductPage({ product, related }: ProductPageProps) {
     [],
   );
 
+  const cartImage =
+    product.images?.[0] ??
+    (galleryViews.find((view) => view.kind === "photo" && view.src)?.src);
+
   const doAdd = (thenCheckout: boolean) => {
-    add(product.slug, selectedColor, qty);
+    add(product.slug, selectedColor, qty, {
+      name: product.name,
+      price: product.price,
+      image: cartImage,
+    });
     trackAddToCart(product.slug, product.name, qty);
     setAdded(true);
     if (addedTimer.current) clearTimeout(addedTimer.current);
@@ -138,6 +164,17 @@ export function ProductPage({ product, related }: ProductPageProps) {
   };
 
   const paragraphs = useMemo(() => product.details.split(/\n\n+/), [product.details]);
+  const activePhotoSrc =
+    galleryViews[activeView]?.kind === "photo" ? galleryViews[activeView].src : undefined;
+
+  const updateZoom = (event: React.MouseEvent<HTMLDivElement>) => {
+    if (!activePhotoSrc) return;
+    const rect = event.currentTarget.getBoundingClientRect();
+    setZoomPos({
+      x: Math.min(100, Math.max(0, ((event.clientX - rect.left) / rect.width) * 100)),
+      y: Math.min(100, Math.max(0, ((event.clientY - rect.top) / rect.height) * 100)),
+    });
+  };
 
   return (
     <div>
@@ -181,7 +218,11 @@ export function ProductPage({ product, related }: ProductPageProps) {
             })}
           </div>
 
-          <div className="group relative aspect-[3/4] flex-1 overflow-hidden rounded-2xl ring-1 ring-line">
+          <div
+            className="group relative aspect-[3/4] flex-1 rounded-2xl ring-1 ring-line"
+            onMouseMove={updateZoom}
+            onMouseLeave={() => setZoomPos(null)}
+          >
             {galleryViews[activeView]?.kind === "photo" && galleryViews[activeView].src ? (
               <Image
                 src={galleryViews[activeView].src!}
@@ -189,15 +230,38 @@ export function ProductPage({ product, related }: ProductPageProps) {
                 fill
                 sizes="(min-width: 1024px) 55vw, 100vw"
                 priority
-                className="object-cover object-top"
+                className="rounded-2xl object-cover object-top"
               />
             ) : galleryViews[activeView]?.spec ? (
               <SareeArt
                 spec={galleryViews[activeView].spec}
                 label={`${product.name} saree at ₹199 — ${selectedColor.toLowerCase()}`}
-                className="absolute inset-0 h-full w-full"
+                className="absolute inset-0 h-full w-full overflow-hidden rounded-2xl"
               />
             ) : null}
+            {activePhotoSrc && (
+              <>
+                {zoomPos && (
+                  <>
+                    <div
+                      className="pointer-events-none absolute z-20 hidden h-36 w-44 -translate-x-1/2 -translate-y-1/2 border border-accent/80 bg-accent/15 shadow-[inset_0_0_0_1px_rgba(246,235,225,0.35)] outline outline-1 outline-dashed outline-[#f6ebe1]/70 md:block"
+                      style={{
+                        left: `${zoomPos.x}%`,
+                        top: `${zoomPos.y}%`,
+                      }}
+                    />
+                    <div
+                      className="pointer-events-none absolute left-[calc(100%+1rem)] top-0 z-40 hidden h-[min(72vh,42rem)] w-[min(48vw,44rem)] overflow-hidden rounded-xl border border-line bg-surface bg-no-repeat shadow-2xl xl:block"
+                      style={{
+                        backgroundImage: `url("${activePhotoSrc}")`,
+                        backgroundSize: "260%",
+                        backgroundPosition: `${zoomPos.x}% ${zoomPos.y}%`,
+                      }}
+                    />
+                  </>
+                )}
+              </>
+            )}
             {galleryViews.length > 1 && (
               <>
                 <button

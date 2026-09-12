@@ -31,9 +31,14 @@ export const KAGGLE_DOWNLOAD_DIR = process.env.TRYON_DOWNLOAD_DIR ?? "D:/TheTant
 
 const KAGGLE_USERNAME = "tanmay94dey";
 
-function run(cmd: string, args: string[], timeoutMs = 120_000): Promise<{ code: number; out: string; err: string }> {
+function run(
+  cmd: string,
+  args: string[],
+  timeoutMs = 120_000,
+  cwd?: string,
+): Promise<{ code: number; out: string; err: string }> {
   return new Promise((resolve) => {
-    const child = spawn(cmd, args, { windowsHide: true, shell: false });
+    const child = spawn(cmd, args, { cwd, windowsHide: true, shell: false });
     let out = "";
     let err = "";
     const timer = setTimeout(() => child.kill("SIGKILL"), timeoutMs);
@@ -50,11 +55,11 @@ function run(cmd: string, args: string[], timeoutMs = 120_000): Promise<{ code: 
   });
 }
 
-async function kaggleCli(args: string[], timeoutMs = 120_000) {
-  const res = await run("kaggle", args, timeoutMs);
+async function kaggleCli(args: string[], timeoutMs = 120_000, cwd?: string) {
+  const res = await run("kaggle", args, timeoutMs, cwd);
   if (res.code !== 0 && /not recognized|ENOENT|No module named/i.test(res.err)) {
     // Windows fallback: python -m kaggle
-    const alt = await run("python", ["-m", "kaggle", ...args], timeoutMs);
+    const alt = await run("python", ["-m", "kaggle", ...args], timeoutMs, cwd);
     return alt;
   }
   return res;
@@ -147,19 +152,39 @@ export async function submitKaggleTryOn(job: KaggleJobInput): Promise<{ ok: bool
         2,
       ),
     );
-    const dsPush = await kaggleCli(["datasets", "version", "-p", KAGGLE_DATASET_DIR, "-m", `job ${job.slug} ${Date.now()}`], 300_000);
+    const dsPush = await kaggleCli(
+      [
+        "datasets",
+        "version",
+        "-p",
+        ".",
+        "-m",
+        `job ${job.slug} ${Date.now()}`,
+        "--dir-mode",
+        "zip",
+      ],
+      300_000,
+      KAGGLE_DATASET_DIR,
+    );
     if (dsPush.code !== 0 && !/already exists|up-to-date|successfully/i.test(dsPush.out + dsPush.err)) {
-      const createRes = await kaggleCli(["datasets", "create", "-p", KAGGLE_DATASET_DIR], 300_000);
+      const createRes = await kaggleCli(["datasets", "create", "-p", "."], 300_000, KAGGLE_DATASET_DIR);
       if (createRes.code !== 0 && !/already exists/i.test(createRes.out + createRes.err)) {
         return { ok: false, error: `dataset push failed: ${(createRes.err || createRes.out).slice(0, 300)}` };
       }
-      const retry = await kaggleCli(["datasets", "version", "-p", KAGGLE_DATASET_DIR, "-m", `job ${job.slug}`], 300_000);
+      const retry = await kaggleCli(
+        ["datasets", "version", "-p", ".", "-m", `job ${job.slug}`, "--dir-mode", "zip"],
+        300_000,
+        KAGGLE_DATASET_DIR,
+      );
       if (retry.code !== 0 && !/successfully|up-to-date/i.test(retry.out + retry.err)) {
         return { ok: false, error: `dataset version failed: ${(retry.err || retry.out).slice(0, 300)}` };
       }
     }
 
-    const push = await kaggleCli(["kernels", "push", "-p", KAGGLE_KERNEL_PATH], 180_000);
+    const push = await kaggleCli(
+      ["kernels", "push", "-p", KAGGLE_KERNEL_PATH, "--timeout", "1200"],
+      180_000,
+    );
     if (push.code !== 0) {
       return { ok: false, error: `kernel push failed: ${(push.err || push.out).slice(0, 300)}` };
     }

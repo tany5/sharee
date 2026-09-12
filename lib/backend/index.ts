@@ -366,6 +366,19 @@ export async function saveMediaFile(file: File): Promise<string> {
   return db.saveMedia(buffer, ext);
 }
 
+/** Delete uploaded product images that are no longer referenced by a product. */
+export async function deleteMediaFiles(urls: string[]): Promise<void> {
+  const unique = [...new Set(urls.map((url) => url.trim()).filter(Boolean))];
+  if (unique.length === 0) return;
+  if (active()) {
+    const mod = await supabaseModule();
+    await Promise.all(unique.map((url) => mod.supabaseDeleteMedia(url)));
+    return;
+  }
+  const db = await demo();
+  unique.forEach((url) => db.deleteMedia(url));
+}
+
 /** Product images served through the demo file route (Supabase has URLs). */
 export function mediaNeedsLocalProxy(): boolean {
   return !active();
@@ -375,6 +388,7 @@ export function mediaNeedsLocalProxy(): boolean {
 
 /** Bootstrap empty catalogues (demo seeds itself; Supabase needs a first run). */
 export async function ensureStoreSeeded(): Promise<void> {
+  if (process.env.DISABLE_STORE_SEED?.trim().toLowerCase() === "true") return;
   if (!active()) return;
   await (await supabaseModule()).supabaseEnsureSeed();
 }

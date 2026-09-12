@@ -30,6 +30,19 @@ function categoryName(slug: string, categories: Category[]): string {
   return categories.find((c) => c.slug === slug)?.name ?? slug;
 }
 
+function formatDateTime(value?: string): string {
+  if (!value) return "Unknown";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "Unknown";
+  return new Intl.DateTimeFormat("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(date);
+}
+
 export function AdminProducts() {
   const router = useRouter();
   const toast = useToast();
@@ -179,6 +192,9 @@ export function AdminProducts() {
                 <p className="mt-0.5 truncate text-xs text-muted">
                   {categoryName(p.category, categories)} · {p.fabric || "Fabric TBD"} ·{" "}
                   {isActiveProduct(p) ? `${p.stock} in stock` : "Not live"}
+                </p>
+                <p className="mt-1 truncate text-[11px] text-muted/80">
+                  Created {formatDateTime(p.createdAt)} · Updated {formatDateTime(p.updatedAt)}
                 </p>
               </div>
 

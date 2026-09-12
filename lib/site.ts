@@ -7,7 +7,7 @@
 export const SITE = {
   /** Working brand name — change in one place. */
   name: "TheTanti",
-  legalName: "TheTanti Sarees Pvt. Ltd.",
+  legalName: "THETANTI",
   tagline: "All Sarees ₹199",
   promise: "Beautiful sarees. One simple price.",
 
@@ -22,19 +22,18 @@ export const SITE = {
   announcementMain: "ALL SAREES ₹199",
   announcementSub: "FREE SHIPPING OVER ₹999",
 
-  email: "hello@thetanti.in",
-  phone: "+91 98765 43210",
-  instagramHandle: "@thetantisarees",
-  address: "Sireh Deori Bazaar, Jaipur, Rajasthan 302003, India",
+  email: "info@thetanti.com",
+  phone: "+91 79804 29183",
+  instagramHandle: "@theta.nti",
+  instagramUrl: "https://www.instagram.com/theta.nti/",
+  facebookUrl: "https://www.facebook.com/profile.php?id=61593967300734",
+  address: "Chakpara Dagabagan, Liluah, Howrah 711204, West Bengal, India",
 
   /** Used for canonical URLs / sitemap. Override with NEXT_PUBLIC_SITE_URL in prod. */
   get url() {
-    return (
-      process.env.NEXT_PUBLIC_SITE_URL ??
-      process.env.VERCEL_URL
-        ? `https://${process.env.VERCEL_URL}`
-        : "http://localhost:3000"
-    );
+    if (process.env.NEXT_PUBLIC_SITE_URL) return process.env.NEXT_PUBLIC_SITE_URL;
+    if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`;
+    return "https://www.thetanti.shop";
   },
 } as const;
 

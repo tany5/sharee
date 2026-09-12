@@ -9,6 +9,7 @@ import {
   Loader2,
   Save,
   Tags,
+  Trash2,
   Upload,
   X,
 } from "lucide-react";
@@ -48,6 +49,13 @@ interface Draft {
   tagsText: string;
   featured: boolean;
 }
+
+interface PendingUpload {
+  previewUrl: string;
+  file: File;
+}
+
+const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
 
 const EMPTY: Draft = {
   name: "",
@@ -107,11 +115,15 @@ export function ProductEditor({ slug }: { slug?: string }) {
   const [missing, setMissing] = useState(false);
   const [slugTouched, setSlugTouched] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [aiBusy, setAiBusy] = useState(false);
   const [aiProgress, setAiProgress] = useState<{ done: number; total: number } | null>(null);
   const [garmentSource, setGarmentSource] = useState<string | null>(null);
   const [hasAiRenders, setHasAiRenders] = useState(false);
+  const [pendingUploads, setPendingUploads] = useState<PendingUpload[]>([]);
+  const [removedImageUrls, setRemovedImageUrls] = useState<string[]>([]);
   const aiPhotoUrlsRef = useRef<string[]>([]);
+  const pendingUploadsRef = useRef<PendingUpload[]>([]);
   const autoStartedRef = useRef(false);
   const [error, setError] = useState<string | null>(null);
   const aiPhotoTotal = 4;
@@ -145,6 +157,8 @@ export function ProductEditor({ slug }: { slug?: string }) {
         if (marketing.tryOn?.imageUrl) generatedUrls.add(marketing.tryOn.imageUrl);
         setDraft(toDraft(row));
         setImages(row.images ?? []);
+        setPendingUploads([]);
+        setRemovedImageUrls([]);
         setHasAiRenders(Boolean(marketing.tryOn?.renders?.length));
         setGarmentSource(
           marketing.tryOn?.garmentUrl ??
@@ -174,34 +188,63 @@ export function ProductEditor({ slug }: { slug?: string }) {
     return { cost: validCost, pct: price > 0 ? Math.round(((price - validCost) / price) * 100) : 0 };
   }, [draft.price, draft.cost]);
 
-  const upload = async (files: FileList | null) => {
+  useEffect(() => {
+    pendingUploadsRef.current = pendingUploads;
+  }, [pendingUploads]);
+
+  useEffect(() => {
+    return () => {
+      pendingUploadsRef.current.forEach((pending) => URL.revokeObjectURL(pending.previewUrl));
+    };
+  }, []);
+
+  const uploadMediaFile = async (file: File): Promise<string> => {
+    const form = new FormData();
+    form.append("file", file);
+    const res = await fetch("/api/admin/media", { method: "POST", body: form });
+    const data = (await res.json()) as { ok: boolean; url?: string; error?: string };
+    if (!res.ok || !data.ok || !data.url) throw new Error(data.error ?? "Upload failed");
+    return data.url;
+  };
+
+  const upload = (files: FileList | null) => {
     if (!files || files.length === 0) return;
     const file = files[0];
     if (!file.type.startsWith("image/")) {
       setError("Please choose an image file (JPG, PNG or WebP)");
       return;
     }
-    setBusy(true);
+    if (file.size === 0 || file.size > MAX_IMAGE_BYTES) {
+      setError("File must be under 8 MB");
+      return;
+    }
     setError(null);
-    try {
-      const form = new FormData();
-      form.append("file", file);
-      const res = await fetch("/api/admin/media", { method: "POST", body: form });
-      const data = (await res.json()) as { ok: boolean; url?: string; error?: string };
-      if (!res.ok || !data.ok || !data.url) throw new Error(data.error ?? "Upload failed");
-      setImages((prev) => (prev.length >= 6 ? [...prev.slice(0, 5), data.url!] : [...prev, data.url!]));
-      setGarmentSource((prev) => prev ?? data.url!);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Upload failed");
-    } finally {
-      setBusy(false);
+    const previewUrl = URL.createObjectURL(file);
+    setPendingUploads((prev) => [...prev, { previewUrl, file }]);
+    setImages((prev) => (prev.length >= 6 ? [...prev.slice(0, 5), previewUrl] : [...prev, previewUrl]));
+    setGarmentSource((prev) => prev ?? previewUrl);
+  };
+
+  const removePhoto = (url: string) => {
+    setImages((prev) => {
+      const next = prev.filter((u) => u !== url);
+      setGarmentSource((current) => (current === url ? next[0] ?? null : current));
+      return next;
+    });
+    setPendingUploads((prev) => {
+      const pending = prev.find((item) => item.previewUrl === url);
+      if (pending) URL.revokeObjectURL(pending.previewUrl);
+      return prev.filter((item) => item.previewUrl !== url);
+    });
+    if (!url.startsWith("blob:")) {
+      setRemovedImageUrls((prev) => (prev.includes(url) ? prev : [...prev, url]));
     }
   };
 
   /**
-   * Resumable generation loop: each POST generates the still-missing poses it
-   * can within its time budget and persists them immediately; we keep calling
-   * until all four are done. Partial progress is never lost.
+   * Resumable generation loop: each POST generates only missing poses and
+   * persists partial progress immediately. To replace a bad render, remove it
+   * from the product, save, then run generation again.
    */
   const runGeneration = async () => {
     const source = garmentSource;
@@ -211,13 +254,18 @@ export function ProductEditor({ slug }: { slug?: string }) {
       toast.error(msg);
       return;
     }
+    if (source.startsWith("blob:")) {
+      const msg = "Save the saree first, then generate model photos";
+      setError(msg);
+      toast.error(msg);
+      return;
+    }
     setAiBusy(true);
     setError(null);
     setAiProgress({ done: 0, total: aiPhotoTotal });
-    const force = hasAiRenders;
     let landed = 0;
     try {
-      for (let round = 0; round < 40; round++) {
+      for (let round = 0; round < 1; round++) {
         const res = await fetch("/api/admin/products/generate-photos", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -225,7 +273,7 @@ export function ProductEditor({ slug }: { slug?: string }) {
             garmentUrl: source,
             name: draft.name.trim() || "Saree",
             slug: slugify(draft.slug || draft.name || "saree"),
-            force: round === 0 && force,
+            force: false,
           }),
         });
         const data = (await res.json()) as {
@@ -233,6 +281,7 @@ export function ProductEditor({ slug }: { slug?: string }) {
           urls?: string[];
           done?: boolean;
           remaining?: string[];
+          images?: string[];
           error?: string;
           /** Kaggle FLUX.2 job queued/running — the next round polls it. */
           pending?: boolean;
@@ -248,14 +297,21 @@ export function ProductEditor({ slug }: { slug?: string }) {
           });
           setHasAiRenders(true);
         }
-        if (data.pending && generated.length === 0) {
-          // Kaggle job is queued/running on the free cloud GPU. Wait and poll;
-          // the job renders all poses in one session and lands together.
-          toast.info("Kaggle GPU job running — photos land in a few minutes…", {
-            duration: 4000,
+        if (data.images && data.images.length > 0) {
+          setImages(data.images);
+          setGarmentSource((current) => {
+            if (current && data.images!.includes(current)) return current;
+            return data.images![0] ?? null;
           });
-          await new Promise((r) => setTimeout(r, 20_000));
-          continue;
+        }
+        if (data.pending && generated.length === 0) {
+          // Kaggle jobs can spend a long time installing/loading FLUX. Do not
+          // keep the editor trapped in a polling loop; the next click collects
+          // completed outputs.
+          const msg = "Kaggle FLUX job is still running. You can leave this page and click Generate again later to collect the photos.";
+          setError(msg);
+          toast.info(msg, { duration: 9000 });
+          break;
         }
         if (!res.ok || (!data.ok && generated.length === 0)) {
           throw new Error(data.error ?? "Could not generate model photos");
@@ -320,6 +376,31 @@ export function ProductEditor({ slug }: { slug?: string }) {
       toast.error("Choose a valid product slug");
       return;
     }
+    let finalImages = images;
+    const uploaded = new Map<string, string>();
+
+    setBusy(true);
+    try {
+      for (const pending of pendingUploads) {
+        const url = await uploadMediaFile(pending.file);
+        uploaded.set(pending.previewUrl, url);
+        URL.revokeObjectURL(pending.previewUrl);
+      }
+      finalImages = images
+        .map((url) => uploaded.get(url) ?? url)
+        .filter((url) => !url.startsWith("blob:"));
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Upload failed";
+      setError(message);
+      toast.error(message);
+      setBusy(false);
+      return;
+    }
+
+    const finalGarmentSource = garmentSource
+      ? uploaded.get(garmentSource) ?? garmentSource
+      : finalImages[0] ?? null;
+
     const body: Record<string, unknown> = {
       name: draft.name.trim(),
       slug: slugify(draft.slug || draft.name),
@@ -343,10 +424,10 @@ export function ProductEditor({ slug }: { slug?: string }) {
         .map((s) => s.trim().toLowerCase())
         .filter(Boolean),
       featured: draft.featured,
-      images,
+      images: finalImages,
+      removedImages: removedImageUrls,
     };
 
-    setBusy(true);
     try {
       const res = await fetch(
         editing ? `/api/admin/products/${slug}` : "/api/admin/products",
@@ -363,10 +444,14 @@ export function ProductEditor({ slug }: { slug?: string }) {
       };
       if (!res.ok || !data.ok) throw new Error(data.error ?? "Could not save");
       toast.success(editing ? "Product updated." : "Product created.");
+      setImages(finalImages);
+      setGarmentSource(finalGarmentSource && !finalGarmentSource.startsWith("blob:") ? finalGarmentSource : finalImages[0] ?? null);
+      setPendingUploads([]);
+      setRemovedImageUrls([]);
       router.refresh();
       if (!editing) {
-        // The new edit page auto-starts AI model-photo generation (?generate=1).
-        const wantsPhotos = garmentSource !== null || images.length > 0;
+        // The new edit page auto-starts catalogue photo generation (?generate=1).
+        const wantsPhotos = finalImages.length > 0;
         router.replace(
           `/admin/products/${data.product!.slug}${wantsPhotos ? "?generate=1" : ""}`,
         );
@@ -379,6 +464,26 @@ export function ProductEditor({ slug }: { slug?: string }) {
       return;
     }
     setBusy(false);
+  };
+
+  const deleteCurrentProduct = async () => {
+    if (!editing || !slug) return;
+    if (!window.confirm(`Delete "${draft.name || slug}"? It will be hidden from the store.`)) return;
+    setDeleting(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/admin/products/${slug}`, { method: "DELETE" });
+      const data = (await res.json()) as { ok: boolean; error?: string };
+      if (!res.ok || !data.ok) throw new Error(data.error ?? "Could not delete the product");
+      toast.success(`"${draft.name || slug}" deleted.`);
+      router.push("/admin/products");
+      router.refresh();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Could not delete the product";
+      setError(message);
+      toast.error(message);
+      setDeleting(false);
+    }
   };
 
   /* ------------------------------ states ------------------------------ */
@@ -420,14 +525,26 @@ export function ProductEditor({ slug }: { slug?: string }) {
         title={editing ? "Edit saree" : "Add a saree"}
         sub={editing ? `/${draft.slug}` : "New catalogue item — it stays a draft until you make it live."}
         action={
-          <div className="flex gap-2">
+          <div className="flex flex-wrap justify-end gap-2">
+            {editing && (
+              <Button
+                type="button"
+                variant="outline"
+                disabled={busy || aiBusy || deleting}
+                onClick={deleteCurrentProduct}
+                className="border-danger/40 text-danger hover:bg-danger/10"
+              >
+                {deleting ? <Loader2 size={16} className="animate-spin" /> : <Trash2 size={16} />}
+                Delete
+              </Button>
+            )}
             <Link
               href="/admin/products"
               className="inline-flex h-11 items-center gap-1.5 rounded-full border border-accent/50 px-4 text-sm font-semibold text-ink transition-colors hover:bg-accent/10"
             >
               <ArrowLeft size={15} /> Cancel
             </Link>
-            <Button type="submit" size="md" disabled={busy}>
+            <Button type="submit" size="md" disabled={busy || deleting}>
               {busy ? (
                 <Loader2 size={16} className="animate-spin" />
               ) : (
@@ -574,21 +691,18 @@ export function ProductEditor({ slug }: { slug?: string }) {
             <div className="flex flex-wrap items-start gap-3">
               {images.map((url) => (
                 <div key={url} className="group relative">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={url}
-                    alt="Product photo"
-                    className="h-24 w-20 rounded-lg border border-line object-cover"
-                  />
+                  <a href={url} target="_blank" rel="noreferrer" title="Open photo in new tab">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={url}
+                      alt="Product photo"
+                      className="h-24 w-20 rounded-lg border border-line object-cover transition-opacity hover:opacity-85"
+                    />
+                  </a>
                   <button
                     type="button"
                     aria-label="Remove photo"
-                    onClick={() => {
-                      setImages((prev) => prev.filter((u) => u !== url));
-                      if (garmentSource === url) {
-                        setGarmentSource(images.find((u) => u !== url) ?? null);
-                      }
-                    }}
+                    onClick={() => removePhoto(url)}
                     className="absolute -right-2 -top-2 flex h-6 w-6 items-center justify-center rounded-full bg-ink text-btntext shadow transition-transform hover:scale-110"
                   >
                     <X size={13} />
@@ -626,13 +740,13 @@ export function ProductEditor({ slug }: { slug?: string }) {
                 {aiBusy
                   ? `Generating photo ${aiProgress ? Math.min(aiProgress.done + 1, aiProgress.total) : 1} of ${aiProgress?.total ?? 3}…`
                   : hasAiRenders
-                    ? "Regenerate model photos"
+                    ? "Generate missing photos"
                     : "Generate model photos (front · side · back · full)"}
               </Button>
               <p className="text-xs leading-5 text-muted">
                 {aiBusy
-                  ? "AI model photoshoot running on the local GPU — 1–3 min per photo, previews appear as each finishes."
-                  : "One consistent AI model drapes your saree in four full-body views with a matching blouse. Photos save with the product; safe to leave and retry — finished ones are kept."}
+                  ? "Catalogue photoshoot running — previews appear as each photo finishes."
+                  : "Finished photos are reused to avoid extra image calls. To replace a bad photo, delete it, save, then generate again."}
               </p>
             </div>
           </section>
@@ -762,7 +876,7 @@ export function ProductEditor({ slug }: { slug?: string }) {
         <Button variant="outline" onClick={() => router.push("/admin/products")}>
           Cancel
         </Button>
-        <Button type="submit" disabled={busy} size="lg">
+        <Button type="submit" disabled={busy || deleting} size="lg">
           {busy ? <Loader2 size={17} className="animate-spin" /> : <Save size={17} />}
           {editing ? "Save changes" : "Create saree & AI photos"}
         </Button>

@@ -18,6 +18,7 @@ import { trackPurchase } from "@/lib/analytics";
 import { ButtonLink, EmptyState } from "@/components/ui";
 import { WornThumb } from "@/components/product/worn-image";
 import { formatDate, formatINR } from "@/lib/format";
+import { SITE } from "@/lib/site";
 import type { Order } from "@/lib/types";
 
 function StatusPill({ order }: { order: Order }) {
@@ -295,10 +296,10 @@ export function OrderSuccessView({ id }: { id: string }) {
         </div>
         <p className="text-center text-xs leading-5 text-muted">
           Questions about your order? Write to us at{" "}
-          <a className="text-accent underline" href="mailto:hello@thetanti.in">
-            hello@thetanti.in
+          <a className="text-accent underline" href={`mailto:${SITE.email}`}>
+            {SITE.email}
           </a>{" "}
-          or WhatsApp us on +91 98765 43210.
+          or WhatsApp us on {SITE.phone}.
         </p>
       </div>
     </div>

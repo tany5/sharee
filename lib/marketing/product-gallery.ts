@@ -2,6 +2,7 @@ import "server-only";
 import { baseModels, pipelineProduct } from "@/lib/marketing/store";
 import { loadPipelineSecrets } from "@/lib/marketing/secrets";
 import { pickRandomBaseModel, runTryOn, type TryOnPose } from "@/lib/marketing/tryon";
+import { runQwenImageEdit } from "@/lib/marketing/qwen";
 import {
   submitKaggleTryOn,
   kaggleRunStatus,
@@ -34,9 +35,14 @@ type ModelPoseSet = {
 
 const TRY_ON_POSES: TryOnPose[] = ["front", "side", "back"];
 const ALL_POSES: GalleryPose[] = [...TRY_ON_POSES, "full_saree"];
+const KAGGLE_TRY_ON_POSES = new Set<GalleryPose>(TRY_ON_POSES);
+const KAGGLE_MAX_POSES_PER_RUN =
+  Number(process.env.TRYON_KAGGLE_MAX_POSES_PER_RUN ?? 1) || 1;
 const DEFAULT_BUDGET_MS = 55_000;
 /** One local-GPU pose takes ~1-3 min; the route runs on the local Node server. */
 const LOCAL_BUDGET_MS = 7 * 60_000;
+const MAX_KAGGLE_PENDING_MS =
+  Number(process.env.TRYON_KAGGLE_MAX_PENDING_MS ?? 12 * 60_000) || 12 * 60_000;
 const MAX_PRODUCT_IMAGES = 8;
 const LOCAL_DOWNLOAD_DIR =
   process.env.TRYON_DOWNLOAD_DIR ?? "D:/TheTanti-AI/generated/tryon-downloads";
@@ -144,7 +150,20 @@ function mergeImages(current: string[], additions: string[]): string[] {
     out.push(url);
     if (out.length >= MAX_PRODUCT_IMAGES) break;
   }
-  return out;
+  return sortGalleryImages(out).slice(0, MAX_PRODUCT_IMAGES);
+}
+
+function imagePoseRank(url: string): number {
+  const text = url.toLowerCase();
+  if (/(^|[-_/])front[-_/.]/.test(text)) return 0;
+  if (/(^|[-_/])side[-_/.]/.test(text)) return 1;
+  if (/(^|[-_/])back[-_/.]/.test(text)) return 2;
+  if (/(^|[-_/])full[-_]?saree[-_/.]/.test(text)) return 3;
+  return 4;
+}
+
+function sortGalleryImages(images: string[]): string[] {
+  return [...images].sort((a, b) => imagePoseRank(a) - imagePoseRank(b));
 }
 
 /** Persist gallery images + the marketing blob without touching db_status. */
@@ -211,7 +230,6 @@ function selectModelSet(
   existingModelId?: string,
 ): ModelPoseSet | undefined {
   if (models.length === 0) return undefined;
-  const preferredModelId = process.env.TRYON_BASE_MODEL_ID?.trim();
   const groups = new Map<string, ModelPoseSet>();
   for (const model of models) {
     const groupId = modelGroupId(model);
@@ -219,12 +237,6 @@ function selectModelSet(
     const tag = poseTag(model);
     if (tag) set.byPose[tag] = model;
     groups.set(groupId, set);
-  }
-
-  if (preferredModelId) {
-    const preferred = models.find((model) => model.id === preferredModelId);
-    const preferredSet = preferred ? groups.get(modelGroupId(preferred)) : groups.get(preferredModelId);
-    if (preferredSet) return preferredSet;
   }
 
   if (existingModelId) {
@@ -315,22 +327,17 @@ async function downloadImageToFile(url: string, name: string): Promise<string | 
 
 async function renderFullSareeCatalogueImage(
   garmentUrl: string,
-  productName: string,
+  _productName: string,
 ): Promise<Buffer> {
   const sharp = (await import("sharp")).default;
   const { bytes } = await fetchImageBytes(garmentUrl);
   const width = 768;
   const height = 1024;
-  const title = productName
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .slice(0, 34);
-  const overlay = Buffer.from(`
-    <svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" xmlns="http://www.w3.org/2000/svg">
-      <rect x="0" y="${height - 118}" width="${width}" height="118" fill="#1c0d05" opacity="0.72"/>
-      <text x="${width / 2}" y="${height - 68}" text-anchor="middle" font-family="Georgia, serif" font-size="33" font-weight="700" fill="#ffffff">${title}</text>
-      <text x="${width / 2}" y="${height - 30}" text-anchor="middle" font-family="Arial, sans-serif" font-size="22" fill="#f6ebe1">Full saree view</text>
+  const path = await import("node:path");
+  const logoPath = path.resolve(process.cwd(), "public", "logo", "logo.png");
+  const brandBadge = Buffer.from(`
+    <svg width="188" height="58" viewBox="0 0 188 58" xmlns="http://www.w3.org/2000/svg">
+      <rect x="0" y="0" width="188" height="58" rx="0" fill="#f6ebe1" opacity="0.92"/>
     </svg>
   `);
 
@@ -346,16 +353,21 @@ async function renderFullSareeCatalogueImage(
       {
         input: await sharp(bytes)
           .rotate()
-          .resize(width - 88, height - 166, {
+          .resize(width - 88, height - 88, {
             fit: "contain",
             background: { r: 246, g: 235, b: 225, alpha: 0 },
           })
           .png()
           .toBuffer(),
         left: 44,
-        top: 28,
+        top: 44,
       },
-      { input: overlay, left: 0, top: 0 },
+      { input: brandBadge, left: width - 220, top: height - 96 },
+      {
+        input: await sharp(logoPath).resize(148, 46, { fit: "contain" }).png().toBuffer(),
+        left: width - 200,
+        top: height - 90,
+      },
     ])
     .jpeg({ quality: 90, mozjpeg: true })
     .toBuffer();
@@ -391,21 +403,41 @@ export async function generateProductTryOnGallery({
   if (!garment) throw new Error("Upload a saree photo first");
 
   const secrets = await loadPipelineSecrets();
+  const tryOnProvider = (process.env.TRYON_PROVIDER ?? "kaggle").trim().toLowerCase();
+  const useQwenProvider = ["qwen", "dashscope", "local-first", "local-first-qwen"].includes(
+    tryOnProvider,
+  );
   const configuredTryOnUrl = secrets.localTryOnUrl?.trim();
-  const useExternalTryOn = Boolean(configuredTryOnUrl && !isTheTantiLocalEngine(configuredTryOnUrl));
-  const useLocalEngine = !useExternalTryOn && (await engineHealthy());
+  const useLegacyVtonFallback = process.env.TRYON_ENABLE_LEGACY_VTON?.trim().toLowerCase() === "true";
+  const useLocalEngineFallback = process.env.TRYON_ENABLE_LOCAL_ENGINE?.trim().toLowerCase() === "true";
+  const useExternalTryOn = Boolean(
+    useLegacyVtonFallback &&
+      configuredTryOnUrl &&
+      !isTheTantiLocalEngine(configuredTryOnUrl),
+  );
+  const useLocalEngine =
+    useLocalEngineFallback && !useExternalTryOn && (await engineHealthy());
+  let error: string | undefined;
 
   // ---- Kaggle FLUX.2 path (free cloud GPU, async job) ----
   // Priority: collect a finished run → report a running one → submit a new one.
-  // Falls back to the local engine below on any Kaggle failure.
-  const kaggleState = storedMarketing.tryOn?.kaggle;
-  if (kaggleState && !kaggleState.error) {
+  // Falls back to the local engine below on any Kaggle failure. Legacy HF/VTON
+  // providers are opt-in only; they do not understand sarees well enough for
+  // the product gallery and can hide the real FLUX retry path behind quota
+  // errors.
+  const kaggleState = marketing.tryOn?.kaggle;
+  if (!useQwenProvider && kaggleState && !kaggleState.error) {
     const { state } = await kaggleRunStatus();
+    const submittedAtMs = Date.parse(kaggleState.submittedAt);
+    const isStale =
+      Number.isFinite(submittedAtMs) && Date.now() - submittedAtMs > MAX_KAGGLE_PENDING_MS;
     if (state === "COMPLETE") {
-      const wanted = remaining.filter((p): p is KagglePose => true);
+      const wanted = remaining.filter((p): p is KagglePose => KAGGLE_TRY_ON_POSES.has(p));
       const kaggleUrls: string[] = [];
-      const outputs = await fetchKaggleOutputs(slug, wanted.length ? wanted : ["front"]);
+      const outputs: Partial<Record<KagglePose, string>> =
+        wanted.length > 0 ? await fetchKaggleOutputs(slug, wanted) : {};
       const fs = await import("node:fs");
+      const selectedModelId = marketing.tryOn?.modelId ?? "kaggle-flux2";
       for (const pose of wanted) {
         const file = outputs[pose];
         if (!file) continue;
@@ -422,7 +454,7 @@ export async function generateProductTryOnGallery({
             imageUrl: stored.url,
             storagePath: stored.storagePath,
             localFile: file,
-            modelId: "kaggle-flux2",
+            modelId: selectedModelId,
             provider: "kaggle-flux2",
           });
           kaggleUrls.push(stored.url);
@@ -437,7 +469,7 @@ export async function generateProductTryOnGallery({
             ...(marketing.tryOn ?? {}),
             imageUrl: landed[0]?.imageUrl,
             garmentUrl: garment,
-            modelId: "kaggle-flux2",
+            modelId: selectedModelId,
             provider: "kaggle-flux2",
             kaggle: undefined,
             renders: [...landed],
@@ -452,11 +484,45 @@ export async function generateProductTryOnGallery({
           provider: "kaggle-flux2",
         };
       }
-      // Outputs missing → treat as failed and fall through to local.
+      // Outputs missing usually means Kaggle ran against a stale input dataset.
+      // Do not silently fall back to another model; that makes the admin think
+      // the result came from FLUX when it did not.
       storedMarketing.tryOn = { ...storedMarketing.tryOn, kaggle: { submittedAt: kaggleState.submittedAt, error: "run completed but no outputs downloaded" } };
+      return {
+        urls: [],
+        done: ALL_POSES.filter((p) => landedKinds.has(p)),
+        remaining,
+        error: "Kaggle FLUX completed but did not return matching product outputs. Click Generate again to submit a fresh FLUX job.",
+        provider: "kaggle-flux2",
+      };
     } else if (state === "ERROR" || state === "CANCEL_ACKNOWLEDGED") {
       storedMarketing.tryOn = { ...storedMarketing.tryOn, kaggle: { submittedAt: kaggleState.submittedAt, error: `kaggle run ${state}` } };
-      // fall through to the local engine
+      return {
+        urls: [],
+        done: ALL_POSES.filter((p) => landedKinds.has(p)),
+        remaining,
+        error: `Kaggle FLUX run failed with state ${state}. Click Generate again to submit a fresh FLUX job.`,
+        provider: "kaggle-flux2",
+      };
+    } else if (isStale && (state === "QUEUED" || state === "RUNNING" || state === "NO_SESSION")) {
+      const message =
+        "Kaggle FLUX job is taking too long and produced no outputs. The Kaggle runner is likely stuck before image generation; click Generate again to submit a fresh job.";
+      const nextMarketing: MarketingData = {
+        ...marketing,
+        tryOn: {
+          ...(marketing.tryOn ?? {}),
+          garmentUrl: garment,
+          kaggle: { submittedAt: kaggleState.submittedAt, state, error: message },
+        },
+      };
+      await persistGallery(slug, baseImages, nextMarketing);
+      return {
+        urls: [],
+        done: ALL_POSES.filter((p) => landedKinds.has(p)),
+        remaining,
+        error: message,
+        provider: "kaggle-flux2",
+      };
     } else if (state === "QUEUED" || state === "RUNNING" || state === "NO_SESSION") {
       return {
         urls: [],
@@ -470,26 +536,28 @@ export async function generateProductTryOnGallery({
 
   // Try submitting a fresh Kaggle job when the CLI is available and there is
   // no previous attempt for this product (retries = press Generate again).
-  if (!kaggleState && !process.env.TRYON_MOCK && (await kaggleAvailable())) {
+  const canSubmitFreshKaggle = !kaggleState || Boolean(kaggleState.error);
+  if (!useQwenProvider && canSubmitFreshKaggle && !process.env.TRYON_MOCK && (await kaggleAvailable())) {
     const person = await (async () => {
       const models = await baseModels();
       if (models.length === 0) return undefined;
-      const envPreferred = process.env.TRYON_BASE_MODEL_ID?.trim();
-      const pick =
-        models.find((m) => m.id === envPreferred) ??
-        models.find((m) => m.id === marketing.tryOn?.modelId) ??
-        models[0];
+      const modelSet = selectModelSet(models, slug, marketing.tryOn?.modelId);
+      const pick = modelSet ? modelForPose(modelSet, "front") : undefined;
+      if (!pick) return undefined;
       const file = await downloadImageToFile(pick.imageUrl, "person.png");
       return file ? { id: pick.id, file } : undefined;
     })();
     if (person) {
       const garmentFile = await downloadImageToFile(garment, "saree.jpg");
-      if (garmentFile) {
+      const kagglePoses = remaining
+        .filter((p): p is KagglePose => KAGGLE_TRY_ON_POSES.has(p))
+        .slice(0, KAGGLE_MAX_POSES_PER_RUN);
+      if (garmentFile && kagglePoses.length > 0) {
         const submit = await submitKaggleTryOn({
           slug,
           personImagePath: person.file,
           sareeImagePath: garmentFile,
-          poses: remaining.filter((p): p is KagglePose => true),
+          poses: kagglePoses,
           colorHint: row.colorway,
           fabric: row.fabric,
           productName: name ?? row.name,
@@ -513,13 +581,15 @@ export async function generateProductTryOnGallery({
             pending: true,
           };
         }
+        error = submit.error ?? "Kaggle FLUX job could not be submitted";
       }
     }
   }
   let models: Awaited<ReturnType<typeof baseModels>> = [];
   let modelSet: ModelPoseSet | undefined;
-  if (!useLocalEngine) {
-    // HF try-on path needs a base model + secrets; the local engine does not.
+  if (!useLocalEngine && (useLegacyVtonFallback || useQwenProvider)) {
+    // Remote try-on/image-edit paths need a base model + garment reference;
+    // the local engine creates its own model and does not.
     models = await baseModels();
     // Keep the same model across poses (one consistent photoshoot, like a real
     // catalogue); fall back to a random pick for fresh products.
@@ -530,12 +600,17 @@ export async function generateProductTryOnGallery({
   const startedAt = Date.now();
   const budget = useLocalEngine ? Math.max(timeBudgetMs, LOCAL_BUDGET_MS) : timeBudgetMs;
   let provider: string | undefined;
-  let error: string | undefined;
 
   for (const pose of remaining) {
     if (urls.length > 0 && Date.now() - startedAt > budget) break;
     try {
-      const result = useLocalEngine
+      const result = pose === "full_saree"
+        ? {
+            bytes: await renderFullSareeCatalogueImage(garment, name ?? row.name),
+            contentType: "image/jpeg",
+            provider: "local-fabric",
+          }
+        : useLocalEngine
         ? await generateLocalEnginePose({
             slug,
             pose,
@@ -544,13 +619,16 @@ export async function generateProductTryOnGallery({
             fabric: row.fabric,
             garmentUrl: garment,
           })
-        : pose === "full_saree" && !useExternalTryOn
-          ? {
-              bytes: await renderFullSareeCatalogueImage(garment, name ?? row.name),
-              contentType: "image/jpeg",
-              provider: "local-fabric",
-            }
-          : await runTryOn({
+        : useQwenProvider
+        ? await runQwenImageEdit({
+            apiKey: secrets.qwenKey,
+            modelUrl: modelForPose(modelSet!, pose).imageUrl,
+            garmentUrl: garment,
+            productName: name ?? row.name,
+            pose,
+          })
+        : useLegacyVtonFallback
+        ? await runTryOn({
               modelUrl: modelForPose(modelSet!, pose).imageUrl,
               garmentUrl: garment,
               productName: name ?? row.name,
@@ -561,7 +639,13 @@ export async function generateProductTryOnGallery({
                 hfToken: secrets.hfToken,
               },
               allowMock: false,
-            });
+            })
+        : (() => {
+            throw new Error(
+              error ??
+                "Kaggle FLUX is not running yet. Check Kaggle credentials/GPU, then click Generate model photos again.",
+            );
+          })();
       provider = result.provider;
       const ext = result.contentType.includes("png")
         ? "png"
@@ -588,7 +672,7 @@ export async function generateProductTryOnGallery({
         localFile,
         modelId: useLocalEngine
           ? `engine-seed-${(result as { seed?: number }).seed ?? 0}`
-          : modelSet!.groupId,
+          : modelSet?.groupId ?? result.provider,
         provider: result.provider,
       });
       urls.push(stored.url);
@@ -602,7 +686,7 @@ export async function generateProductTryOnGallery({
           garmentUrl: garment,
           modelId: useLocalEngine
             ? `engine-seed-${(result as { seed?: number }).seed ?? 0}`
-            : modelSet!.groupId,
+            : modelSet?.groupId ?? result.provider,
           provider: result.provider,
           renders: [...landed],
         },

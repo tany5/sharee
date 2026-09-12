@@ -30,7 +30,7 @@ const VALUES = [
   {
     Icon: HeartHandshake,
     t: "You first, always",
-    s: "7-day easy returns, responsive support on call or WhatsApp, and fast delivery from our Jaipur hub.",
+    s: "7-day easy returns, responsive support on call or WhatsApp, and fast delivery from our Howrah hub.",
   },
 ];
 
@@ -45,7 +45,7 @@ export default function AboutPage() {
         <p>
           Every saree we sell is designed in-house, sourced directly from
           weavers and textile hubs across India, and quality checked at our
-          Jaipur fulfilment centre before it reaches you. Because we keep one
+          Howrah fulfilment centre before it reaches you. Because we keep one
           stock-keeping price for everything, our buying, packing and logistics
           stay simple — and that simplicity is exactly what lets us sell at a
           price that feels almost unfair.

@@ -15,15 +15,17 @@ export function WornThumb({
   colorway,
   category,
   name,
+  image,
   className,
 }: {
   slug: string;
   colorway?: string;
   category?: string;
   name?: string;
+  image?: string;
   className?: string;
 }) {
-  const photo = productPhotoThumb(slug);
+  const photo = image ?? productPhotoThumb(slug);
   const label = `${name ?? "Saree"} at ₹199`;
   if (photo) {
     return (

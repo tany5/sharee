@@ -169,14 +169,14 @@ describe("copy generation", () => {
       images: [],
     },
     marketing: base(),
-    siteUrl: "https://thetanti.in",
+    siteUrl: "https://www.thetanti.shop",
   };
 
   it("parses a clean JSON reply", () => {
     const reply = JSON.stringify({
       headline: "Roz ki comfort, sirf ₹199",
       bullets: ["Soft cotton", "Breathable", "COD available"],
-      cta: "Order kariye: https://thetanti.in/sarees/soft-cotton-saree",
+      cta: "Order kariye: https://www.thetanti.shop/sarees/soft-cotton-saree",
       hashtags: ["#SareeLove", "#DailyWear", "#CottonSaree", "#Saree199", "#TheTanti"],
       language: "hinglish",
     });
@@ -209,7 +209,7 @@ describe("copy generation", () => {
   it("template fallback keeps the tone + price contract", () => {
     const copy = fallbackCopy(ctx, "hinglish");
     expect(copy.headline).toContain("₹199");
-    expect(copy.cta).toContain("https://thetanti.in/sarees/soft-cotton-saree");
+    expect(copy.cta).toContain("https://www.thetanti.shop/sarees/soft-cotton-saree");
     expect(copy.hashtags).toHaveLength(5);
     const caption = copyToCaption(copy);
     expect(caption).toContain("•");

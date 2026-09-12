@@ -32,10 +32,10 @@ function TagBadge({ tag }: { tag: string }) {
   return (
     <span
       className={cx(
-        "rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.14em]",
+        "rounded-pill px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.14em]",
         isNew
-          ? "bg-[#5d350e]/90 text-[#f6ebd9]"
-          : "bg-[#878a5d]/90 text-[#fffdf6]",
+          ? "bg-accent text-white"
+          : "border border-bronze/40 bg-surface/90 text-bronze backdrop-blur",
       )}
     >
       {tag === "new" ? "New" : "Bestseller"}
@@ -118,13 +118,13 @@ export function ProductCard({ product }: { product: ProductCardData }) {
   }
 
   return (
-    <div className="group relative">
+    <div className="group relative overflow-hidden rounded-card border border-line bg-surface transition-colors duration-300 hover:border-accent/40">
       <Link
         href={`/sarees/${product.slug}`}
         className="block focus:outline-none"
         aria-label={product.name}
       >
-        <div className="relative aspect-[3/4] overflow-hidden rounded-2xl ring-1 ring-line/80 transition-shadow group-hover:shadow-lg group-hover:shadow-ink/10">
+        <div className="relative aspect-[4/5] overflow-hidden bg-bg2">
           <CardCarousel slides={slides} />
           {product.tags.length > 0 && (
             <span className="absolute left-2.5 top-2.5 z-10">
@@ -133,52 +133,52 @@ export function ProductCard({ product }: { product: ProductCardData }) {
           )}
         </div>
 
-        <div className="mt-3 space-y-1">
-          <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-accent">
+        <div className="space-y-1.5 p-3 sm:p-3.5">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-accent">
             {product.category.replace("-sarees", "").replace("-", " ")} saree
           </p>
-          <h3 className="line-clamp-2 text-[15px] font-semibold leading-snug text-ink">
+          <h3 className="line-clamp-2 text-[14px] font-medium leading-snug text-ink sm:text-[15px]">
             {product.name}
           </h3>
-          <div className="flex items-center gap-1.5 text-xs text-muted">
-            <Stars rating={product.rating} size={13} />
+          <p className="font-display text-[19px] font-semibold leading-none text-ink sm:text-xl">
+            {formatINR(product.price)}
+          </p>
+          <div className="flex items-center gap-1.5 text-[11px] text-muted sm:text-xs">
+            <Stars rating={product.rating} size={12} />
             <span>({product.reviewCount})</span>
           </div>
-          <p className="font-display text-xl font-bold text-ink">
-            {formatINR(product.price)}
-            <span className="ml-1 align-middle text-[10px] font-normal text-muted">
-              incl. taxes
-            </span>
-          </p>
         </div>
       </Link>
 
-      {/* Wishlist */}
-      <button
-        type="button"
-        onClick={() => toggle(product.slug)}
-        aria-label={wished ? "Remove from wishlist" : "Add to wishlist"}
-        aria-pressed={wished}
-        className={cx(
-          "absolute right-2.5 top-2.5 flex h-9 w-9 items-center justify-center rounded-full bg-surface/90 shadow-sm backdrop-blur transition-all hover:scale-105",
-          wished ? "text-[#b3261e]" : "text-ink2 hover:text-ink",
-        )}
-      >
-        <Heart size={17} className={wished ? "fill-current" : ""} />
-      </button>
+      {/* Action layer — matches the image box exactly so the controls never
+          drift onto the copy below. */}
+      <div className="pointer-events-none absolute inset-x-0 top-0 aspect-[4/5]">
+        {/* Wishlist */}
+        <button
+          type="button"
+          onClick={() => toggle(product.slug)}
+          aria-label={wished ? "Remove from wishlist" : "Add to wishlist"}
+          aria-pressed={wished}
+          className={cx(
+            "pointer-events-auto absolute right-2.5 top-2.5 z-20 flex h-9 w-9 items-center justify-center rounded-pill border border-line bg-surface/90 shadow-sm backdrop-blur transition-colors",
+            wished ? "text-accent" : "text-ink2 hover:text-ink",
+          )}
+        >
+          <Heart size={16} className={wished ? "fill-current" : ""} />
+        </button>
 
-      {/* Quick add — the + rotates into a cart icon on hover, with a tooltip */}
-      <button
-        type="button"
-        onClick={quickAdd}
-        aria-label={`Add ${product.name} to cart`}
-        className={cx(
-          "group/qa absolute bottom-2.5 right-2.5 z-20 flex h-10 w-10 items-center justify-center rounded-full shadow-md transition-all duration-300",
-          justAdded
-            ? "bg-[#5f7a4d] text-white hover:scale-105"
-            : "bg-[#5d350e] text-[#f6ebd9] hover:scale-105",
-        )}
-      >
+        {/* Quick add — the + rotates into a cart icon on hover, with a tooltip */}
+        <button
+          type="button"
+          onClick={quickAdd}
+          aria-label={`Add ${product.name} to cart`}
+          className={cx(
+            "group/qa pointer-events-auto absolute bottom-2.5 right-2.5 z-20 flex h-10 w-10 items-center justify-center rounded-pill shadow-md transition-all duration-300",
+            justAdded
+              ? "bg-[#4caf7a] text-white hover:scale-105"
+              : "bg-accent text-white hover:scale-105 hover:bg-accent-light",
+          )}
+        >
         {justAdded ? (
           <Check size={19} strokeWidth={2.4} />
         ) : (
@@ -201,20 +201,21 @@ export function ProductCard({ product }: { product: ProductCardData }) {
             />
           </span>
         )}
-        {/* Tooltip */}
-        <span
-          aria-hidden
-          className={cx(
-            "pointer-events-none absolute right-full top-1/2 mr-2.5 hidden -translate-y-1/2 whitespace-nowrap rounded-full px-3 py-1.5 text-[11px] font-bold shadow-lg transition-all duration-200 md:block",
-            "bg-ink text-btntext",
-            justAdded
-              ? "opacity-100"
-              : "translate-x-1 opacity-0 group-hover/qa:translate-x-0 group-hover/qa:opacity-100",
-          )}
-        >
-          {justAdded ? "Added to cart ✓" : "Add to cart"}
-        </span>
-      </button>
+          {/* Tooltip */}
+          <span
+            aria-hidden
+            className={cx(
+              "pointer-events-none absolute right-full top-1/2 mr-2.5 hidden -translate-y-1/2 whitespace-nowrap rounded-pill px-3 py-1.5 text-[11px] font-semibold shadow-lg transition-all duration-200 md:block",
+              "bg-ink text-bg",
+              justAdded
+                ? "opacity-100"
+                : "translate-x-1 opacity-0 group-hover/qa:translate-x-0 group-hover/qa:opacity-100",
+            )}
+          >
+            {justAdded ? "Added to cart ✓" : "Add to cart"}
+          </span>
+        </button>
+      </div>
     </div>
   );
 }

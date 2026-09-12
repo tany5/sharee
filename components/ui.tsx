@@ -9,11 +9,13 @@ export type ButtonVariant = "primary" | "outline" | "ghost" | "soft";
 export type ButtonSize = "sm" | "md" | "lg";
 
 const BTN_VARIANTS: Record<ButtonVariant, string> = {
+  // Primary — terracotta, the only filled action colour.
   primary:
-    "bg-btn text-btntext hover:opacity-90 shadow-sm border border-transparent",
+    "bg-accent text-white border border-transparent hover:bg-accent-light",
+  // Secondary — transparent with a muted gold hairline.
   outline:
-    "bg-transparent text-ink border border-accent/60 hover:bg-accent/10",
-  ghost: "bg-transparent text-ink hover:bg-accent/10",
+    "bg-transparent text-bronze border border-bronze/60 hover:bg-bronze/10",
+  ghost: "bg-transparent text-ink2 hover:text-ink hover:bg-accent/10",
   soft: "bg-accent/15 text-ink hover:bg-accent/25 border border-accent/20",
 };
 
@@ -29,7 +31,7 @@ export function btnStyles(
   extra?: string,
 ): string {
   return cx(
-    "inline-flex items-center justify-center rounded-full font-semibold tracking-wide transition-colors select-none cursor-pointer disabled:opacity-50 disabled:pointer-events-none",
+    "inline-flex items-center justify-center rounded-pill font-semibold tracking-wide transition-colors duration-200 select-none cursor-pointer disabled:opacity-50 disabled:pointer-events-none",
     BTN_VARIANTS[variant],
     BTN_SIZES[size],
     extra,
@@ -119,19 +121,23 @@ export function SectionHeading({
 }) {
   return (
     <div
-      className={cx(
-        "mb-6 flex flex-col gap-1 sm:mb-8",
-        center && "items-center text-center",
-        className,
-      )}
+      className={cx("flex flex-col gap-2", center && "items-center text-center", className)}
     >
       {kicker && (
-        <p className="text-xs font-semibold uppercase tracking-[0.22em] text-accent">
+        <p className={cx("tt-eyebrow flex items-center gap-2.5", center && "justify-center")}>
           {kicker}
+          <span aria-hidden className="h-px w-8 bg-accent/35 sm:w-12" />
         </p>
       )}
-      <div className={cx("flex w-full items-end gap-4", center && "flex-col items-center")}>
-        <h2 className="text-2xl text-ink sm:text-[2rem]">{title}</h2>
+      <div
+        className={cx(
+          "flex w-full items-end gap-4",
+          center && "flex-col items-center",
+        )}
+      >
+        <h2 className="font-display text-[26px] leading-tight text-ink sm:text-[32px] lg:text-[38px]">
+          {title}
+        </h2>
         {action && <div className="ml-auto shrink-0 pb-1">{action}</div>}
       </div>
     </div>
@@ -140,9 +146,12 @@ export function SectionHeading({
 
 export function Ornament({ className }: { className?: string }) {
   return (
-    <div className={cx("flex items-center justify-center gap-3", className)} aria-hidden>
+    <div
+      className={cx("flex items-center justify-center gap-3", className)}
+      aria-hidden
+    >
       <span className="h-px w-10 bg-line sm:w-16" />
-      <span className="h-1.5 w-1.5 rotate-45 border border-bronze bg-bronze/60" />
+      <span className="h-1.5 w-1.5 rotate-45 border border-accent bg-accent/70" />
       <span className="h-px w-10 bg-line sm:w-16" />
     </div>
   );

@@ -3,148 +3,82 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import {
-  ArrowRight,
-  RotateCcw,
-  ShieldCheck,
-  Star,
-  Truck,
-} from "lucide-react";
+import { ArrowRight, RotateCcw, ShieldCheck } from "lucide-react";
 import { formatINR } from "@/lib/format";
 import { SITE } from "@/lib/site";
 import { cx } from "@/lib/utils";
 
 /* ------------------------------------------------------------------ */
-/*  Slides — banner photography of women wearing sarees, crossfaded in */
-/*  the hero canvas (public/banner, WebP-optimized).                  */
+/*  Banner photography of women wearing sarees, crossfaded in the      */
+/*  editorial image column (public/banner, WebP-optimized).            */
 /* ------------------------------------------------------------------ */
 
 const SLIDES = [
   {
-    src: "/banner/banner-1.webp",
-    alt: "Woman wearing a maroon and gold Banarasi saree with gajra flowers",
+    src: "/banner/banner-pujo-red-full.webp",
+    alt: "Bengali woman wearing a red silk saree in a Durga Puja setting",
+    position: "100% 50%",
+    mobilePosition: "100% 50%",
   },
   {
-    src: "/banner/banner-2.webp",
-    alt: "Woman wearing an off-white saree with pink floral border",
+    src: "/banner/banner-everyday-teal-full.webp",
+    alt: "Bengali woman wearing a teal cotton saree on a home veranda",
+    position: "100% 50%",
+    mobilePosition: "100% 50%",
   },
   {
-    src: "/banner/banner-3.webp",
-    alt: "Woman wearing a deep green silk saree with gold zari border",
+    src: "/banner/banner-jamdani-indigo-full.webp",
+    alt: "Bengali woman wearing an indigo Jamdani saree in a warm home interior",
+    position: "100% 50%",
+    mobilePosition: "100% 50%",
   },
   {
-    src: "/banner/banner-4.webp",
-    alt: "Woman wearing a maroon silk saree with gold zari embroidery",
-  },
-  {
-    src: "/banner/banner-5.webp",
-    alt: "Woman wearing a golden silk saree, graceful drape",
+    src: "/banner/banner-handloom-mustard-full.webp",
+    alt: "Bengali woman wearing a mustard handloom silk saree near a window",
+    position: "100% 50%",
+    mobilePosition: "100% 50%",
   },
 ];
 
-const AVATAR_LETTERS = ["R", "S", "A"];
-
-/* ----------------------------- building blocks ----------------------------- */
-
-function FeatureBadges() {
-  const items = [
-    { Icon: ShieldCheck, t: "Quality Assured", s: "Best fabric & finishing" },
-    { Icon: RotateCcw, t: "Easy Returns", s: "7-day hassle-free" },
-    { Icon: Truck, t: "Fast Delivery", s: "Across India" },
-  ];
-  return (
-    <div className="flex items-stretch justify-center divide-x divide-white/15 lg:justify-start lg:divide-line">
-      {items.map(({ Icon, t, s }) => (
-        <div
-          key={t}
-          className="flex flex-col items-center gap-1 px-3 text-center sm:flex-row sm:gap-2.5 sm:px-5 sm:text-left"
-        >
-          <Icon
-            size={20}
-            strokeWidth={1.7}
-            className="shrink-0 text-[#f4d9a4] lg:size-7 lg:text-bronze"
-          />
-          <div>
-            <p className="text-[15px] font-bold leading-snug text-[#fdf3e3] sm:text-xl lg:text-2xl lg:text-ink lg:[text-shadow:0_1px_2px_rgba(59,28,5,0.35),0_0_18px_rgba(253,243,227,0.6)] dark:lg:[text-shadow:0_1px_3px_rgba(20,8,0,0.9),0_0_18px_rgba(20,8,0,0.55)]">
-              {t}
-            </p>
-            <p className="text-[13px] leading-snug text-[#e5cfa4]/90 sm:text-base lg:text-[17px] lg:text-muted lg:[text-shadow:0_1px_2px_rgba(59,28,5,0.35),0_0_14px_rgba(253,243,227,0.55)] dark:lg:[text-shadow:0_1px_3px_rgba(20,8,0,0.9),0_0_14px_rgba(20,8,0,0.5)]">
-              {s}
-            </p>
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
+const HERO_PROMISES = [
+  {
+    Icon: ShieldCheck,
+    t: "Quality Checked",
+    s: "Before every dispatch",
+  },
+  {
+    Icon: RotateCcw,
+    t: "7-day returns",
+    s: "Easy support",
+  },
+];
 
 function CtaButtons() {
   const base =
-    "inline-flex h-11 items-center justify-center gap-2 whitespace-nowrap rounded-full px-6 text-sm font-bold tracking-wide transition-colors sm:h-12 sm:px-7 sm:text-[15px]";
-  const primary =
-    "bg-[#f7ead2] text-[#3b1c05] hover:bg-white lg:bg-btn lg:text-btntext lg:hover:opacity-90";
-  const secondary =
-    "border border-white/60 text-[#fdf3e3] hover:bg-white/10 lg:border-accent/60 lg:text-ink lg:hover:bg-accent/10";
+    "inline-flex min-h-10 items-center justify-center gap-1.5 whitespace-nowrap rounded-pill px-4 text-[13px] font-semibold tracking-wide shadow-lg shadow-black/20 transition-colors duration-200 sm:min-h-12 sm:gap-2 sm:px-7 sm:text-[15px]";
   return (
-    <div className="flex items-center justify-center gap-3 lg:justify-start">
-      <Link href="/sarees" className={cx(base, primary, "flex-1 sm:flex-none")}>
+    <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+      <Link
+        href="/sarees"
+        className={cx(
+          base,
+          "bg-accent text-white hover:bg-accent-light sm:px-7",
+        )}
+      >
         Shop All Sarees <ArrowRight size={17} />
       </Link>
       <Link
         href="/categories"
-        className={cx(base, secondary, "flex-1 sm:flex-none")}
+        className={cx(
+          base,
+          "border border-white/35 bg-white/10 text-white backdrop-blur hover:border-white/60 hover:bg-white/[0.16] sm:px-7",
+        )}
       >
-        Explore Collections
+        Explore <span className="hidden sm:inline">Collection</span>
       </Link>
     </div>
   );
 }
-
-/** "10,000+ happy customers · loved across India" proof chip. */
-function SocialProof() {
-  return (
-    <div className="flex w-full max-w-2xl items-center justify-between gap-3 rounded-full border border-white/25 bg-black/25 py-3 pl-3 pr-5 backdrop-blur-md sm:gap-5 sm:pl-3.5 lg:border-line lg:bg-surface/95 lg:py-3 lg:shadow-lg lg:shadow-ink/5">
-      <div className="flex min-w-0 items-center gap-3">
-        <div className="flex shrink-0 -space-x-3">
-          {AVATAR_LETTERS.map((l) => (
-            <span
-              key={l}
-              aria-hidden
-              className="flex h-9 w-9 items-center justify-center rounded-full border-2 border-[#3b2210] bg-[#f4d9a4]/90 text-xs font-bold text-[#4a2410] sm:h-11 sm:w-11 lg:border-bg lg:bg-accent/25 lg:text-ink"
-            >
-              {l}
-            </span>
-          ))}
-        </div>
-        <div className="min-w-0 text-left">
-          <p className="truncate text-[15px] font-bold leading-tight text-[#fdf3e3] sm:text-[17px] lg:text-lg lg:text-ink">
-            10,000+ Happy Customers
-          </p>
-          <p className="truncate text-[13px] leading-tight text-[#e5cfa4] sm:text-sm lg:text-[15px] lg:text-muted">
-            Loved across India ♥
-          </p>
-        </div>
-      </div>
-      <div className="hidden shrink-0 items-center gap-2 sm:flex">
-        <span
-          className="inline-flex items-center gap-0.5 text-[#f4d9a4] lg:text-bronze"
-          role="img"
-          aria-label="Rated 4.8 out of 5"
-        >
-          {Array.from({ length: 5 }, (_, i) => (
-            <Star key={i} size={15} className="fill-current" />
-          ))}
-        </span>
-        <span className="whitespace-nowrap text-[13px] leading-tight text-[#e5cfa4] sm:text-sm lg:text-[15px] lg:text-muted">
-          <strong className="text-[#fdf3e3] lg:text-ink">4.8/5</strong> · 2,500+
-          reviews
-        </span>
-      </div>
-    </div>
-  );
-}
-
-/* --------------------------------- hero --------------------------------- */
 
 export function Hero() {
   const [index, setIndex] = useState(0);
@@ -153,6 +87,10 @@ export function Hero() {
       typeof window !== "undefined" &&
       window.matchMedia("(prefers-reduced-motion: reduce)").matches,
   );
+  const [compactHero, setCompactHero] = useState(
+    () => typeof window !== "undefined" && window.matchMedia("(max-width: 767px)").matches,
+  );
+
   useEffect(() => {
     const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
     const onChange = (e: MediaQueryListEvent) => setReducedMotion(e.matches);
@@ -161,126 +99,175 @@ export function Hero() {
   }, []);
 
   useEffect(() => {
+    const mq = window.matchMedia("(max-width: 767px)");
+    const onChange = (e: MediaQueryListEvent) => setCompactHero(e.matches);
+    mq.addEventListener?.("change", onChange);
+    return () => mq.removeEventListener?.("change", onChange);
+  }, []);
+
+  useEffect(() => {
     if (reducedMotion) return;
-    const id = setInterval(
-      () => setIndex((i) => (i + 1) % SLIDES.length),
-      6000,
-    );
+    const id = setInterval(() => setIndex((i) => (i + 1) % SLIDES.length), 6500);
     return () => clearInterval(id);
   }, [reducedMotion]);
 
   return (
     <section
-      className="relative isolate flex flex-col overflow-hidden bg-bg min-h-[calc(100svh-10.875rem-env(safe-area-inset-bottom))] lg:min-h-[calc(100svh-9.4rem)]"
+      className="relative isolate h-[650px] min-h-[620px] overflow-hidden bg-[#120b08] text-white sm:h-[760px] lg:h-[780px] lg:max-h-[calc(100svh-1rem)] xl:h-[820px]"
       aria-label="All sarees at one simple price"
     >
-      {/* Photo canvas — full-bleed on every screen; on desktop a wide
-          left-edge feather + theme wash keep the copy column readable
-          while the photo still peeks through on the left. */}
+      {/* -------------------------- Full banner art ------------------------- */}
       <div className="absolute inset-0">
         {SLIDES.map((s, i) => (
-          <Image
+          <div
             key={s.src}
-            src={s.src}
-            alt={s.alt}
-            fill
-            sizes="(min-width: 1024px) 100vw, 100vw"
-            priority={i === 0}
-            loading="eager"
             className={cx(
-              "object-cover object-[62%_20%] transition-[opacity,transform] duration-[1600ms] ease-out motion-reduce:transition-none lg:object-[40%_20%] lg:[mask-image:linear-gradient(to_right,transparent_0%,black_26%,black_100%)] lg:[-webkit-mask-image:linear-gradient(to_right,transparent_0%,black_26%,black_100%)]",
-              i === index
-                ? "scale-[1.05] opacity-100"
-                : "scale-100 opacity-0",
+              "absolute inset-0 transition-[opacity,transform] duration-[1400ms] ease-out motion-reduce:transition-none top-[15%] md:top-[5%] lg:top-[14%] sm:right-0 right-[-50%]",
+              i === index ? "opacity-100" : "opacity-0",
+              !reducedMotion && i === index && "scale-[1.005]",
             )}
-          />
-        ))}
-
-        {/* Desktop-only wash: theme-tinted gradient under the copy column.
-            Low z-index (below the copy, above the photo only on the far left)
-            and kept to ~50% width so the photo stays visible on the left too.
-            It just lifts the headline zone for readability. */}
-        <div
-          aria-hidden
-          className="absolute inset-y-0 left-0 z-[1] hidden w-[52%] bg-gradient-to-r from-bg via-bg/70 to-transparent lg:block dark:from-bg dark:via-bg/70 dark:to-transparent"
-        />
-
-        {/* Mobile: blend the photo into a deep warm scrim so copy stays legible */}
-        <div
-          aria-hidden
-          className="absolute inset-0 z-[1] bg-gradient-to-t from-[#180b02] via-[#180b02]/60 via-35% to-[#180b02]/10 lg:hidden"
-        />
-      </div>
-
-      {/* Slide indicator */}
-      <div className="absolute right-4 top-4 z-30 flex items-center gap-1.5 lg:right-8 lg:top-6">
-        {SLIDES.map((_, i) => (
-          <button
-            key={i}
-            type="button"
-            aria-label={`Show banner ${i + 1} of ${SLIDES.length}`}
-            aria-current={i === index}
-            onClick={() => setIndex(i)}
-            className={cx(
-              "h-1.5 rounded-full transition-all duration-500",
-              i === index
-                ? "w-6 bg-[#f7ead2] ring-1 ring-black/20"
-                : "w-1.5 bg-[#f7ead2]/50 ring-1 ring-black/10 hover:bg-[#f7ead2]/80",
-            )}
-          />
-        ))}
-      </div>
-
-      {/* Copy — bottom-anchored on mobile; on desktop spread top → bottom
-          like the reference: tagline/headline up top, CTA + proof pinned low */}
-      <div className="relative z-10 mx-auto flex w-full max-w-7xl flex-1 flex-col justify-end px-4 pb-6 pt-2 sm:px-6 lg:justify-between lg:px-8 lg:pb-12 lg:pt-16">
-        <div className="flex w-full flex-col items-center gap-4 text-center lg:max-w-2xl lg:items-start lg:gap-6 lg:text-left">
-          {/* Tagline — editorial eyebrow: ornament above, plain text below
-              (no pill), like the reference banner */}
-          <div className="flex flex-col items-center gap-2 lg:items-start">
-            <span
-              aria-hidden
-              className="flex items-center gap-2 text-[#f4d9a4] lg:text-accent"
-            >
-              <span className="h-px w-9 bg-current opacity-70" />
-              <span className="h-1.5 w-1.5 rotate-45 border border-current bg-current/50" />
-              <span className="h-px w-9 bg-current opacity-70" />
-            </span>
-            <p className="text-center text-[11px] font-bold uppercase tracking-[0.24em] text-[#f4d9a4] sm:text-xs lg:text-left lg:text-accent">
-              Beautiful sarees · one simple price
-            </p>
-          </div>
-
-          {/* Headline */}
-          <h1
-            className={cx(
-              "font-display font-bold leading-[0.95]",
-              "text-[#fdf3e3] lg:text-ink",
-            )}
+            aria-hidden={i !== index}
           >
-            <span className="block text-[40px] sm:text-6xl lg:text-6xl xl:text-7xl">
-              All Sarees
+            <Image
+              src={s.src}
+              alt={s.alt}
+              fill
+              sizes="100vw"
+              priority={i === 0}
+              loading={i === 0 ? "eager" : "lazy"}
+              className="object-cover opacity-95 sm:scale-105 sm:opacity-55"
+              style={{ objectPosition: compactHero ? s.mobilePosition : s.position }}
+            />
+            <Image
+              src={s.src}
+              alt=""
+              fill
+              sizes="100vw"
+              priority={i === 0}
+              loading={i === 0 ? "eager" : "lazy"}
+              aria-hidden
+              className="hidden object-contain object-right-bottom md:block"
+              style={{ objectPosition: compactHero ? "100% 100%" : s.position }}
+            />
+          </div>
+        ))}
+      </div>
+
+      {/* A layered scrim keeps copy readable while the photo still bleeds behind it. */}
+      <div
+        aria-hidden
+        className="absolute inset-0 bg-[linear-gradient(90deg,rgba(17,8,5,0.86)_0%,rgba(34,14,6,0.68)_34%,rgba(34,14,6,0.22)_63%,rgba(34,14,6,0.03)_100%)] md:bg-[linear-gradient(90deg,rgba(17,8,5,0.9)_0%,rgba(34,14,6,0.74)_34%,rgba(34,14,6,0.26)_62%,rgba(34,14,6,0.04)_100%)]"
+      />
+      <div
+        aria-hidden
+        className="absolute inset-0 bg-[radial-gradient(circle_at_78%_48%,rgba(255,232,188,0.24),transparent_34%),linear-gradient(0deg,rgba(12,7,5,0.76)_0%,transparent_38%,rgba(12,7,5,0.12)_100%)]"
+      />
+
+      {/* ---------------------------- Banner copy --------------------------- */}
+      <div className="tt-container relative z-10 flex h-full flex-col justify-center pb-[6.25rem] pt-[6.75rem] sm:pb-18 sm:pt-[8.5rem] lg:pb-20 lg:pt-[9rem]">
+        <div className="tt-rise max-w-[50rem]">
+          <p className="tt-eyebrow flex items-center gap-2.5 text-goldlight sm:gap-3">
+            Pujo ready · Everyday sarees
+            <span aria-hidden className="h-px w-8 bg-goldlight/60 sm:w-14" />
+          </p>
+
+          <h1 className="mt-4 max-w-[36rem] font-display font-bold leading-[0.98] text-[#fff7ec] drop-shadow-[0_5px_24px_rgba(0,0,0,0.55)] sm:mt-5 lg:max-w-[44rem]">
+            <span className="block whitespace-nowrap text-[34px] min-[420px]:text-[38px] sm:text-[62px] lg:text-[72px] xl:text-[82px]">
+              Sarees for
             </span>
-            <span
-              className={cx(
-                "mt-0.5 block text-[88px] leading-[0.9] tracking-tight sm:text-[110px] lg:text-[140px] xl:text-[160px]",
-                "text-[#f4d9a4] lg:text-accent",
-              )}
-            >
-              {formatINR(SITE.price)}
+            <span className="block whitespace-nowrap text-[34px] min-[420px]:text-[38px] sm:text-[62px] lg:text-[72px] xl:text-[82px]">
+              real life.
             </span>
           </h1>
 
-          <FeatureBadges />
-        </div>
+          <p className="mt-4 max-w-[21rem] text-[14px] leading-6 text-[#f2dec7]/90 drop-shadow-[0_2px_12px_rgba(0,0,0,0.55)] sm:mt-5 sm:max-w-[34rem] sm:text-[17px] sm:leading-8">
+            {SITE.supporting}
+          </p>
 
-        {/* Bottom dock — action buttons + proof, pinned low on desktop, above
-            the mobile nav on phones */}
-        <div className="mx-auto mt-10 flex w-full flex-col items-center gap-4 sm:mt-12 sm:gap-5 lg:mx-0 lg:mt-16 lg:items-start">
-          <CtaButtons />
-          <SocialProof />
+          {/* Price — the commercial headline of the page. */}
+          <div className="mt-5 flex flex-col gap-2 sm:mt-6">
+            <p className="tt-eyebrow flex items-center gap-3 text-[#f2dec7]/85">
+              All sarees
+              <span aria-hidden className="h-px w-8 bg-goldlight/50" />
+            </p>
+            <div className="flex items-center gap-3">
+              <span className="font-display text-[52px] font-bold leading-none text-goldlight drop-shadow-[0_4px_18px_rgba(0,0,0,0.45)] sm:text-[70px] lg:text-[82px]">
+                {formatINR(SITE.price)}
+              </span>
+              <span className="rounded-pill bg-accent px-3.5 py-2 text-[11px] font-bold uppercase tracking-[0.16em] text-white shadow-md shadow-black/25 sm:text-xs">
+                Flat
+              </span>
+            </div>
+          </div>
+
+          <div className="mt-6 sm:mt-7">
+            <CtaButtons />
+          </div>
+
+          <div className="mt-7 grid max-w-[33rem] grid-cols-2 gap-2 rounded-3xl border border-white/12 bg-black/22 p-2 text-[#f6ebdf] shadow-2xl shadow-black/25 backdrop-blur-md sm:gap-3 sm:p-3">
+            {HERO_PROMISES.map(({ Icon, t, s }) => (
+              <div key={t} className="flex min-w-0 items-center gap-2 px-1 py-2 sm:gap-2.5 sm:px-3">
+                <Icon size={18} className="shrink-0 text-goldlight sm:size-5" strokeWidth={1.8} />
+                <span className="min-w-0">
+                  <span className="block truncate text-[12px] font-bold sm:text-[14px]">{t}</span>
+                  <span className="block truncate text-[10px] text-[#e4cdb7]/75 sm:text-[12px]">{s}</span>
+                </span>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
+
+      {/* Slide picker, treated like a small story strip over the image. */}
+      <div className="pointer-events-none absolute inset-x-0 bottom-5 z-20 hidden sm:block">
+        <div className="tt-container flex justify-end">
+          <div className="pointer-events-auto flex items-center gap-2 rounded-pill border border-white/15 bg-black/22 p-2 shadow-2xl shadow-black/30 backdrop-blur-md">
+            {SLIDES.map((s, i) => (
+              <button
+                key={s.src}
+                type="button"
+                aria-label={`Show banner ${i + 1} of ${SLIDES.length}`}
+                aria-current={i === index}
+                onClick={() => setIndex(i)}
+                className={cx(
+                  "relative h-12 w-16 overflow-hidden rounded-[14px] border transition-all duration-300",
+                  i === index
+                    ? "border-white shadow-[0_0_0_2px_rgba(255,255,255,0.28)]"
+                    : "border-white/20 opacity-70 hover:opacity-100",
+                )}
+              >
+                <Image
+                  src={s.src}
+                  alt=""
+                  fill
+                  sizes="64px"
+                  className="object-cover"
+                  style={{ objectPosition: s.position }}
+                />
+              </button>
+            ))}
+            <Link
+              href="/sarees"
+              className="ml-1 flex h-12 w-12 items-center justify-center rounded-pill bg-white text-[#3b1b0a] transition-colors hover:bg-[#f7eadb]"
+              aria-label="Shop sarees"
+            >
+              <ArrowRight size={18} />
+            </Link>
+          </div>
+        </div>
+      </div>
+
+      {/* Editorial aside — right edge, desktop only, never competing with H1 */}
+      <p
+        aria-hidden
+        className="absolute right-8 top-[24%] z-20 hidden max-w-[9rem] font-display text-2xl italic leading-snug text-[#fff7ec]/90 [text-shadow:0_2px_18px_rgba(0,0,0,0.55)] lg:block xl:text-[28px]"
+      >
+        Simple.
+        <br />
+        Beautiful.
+        <br />
+        Yours.
+      </p>
     </section>
   );
 }

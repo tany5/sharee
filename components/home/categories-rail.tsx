@@ -3,13 +3,31 @@
 import { useCallback, useRef, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { ArrowRight, ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import type { CategoryWithCount } from "@/lib/types";
 import { categoryPhoto } from "@/lib/photos";
 
 /**
- * Arrow-driven category carousel: prev/next buttons page through the rail and
- * a small track shows how far you've scrolled — no scrolling by swipe needed.
+ * Short descriptors drawn from each category's existing blurb
+ * (lib/data/catalog). Categories added later fall back to the first clause of
+ * their own blurb, so no copy is invented here.
+ */
+const DESCRIPTORS: Record<string, string> = {
+  "cotton-sarees": "Everyday comfort",
+  "silk-sarees": "Timeless elegance",
+  "printed-sarees": "Playful & stylish",
+  "chiffon-sarees": "Featherlight flow",
+  "georgette-sarees": "Light & graceful",
+  "fancy-sarees": "For special days",
+};
+
+function descriptorFor(c: CategoryWithCount): string {
+  return DESCRIPTORS[c.slug] ?? c.blurb.split(/[.,]/)[0];
+}
+
+/**
+ * Category rail — five cards visible on desktop, a swipeable strip on mobile,
+ * with arrow paging and a scroll-progress track.
  */
 export function CategoriesRail({
   categories,
@@ -30,7 +48,7 @@ export function CategoriesRail({
     const el = railRef.current;
     if (!el) return;
     const card = el.querySelector<HTMLElement>("[data-rail-card]");
-    const w = (card ? card.offsetWidth : 300) + 16;
+    const w = (card ? card.offsetWidth : 300) + 20;
     el.scrollBy({ left: dir * w, behavior: "smooth" });
   }, []);
 
@@ -40,35 +58,35 @@ export function CategoriesRail({
         ref={railRef}
         onScroll={onScroll}
         aria-label="Browse categories"
-        className="flex snap-x snap-mandatory gap-4 overflow-x-auto pb-1 scroll-smooth [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        className="no-scrollbar flex snap-x snap-mandatory gap-3 overflow-x-auto pb-1 sm:gap-4 lg:gap-5"
       >
         {categories.map((c) => (
           <Link
             key={c.slug}
             href={`/categories/${c.slug}`}
             data-rail-card
-            className="group w-[68vw] max-w-[280px] shrink-0 snap-start sm:w-[42vw] sm:max-w-[300px] md:w-[300px] lg:w-[320px]"
+            className="group w-[62vw] max-w-[240px] shrink-0 snap-start sm:w-[40vw] sm:max-w-[260px] lg:w-[calc((100%-5rem)/5)] lg:max-w-none"
           >
-            <div className="relative aspect-[3/4] overflow-hidden rounded-2xl ring-1 ring-line/80 transition-shadow group-hover:shadow-lg group-hover:shadow-ink/10">
+            <div className="relative aspect-[4/5] overflow-hidden rounded-panel border border-line">
               {categoryPhoto(c.slug) && (
                 <Image
                   src={categoryPhoto(c.slug)!}
                   alt={`${c.name} — woman wearing the saree`}
                   fill
-                  sizes="(min-width: 1024px) 24vw, 60vw"
-                  className="object-cover object-top transition-transform duration-500 group-hover:scale-[1.05]"
+                  sizes="(min-width: 1024px) 18vw, 55vw"
+                  className="object-cover object-top transition-transform duration-500 ease-out group-hover:scale-[1.03] motion-reduce:transition-none"
                 />
               )}
-              <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent" />
-              <div className="absolute inset-x-0 bottom-0 p-3">
-                <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-[#e6d5b6]">
-                  {c.count} styles
-                </p>
-                <p className="font-display text-[15px] font-bold leading-tight text-white">
+              <div
+                aria-hidden
+                className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/75 via-black/25 to-transparent"
+              />
+              <div className="absolute inset-x-0 bottom-0 p-3.5">
+                <p className="font-display text-[17px] font-semibold leading-tight text-white">
                   {c.name}
                 </p>
-                <p className="mt-1 inline-flex items-center gap-1 text-[11px] font-semibold text-[#f0e2cd]">
-                  Explore <ArrowRight size={11} />
+                <p className="mt-0.5 text-[11px] font-medium text-white/75">
+                  {descriptorFor(c)}
                 </p>
               </div>
             </div>
@@ -76,21 +94,21 @@ export function CategoriesRail({
         ))}
       </div>
 
-      <div className="mt-4 flex items-center justify-center gap-5">
+      <div className="mt-5 flex items-center justify-center gap-5">
         <button
           type="button"
           onClick={() => step(-1)}
           aria-label="Previous categories"
-          className="hidden h-9 w-9 items-center justify-center rounded-full border border-line bg-surface text-ink2 shadow-sm transition-colors hover:border-accent/60 hover:text-ink sm:flex"
+          className="hidden h-9 w-9 items-center justify-center rounded-pill border border-line bg-surface text-ink2 transition-colors hover:border-accent/60 hover:text-ink sm:flex"
         >
-          <ChevronLeft size={16} strokeWidth={2.2} />
+          <ChevronLeft size={16} strokeWidth={2} />
         </button>
         <div
           aria-hidden
-          className="relative h-1 w-36 overflow-hidden rounded-full bg-line sm:w-44"
+          className="relative h-1 w-36 overflow-hidden rounded-pill bg-line sm:w-44"
         >
           <span
-            className="absolute top-0 h-full rounded-full bg-accent transition-[left] duration-150 ease-out"
+            className="absolute top-0 h-full rounded-pill bg-accent transition-[left] duration-150 ease-out"
             style={{ left: `calc(${progress * 100}% - ${progress * 16}px)`, width: 16 }}
           />
         </div>
@@ -98,9 +116,9 @@ export function CategoriesRail({
           type="button"
           onClick={() => step(1)}
           aria-label="Next categories"
-          className="hidden h-9 w-9 items-center justify-center rounded-full border border-line bg-surface text-ink2 shadow-sm transition-colors hover:border-accent/60 hover:text-ink sm:flex"
+          className="hidden h-9 w-9 items-center justify-center rounded-pill border border-line bg-surface text-ink2 transition-colors hover:border-accent/60 hover:text-ink sm:flex"
         >
-          <ChevronRight size={16} strokeWidth={2.2} />
+          <ChevronRight size={16} strokeWidth={2} />
         </button>
       </div>
     </div>

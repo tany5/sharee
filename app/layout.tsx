@@ -1,19 +1,19 @@
 import type { Metadata, Viewport } from "next";
-import { Judson, Teachers } from "next/font/google";
+import { Inter, Playfair_Display } from "next/font/google";
 import { SITE } from "@/lib/site";
 import "./globals.css";
 
-const judson = Judson({
+/** Editorial headings — campaign statements, section titles, hero. */
+const playfair = Playfair_Display({
   subsets: ["latin"],
-  weight: ["400", "700"],
-  variable: "--font-judson",
+  variable: "--font-playfair",
   display: "swap",
 });
 
-const teachers = Teachers({
+/** Everything else — navigation, buttons, prices, product names, metadata. */
+const inter = Inter({
   subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
-  variable: "--font-teachers",
+  variable: "--font-inter",
   display: "swap",
 });
 
@@ -23,8 +23,7 @@ export const metadata: Metadata = {
     default: `${SITE.name} — ${SITE.tagline}`,
     template: `%s | ${SITE.name}`,
   },
-  description:
-    `${SITE.tagline}. ${SITE.promise} Shop cotton, silk, printed and designer sarees — quality assured, easy returns, fast delivery across India.`,
+  description: `${SITE.motto} ${SITE.promise} Shop cotton, silk, printed and designer sarees — one simple price, quality checked, easy returns, delivery across India.`,
   keywords: [
     "sarees",
     "saree online",
@@ -45,12 +44,14 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#f6ebe1" },
-    { media: "(prefers-color-scheme: dark)", color: "#221003" },
+    { media: "(prefers-color-scheme: light)", color: "#fbf7f1" },
+    { media: "(prefers-color-scheme: dark)", color: "#171311" },
   ],
 };
 
-const themeInitScript = `(function(){try{var t=localStorage.getItem("ambika-theme");var d=t?t==="dark":window.matchMedia("(prefers-color-scheme: dark)").matches;if(d)document.documentElement.classList.add("dark");}catch(e){}})();`;
+// The storefront is dark-first (espresso editorial); a stored preference always
+// wins, and light remains one tap away via the header toggle.
+const themeInitScript = `(function(){try{var t=localStorage.getItem("ambika-theme");var d=t?t==="dark":true;if(d)document.documentElement.classList.add("dark");}catch(e){}})();`;
 
 export default function RootLayout({
   children,
@@ -60,7 +61,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${judson.variable} ${teachers.variable} h-full antialiased`}
+      className={`${playfair.variable} ${inter.variable} h-full antialiased`}
       suppressHydrationWarning
     >
       <body className="flex min-h-full flex-col">

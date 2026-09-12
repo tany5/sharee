@@ -16,13 +16,17 @@ import { cx } from "@/lib/utils";
 export function Logo({
   className,
   compact,
+  lightOnDark,
 }: {
   className?: string;
   /** Compact size for sticky headers on small screens. */
   compact?: boolean;
+  /** Use the ivory/gold lockup when the header sits on photography. */
+  lightOnDark?: boolean;
 }) {
+  // Desktop lockup 120–145px wide, mobile 95–110px (see design spec §11).
   const sizeCls = compact
-    ? "max-h-[38px] max-w-[150px] sm:max-w-[170px]"
+    ? "max-h-[34px] max-w-[110px] sm:max-w-[132px] lg:max-w-[142px]"
     : "max-h-[52px] max-w-[200px]";
   return (
     <Link
@@ -39,6 +43,7 @@ export function Logo({
         priority
         className={cx(
           "h-auto w-auto object-contain dark:hidden",
+          lightOnDark && "hidden",
           sizeCls,
         )}
       />
@@ -49,7 +54,11 @@ export function Logo({
         width={480}
         height={216}
         priority
-        className={cx("hidden h-auto w-auto object-contain dark:block", sizeCls)}
+        className={cx(
+          "h-auto w-auto object-contain",
+          lightOnDark ? "block" : "hidden dark:block",
+          sizeCls,
+        )}
       />
     </Link>
   );

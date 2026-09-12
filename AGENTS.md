@@ -28,12 +28,29 @@
   `products.marketing` jsonb; setup: `docs/marketing-pipeline.md`.
 
 ## Design
-- Palette is fixed by the brand: `#5D350E #886644 #878A5D #9D9D9D #F6EBE1`
-  (light) with derived deeper browns for dark surfaces. Don't introduce new
-  hues; use tokens (bg/surface/ink/accent/bronze/muted/line/btn) not raw hex in
-  components (footer + a few text-on-art chips are deliberate exceptions).
-- Fonts: Judson = headings (`.font-display` via CSS, h1–h6 default), Teachers =
-  body. Mobile-first; avoid decorative animations.
+- **One palette, in `--tt-*` tokens** (`app/globals.css`): light in `:root`,
+  dark in `.dark`. `@theme inline` aliases the legacy utility names
+  (`bg`/`surface`/`ink`/`ink2`/`accent`/`accent2`/`bronze`/`muted`/`line`/
+  `chip`/`btn`/`btntext`/`tint`/`danger`, plus `bg2`/`footer`/`goldlight`) onto
+  them, so every existing class rethemes for free. **Never hardcode a colour in
+  a component** — add or use a token (the footer is the one deliberate
+  exception: it is espresso in both themes).
+- Direction: modern, minimal, editorial, ~10% Bengali. Espresso surfaces
+  (`#171311`), ivory text (`#F7F1E8`), terracotta accent (`#C45A5A`) carries the
+  Bengali character, muted gold (`#D6AD72`) is an accent only — never the whole
+  border/heading colour.
+- Fonts: Playfair Display = editorial headings (`font-display` via CSS, h1–h6
+  default), Inter = body/UI (prices, buttons, nav, metadata).
+- Utilities: `.tt-container` (1200/1280px content rail), `.tt-eyebrow`,
+  `no-scrollbar`, `tt-rise` (respects `prefers-reduced-motion`). Radius scale:
+  `rounded-lg` 8 / `rounded-card` 12 / `rounded-panel` 16 / `rounded-pill`.
+- Dark is the default theme; `.dark` is still class-based and the header toggle
+  stores the visitor's choice under `ambika-theme`.
+- Copy honesty: only publish claims the store can back (live price rules,
+  published policy pages, real catalogue data). If the data is absent, hide the
+  element rather than inventing content — see `components/home/trust-strip.tsx`
+  and the conditional product rows in `app/(store)/page.tsx`.
+- Mobile-first; subtle transitions only, no decorative animation.
 - Product visuals: deterministic generative SVGs (`lib/art.ts` +
   `components/product/saree-art.tsx`). Real photos auto-win when
   `public/products/<slug>/1.jpg` exists.

@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Heart, LayoutGrid, Home, ShoppingBag, User } from "lucide-react";
+import { useWishlist } from "@/components/store/providers";
+import { SITE } from "@/lib/site";
 import { cx } from "@/lib/utils";
 
 const ITEMS = [
@@ -13,8 +15,13 @@ const ITEMS = [
   { label: "Account", href: "/account", icon: User },
 ];
 
+/**
+ * Fixed mobile navigation. Every entry is a real route the app already
+ * exposes (the header drawer carries the rest).
+ */
 export function BottomNav() {
   const pathname = usePathname();
+  const { count: wishlistCount } = useWishlist();
 
   const isActive = (href: string) =>
     href === "/" ? pathname === "/" : pathname.startsWith(href);
@@ -29,7 +36,7 @@ export function BottomNav() {
   return (
     <nav
       aria-label="Mobile"
-      className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-surface/95 backdrop-blur supports-[backdrop-filter]:bg-surface/90 lg:hidden"
+      className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-bg2/95 backdrop-blur supports-[backdrop-filter]:bg-bg2/90 lg:hidden"
       style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
     >
       <div className="grid grid-cols-5">
@@ -42,18 +49,28 @@ export function BottomNav() {
               aria-label={label}
               aria-current={active ? "page" : undefined}
               className={cx(
-                "flex flex-col items-center gap-1 pb-2.5 pt-2.5 transition-colors",
-                active ? "text-accent" : "text-muted hover:text-ink2",
+                "relative flex min-h-11 flex-col items-center gap-1 pb-2.5 pt-2.5 transition-colors",
+                active ? "text-accent" : "text-ink2 hover:text-ink",
               )}
             >
-              <Icon size={21} strokeWidth={active ? 2.1 : 1.8} />
-              <span className="text-[10px] font-semibold tracking-wide">
+              <span className="relative">
+                <Icon size={22} strokeWidth={active ? 2.1 : 1.7} />
+                {href === "/wishlist" && wishlistCount > 0 && (
+                  <span className="absolute -right-2 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-pill bg-accent px-1 text-[10px] font-bold text-white">
+                    {wishlistCount}
+                  </span>
+                )}
+              </span>
+              <span className="text-[10px] font-medium tracking-wide">
                 {label}
               </span>
             </Link>
           );
         })}
       </div>
+      <span className="sr-only">
+        {SITE.name} — {SITE.tagline}
+      </span>
     </nav>
   );
 }

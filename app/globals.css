@@ -4,90 +4,126 @@
 @custom-variant dark (&:where(.dark, .dark *));
 
 /* ---------------------------------------------------------------------------
-   Ambika design tokens — warm brown/gold editorial system.
-   Brand palette (exact): #5D350E #886644 #878A5D #9D9D9D #F6EBE1.
-   Dark-theme surfaces are derived deeper tones of the same brown hue.
+   TheTanti design system.
+
+   ONE canonical palette lives in `--tt-*` tokens (light in `:root`, dark in
+   `.dark`). The older utility names (`--color-bg`, `--color-ink`, …) are pure
+   aliases mapped straight onto those tokens inside `@theme inline`, which
+   inlines `var(--tt-*)` into every generated utility — so switching theme
+   re-resolves correctly at the element, with no duplicated colour values.
+
+   Direction: modern, minimal, editorial, subtly Bengali.
+     70% espresso surface · 15% ivory text · 8% terracotta · 5% muted gold
+   Terracotta carries the Bengali character; gold stays an accent.
 --------------------------------------------------------------------------- */
 
 :root {
   color-scheme: light;
 
-  --bg: #f6ebe1; /* ivory page background */
-  --surface: #fffdf9; /* cards on ivory */
-  --surface-2: #f1e5cf; /* soft cream panels / chips */
-  --ink: #5d350e; /* headings + body — deepest brand tone */
-  --ink-2: #6e4a22; /* secondary text */
-  --accent: #886644; /* actions, price pops, icons */
-  --accent-2: #9a7650; /* hover state */
-  --bronze: #878a5d; /* stars, dividers, flourishes */
-  --muted: #9d9d9d; /* placeholder / meta text (brand grey) */
-  --line: #e5d2b4; /* light beige borders */
-  --chip: #efe0c7; /* filter chips */
-  --btn: #5d350e; /* primary button bg */
-  --btn-text: #fffdf9;
-  --tint: #efdfc4; /* soft gold tint used behind hero art */
-  --danger: #b3261e;
+  /* Surfaces */
+  --tt-bg: #fbf7f1;
+  --tt-bg-secondary: #f4ece1;
+  --tt-surface: #ffffff;
+  --tt-surface-raised: #f8f2e9;
+  --tt-footer: #1c130f;
+  --tt-border: #e8dbca;
+
+  /* Text */
+  --tt-text: #2b1c15;
+  --tt-text-secondary: #6d5849;
+  --tt-text-muted: #9a8a78;
+
+  /* Accents */
+  --tt-accent: #b8493f;
+  --tt-accent-light: #c9736b;
+  --tt-gold: #a97c3c;
+  --tt-gold-light: #c49a5c;
+  --tt-success: #3f8f63;
+  --tt-error: #c1463f;
+
+  /* Fills */
+  --tt-chip: #efe4d6;
+  --tt-tint: #f3e7da;
 }
 
 .dark {
   color-scheme: dark;
 
-  /* Warm medium-brown surfaces — lifted from near-black so the dark theme
-     is rich and easy on the eyes instead of pitch dark. */
-  --bg: #3a2414;
-  --surface: #4a2f1c;
-  --surface-2: #593b23;
-  --ink: #f6e9d7; /* text = warm ivory */
-  --ink-2: #e2c9a8; /* secondary text */
-  --accent: #d9ae76; /* lifted bronze-gold for accents on dark */
-  --accent-2: #c99d6b;
-  --bronze: #b49a6e;
-  --muted: #a89a88; /* warm grey reads well on the lighter browns */
-  --line: #6d4c2d;
-  --chip: #5b3d24;
-  --btn: #4d2c02; /* inverted ivory button */
-  --btn-text: #3a2414;
-  --tint: #4e3019;
-  --danger: #f08a73;
+  /* Surfaces */
+  --tt-bg: #171311;
+  --tt-bg-secondary: #211916;
+  --tt-surface: #2a201c;
+  --tt-surface-raised: #342823;
+  --tt-footer: #0f0c0a;
+  --tt-border: #3a2c26;
+
+  /* Text */
+  --tt-text: #f7f1e8;
+  --tt-text-secondary: #c8b9aa;
+  --tt-text-muted: #9e8f83;
+
+  /* Accents */
+  --tt-accent: #c45a5a;
+  --tt-accent-light: #d98a88;
+  --tt-gold: #d6ad72;
+  --tt-gold-light: #e4c38d;
+  --tt-success: #4caf7a;
+  --tt-error: #e05d5d;
+
+  /* Fills */
+  --tt-chip: #342823;
+  --tt-tint: #241b17;
 }
 
 @theme inline {
-  --color-bg: var(--bg);
-  --color-surface: var(--surface);
-  --color-surface2: var(--surface-2);
-  --color-ink: var(--ink);
-  --color-ink2: var(--ink-2);
-  --color-accent: var(--accent);
-  --color-accent2: var(--accent-2);
-  --color-bronze: var(--bronze);
-  --color-muted: var(--muted);
-  --color-line: var(--line);
-  --color-chip: var(--chip);
-  --color-btn: var(--btn);
-  --color-btntext: var(--btn-text);
-  --color-tint: var(--tint);
-  --color-danger: var(--danger);
+  --color-bg: var(--tt-bg);
+  --color-bg2: var(--tt-bg-secondary);
+  --color-surface: var(--tt-surface);
+  --color-surface2: var(--tt-surface-raised);
+  --color-ink: var(--tt-text);
+  --color-ink2: var(--tt-text-secondary);
+  --color-accent: var(--tt-accent);
+  --color-accent2: var(--tt-accent-light);
+  --color-bronze: var(--tt-gold);
+  --color-muted: var(--tt-text-muted);
+  --color-line: var(--tt-border);
+  --color-chip: var(--tt-chip);
+  --color-btn: var(--tt-accent);
+  --color-btntext: #ffffff;
+  --color-tint: var(--tt-tint);
+  --color-danger: var(--tt-error);
+  --color-footer: var(--tt-footer);
+  --color-goldlight: var(--tt-gold-light);
 
-  --font-sans: var(--font-judson);
-  --font-display: var(--font-teachers);
+  /* Playfair Display for editorial headings, Inter for UI/body. */
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system,
+    "Segoe UI", sans-serif;
+  --font-display: var(--font-playfair), ui-serif, Georgia, "Times New Roman",
+    serif;
 
   --radius-2xl: 1.25rem;
+  /* Radius scale: small 8 / medium 12 / large 16 / pill */
+  --radius-card: 12px;
+  --radius-panel: 16px;
+  --radius-pill: 9999px;
 }
 
 @layer base {
   * {
-    border-color: var(--line);
+    border-color: var(--tt-border);
   }
 
   html {
     -webkit-text-size-adjust: 100%;
+    scroll-behavior: smooth;
   }
 
   body {
-    background: var(--bg);
-    color: var(--ink);
-    font-family: var(--font-judson), ui-serif, Georgia, "Times New Roman",
-      serif;
+    background: var(--tt-bg);
+    color: var(--tt-text);
+    font-family: var(--font-inter), ui-sans-serif, system-ui, -apple-system,
+      "Segoe UI", sans-serif;
+    line-height: 1.6;
   }
 
   h1,
@@ -96,17 +132,16 @@
   h4,
   h5,
   h6 {
-    font-family: var(--font-teachers), ui-sans-serif, system-ui, -apple-system,
-      "Segoe UI", sans-serif;
-    font-weight: 700;
-    line-height: 1.1;
-    letter-spacing: -0.01em;
+    font-family: var(--font-playfair), ui-serif, Georgia, serif;
+    font-weight: 600;
+    line-height: 1.12;
+    letter-spacing: -0.005em;
     text-wrap: balance;
   }
 
   ::selection {
-    background: var(--accent);
-    color: var(--surface);
+    background: var(--tt-accent);
+    color: #ffffff;
   }
 
   input,
@@ -117,8 +152,50 @@
   }
 
   :focus-visible {
-    outline: 2px solid var(--accent-2);
+    outline: 2px solid var(--tt-accent-light);
     outline-offset: 2px;
+  }
+}
+
+@layer components {
+  /* Single content container: 1200px on desktop, 1280px on large screens. */
+  .tt-container {
+    margin-inline: auto;
+    width: 100%;
+    max-width: 1200px;
+    padding-inline: 20px;
+  }
+
+  @media (min-width: 640px) {
+    .tt-container {
+      padding-inline: 24px;
+    }
+  }
+
+  @media (min-width: 1024px) {
+    .tt-container {
+      max-width: 1280px;
+      padding-inline: 32px;
+    }
+  }
+
+  /* Editorial eyebrow: uppercase, wide tracking, terracotta. */
+  .tt-eyebrow {
+    font-size: 11px;
+    line-height: 16px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.18em;
+    color: var(--tt-accent);
+  }
+}
+
+/* Horizontal scrollers with no visible bar but full accessibility. */
+@utility no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
   }
 }
 
@@ -139,8 +216,8 @@
   background: linear-gradient(
     to right,
     transparent,
-    var(--line) 30%,
-    var(--line) 70%,
+    var(--tt-border) 30%,
+    var(--tt-border) 70%,
     transparent
   );
 }
@@ -148,6 +225,25 @@
 /* Safe bottom padding above the fixed mobile bottom nav. */
 @utility pb-bottomnav {
   padding-bottom: calc(4.25rem + env(safe-area-inset-bottom));
+}
+
+/* Section entrance: a single subtle rise. Disabled for reduced motion. */
+@keyframes tt-rise {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@utility tt-rise {
+  animation: tt-rise 560ms cubic-bezier(0.22, 0.61, 0.36, 1) both;
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+  }
 }
 
 /* Admin toaster entrance: slide in from the edge + settle. */
@@ -164,4 +260,7 @@
 
 @utility animate-toast-in {
   animation: toast-in 200ms ease-out both;
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+  }
 }

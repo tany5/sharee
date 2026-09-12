@@ -9,6 +9,11 @@ export const SITE = {
   name: "TheTanti",
   legalName: "THETANTI",
   tagline: "All Sarees ₹199",
+  /** Editorial brand line — hero headline, footer and campaign copy. */
+  motto: "Sarees for real life.",
+  /** Supporting line shown under the hero headline. */
+  supporting:
+    "Beautiful styles, simple prices. Discover sarees made for everyday moments.",
   promise: "Beautiful sarees. One simple price.",
 
   /** Single unit price for the whole catalogue (the brand promise). */

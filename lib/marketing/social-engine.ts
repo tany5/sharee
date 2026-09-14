@@ -34,8 +34,10 @@ import {
 import { composePostCard } from "@/lib/marketing/post-image";
 import {
   PROMO_CAMPAIGN,
+  buildPromoBanglishCaption,
   planPromo,
 } from "@/lib/marketing/promo/poster-plan";
+import { composeLuxuryPromoPoster } from "@/lib/marketing/promo/poster-image";
 import { generatePuterPromoImage } from "@/lib/marketing/puter-promo";
 import { aiModelAdPrompt, editImageToImage, pollinationsEnabled, pollinationsKey } from "@/lib/marketing/pollinations";
 import { composeEditorialCard } from "@/lib/marketing/editorial-image";
@@ -72,9 +74,13 @@ export async function generateSocialPost(
   input: GenerateSocialInput,
 ): Promise<GenerateSocialResult> {
   const row = await loadProduct(input.productSlug);
-  const key = socialKey(input.productSlug, input.kind, input.language);
+  const language = input.kind === "promo_poster" ? "banglish" : input.language;
+  const key = socialKey(input.productSlug, input.kind, language);
   const existing = await getSocialPostByKey(key);
-  if (existing && existing.state !== "rejected") {
+  if (existing && existing.state !== "rejected" && input.kind !== "promo_poster") {
+    return { post: existing, created: false, engine: existing.engine };
+  }
+  if (existing && input.kind === "promo_poster" && existing.state === "published") {
     return { post: existing, created: false, engine: existing.engine };
   }
 
@@ -511,6 +517,23 @@ function promoHero(row: PipelineRow): string {
   return img;
 }
 
+function promoAssetUrls(row: PipelineRow, hero: string): string[] {
+  const out: string[] = [];
+  const add = (url?: string) => {
+    const clean = url?.trim();
+    if (!clean || out.includes(clean)) return;
+    out.push(clean);
+  };
+  add(hero);
+  const renders = row.marketing?.tryOn?.renders ?? [];
+  for (const kind of ["side", "back", "full_saree", "front"] as const) {
+    add(renders.find((r) => r.kind === kind)?.imageUrl);
+  }
+  add(row.marketing?.tryOn?.imageUrl);
+  for (const image of row.images ?? []) add(image);
+  return out.slice(0, 4);
+}
+
 /** Build + store the bright promo poster post (caption from the promo plan). */
 async function generatePromoSocialPost(ctx: {
   row: PipelineRow;
@@ -519,6 +542,7 @@ async function generatePromoSocialPost(ctx: {
   productUrl: string;
 }): Promise<GenerateSocialResult> {
   const { row, key, existing, productUrl } = ctx;
+  const seed = Math.floor(Math.random() * 1e9);
 
   // Price protection (owner spec): never render a wrong campaign price.
   if (row.price !== PROMO_CAMPAIGN.price) {
@@ -528,6 +552,7 @@ async function generatePromoSocialPost(ctx: {
   }
 
   const hero = promoHero(row);
+  const assetUrls = promoAssetUrls(row, hero);
   const renders = row.marketing?.tryOn?.renders ?? [];
   const plan = await planPromo({
     productName: row.name,
@@ -537,34 +562,45 @@ async function generatePromoSocialPost(ctx: {
   });
 
   let engine = plan.engine;
-  const seed = Math.floor(Math.random() * 1e9);
   const poster = await generatePuterPromoImage({
     productName: row.name,
     category: row.category,
     fabric: row.fabric,
     price: PROMO_CAMPAIGN.price,
     heroImageUrl: hero,
+    assetImageUrls: assetUrls,
     styleHint: plan.backgroundPrompt,
     seed,
   });
   if (!poster) {
     throw new Error("Puter poster worker is not connected. Click Connect Puter in Admin -> Marketing AI, sign in, keep the tab open, then generate again.");
   }
-  engine = `${engine}+${poster.engine}`;
+  const composed = await composeLuxuryPromoPoster({
+    productName: row.name,
+    price: PROMO_CAMPAIGN.price,
+    productUrl,
+    heroImageUrl: hero,
+    assetImageUrls: assetUrls,
+    backgroundBuffer: poster.buffer,
+    seed,
+  });
+  engine = `${engine}+${poster.engine}+${composed.engine}`;
   const stored = await uploadPipelineAsset(
     "social-media",
-    `${row.slug}-promo-poster.${poster.contentType.includes("png") ? "png" : "jpg"}`,
-    poster.buffer,
-    poster.contentType,
+    `${row.slug}-promo-poster.jpg`,
+    composed.buffer,
+    composed.contentType,
   );
   const postImageUrl = stored.url;
 
-  const caption: SocialCaption = {
-    hook: `${PROMO_CAMPAIGN.offer} ${PROMO_CAMPAIGN.currency}${PROMO_CAMPAIGN.price} ${PROMO_CAMPAIGN.priceLabel} 🙌`,
-    body: plan.caption,
-    cta: `Order kariye: ${productUrl}`,
-    hashtags: plan.hashtags,
-  };
+  const caption: SocialCaption = buildPromoBanglishCaption({
+    productName: row.name,
+    category: row.category,
+    fabric: row.fabric,
+    price: PROMO_CAMPAIGN.price,
+    productUrl,
+    seed,
+  });
 
   const now = new Date().toISOString();
   const record: SocialPostRecord = {
@@ -577,7 +613,7 @@ async function generatePromoSocialPost(ctx: {
     imageUrl: hero,
     postImageUrl,
     kind: "promo_poster",
-    language: "hinglish",
+    language: "banglish",
     caption,
     engine,
     state: "pending_approval",

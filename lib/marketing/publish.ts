@@ -173,6 +173,7 @@ export async function publishInstagramImage(
   const container = await graphPost<ContainerReply>(
     `${s.igUserId}/media`,
     {
+      media_type: "IMAGE",
       image_url: imageUrl,
       caption,
     },

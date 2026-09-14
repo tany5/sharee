@@ -65,6 +65,15 @@ export interface PromoPlan {
   engine: string;
 }
 
+export interface PromoCaptionInput {
+  productName: string;
+  category: string;
+  fabric?: string;
+  price: number;
+  productUrl: string;
+  seed?: number;
+}
+
 const POINT_SET = new Set<string>(PROMO_POINTS_POOL);
 
 function okPalette(v: unknown): v is PromoPalette {
@@ -120,8 +129,10 @@ export function promoPlannerUser(input: {
     "When the local fallback renderer is used, background must be a simple vibrant gradient/studio scene that never competes with the saree.",
     "Pick selling_points ONLY from this pool: " + PROMO_POINTS_POOL.join(" | ") + ".",
     "Pick palette ONLY from: " + PROMO_PALETTES.join(" | ") + ".",
+    "Caption must be Banglish only: Bengali words in Latin script mixed with simple English. Do not use Hinglish words like sirf, kariye, aapke, roz, aaram. Do not use emoji/icons.",
+    "Caption should be friendly, simple and SEO optimized with natural keywords like Bengali saree, daily wear saree, budget saree, festive saree, cotton/silk if provided.",
     "Return ONLY minified JSON with this exact shape:",
-    '{"palette":"BRIGHT_POP","selling_points":["2-4 from the pool"],"background_prompt":"one short comma-separated SD prompt for the background only, no people, no text","hero_side":"right|left","caption":"warm 2-3 sentence Instagram/Facebook caption in conversational Hinglish, honest, no invented offers","hashtags":["6 niche hashtags starting with #"]}',
+    '{"palette":"BRIGHT_POP","selling_points":["2-4 from the pool"],"background_prompt":"one short comma-separated SD prompt for the background only, no people, no text","hero_side":"right|left","caption":"warm 2-3 sentence Instagram/Facebook caption in conversational Banglish, simple SEO keywords, honest, no invented offers, no emoji","hashtags":["6 niche hashtags starting with #"]}',
   ].join("\n");
 }
 
@@ -171,9 +182,77 @@ export function fallbackPromoPlan(productName: string): Omit<PromoPlan, "engine"
     backgroundPrompt:
       "vibrant marigold yellow studio backdrop, soft warm gradient, subtle magenta light glow, clean ecommerce advertising background, bright even lighting, no people, no text",
     heroSide: "right",
-    caption: `${productName} — sirf ₹199 mein! Roz ke liye comfortable, poore din aaram. Order kariye aaj hi.`,
+    caption: `${productName} apnar everyday look er jonno simple, sundor choice. Daily wear saree hishebe halka feel, easy drape, aar budget-friendly style.`,
     hashtags: ["#TheTanti", "#Saree199", "#DailyWearSaree", "#SareeLove", "#BudgetFashion", "#SareeStyle"],
   };
+}
+
+function titleCaseWords(value: string): string {
+  return value
+    .replace(/-/g, " ")
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(" ");
+}
+
+function pickBySeed<T>(items: readonly T[], seed: number, step: number): T {
+  return items[Math.abs(Math.trunc(seed * step + step)) % items.length] ?? items[0];
+}
+
+export function buildPromoBanglishCaption(input: PromoCaptionInput): {
+  hook: string;
+  body: string;
+  cta: string;
+  hashtags: string[];
+} {
+  const seed = input.seed ?? Date.now();
+  const category = titleCaseWords(input.category || "saree");
+  const fabric = input.fabric?.trim();
+  const fabricText = fabric ? `${fabric} feel` : "soft fabric feel";
+  const hook = pickBySeed(
+    [
+      `${input.productName} at flat ₹${input.price}`,
+      `Bengali saree style, simple price ₹${input.price}`,
+      `Daily wear saree for only ₹${input.price}`,
+      `Pujo theke daily wear, one saree ₹${input.price}`,
+      `Budget-friendly saree look at ₹${input.price}`,
+      `Apnar notun saree pick at ₹${input.price}`,
+    ],
+    seed,
+    3,
+  );
+  const body = pickBySeed(
+    [
+      `${input.productName} niye asun apnar wardrobe e ekta fresh Bengali saree look. ${fabricText}, easy drape, daily wear saree hishebe khub practical.`,
+      `Simple, sundor, aar pocket-friendly. Ei ${category.toLowerCase()} design ta office, bari ba chhoto occasion er jonno bhalo lage.`,
+      `Apnar everyday styling er jonno ekta neat saree choice. Rich colour mood, clean border detail, aar comfortable drape mile ekdom ready-to-wear feel.`,
+      `Bengali aesthetics er sathe modern comfort. Ei saree ta daily wear, festive visit, ba family get-together er jonno easy pick.`,
+      `${input.productName} holo budget saree lovers der jonno smart option. Dekhte elegant, porte sohoj, aar flat ₹${input.price} price ta clear.`,
+      `Soft look, graceful drape, aar simple styling. Apni jodi affordable Bengali saree online khujchen, eta ekta bhalo pick.`,
+    ],
+    seed,
+    5,
+  );
+  const cta = pickBySeed(
+    [
+      `Dekhun ekhane: ${input.productUrl}`,
+      `Apnar saree ekhane dekhun: ${input.productUrl}`,
+      `Order korte visit korun: ${input.productUrl}`,
+      `Full details ekhane: ${input.productUrl}`,
+    ],
+    seed,
+    7,
+  );
+  const hashtags = [
+    "#TheTanti",
+    "#BengaliSaree",
+    "#DailyWearSaree",
+    "#Saree199",
+    "#BudgetSaree",
+    category.toLowerCase().includes("silk") ? "#SilkSaree" : "#SareeOnline",
+  ];
+  return { hook, body, cta, hashtags };
 }
 
 /**

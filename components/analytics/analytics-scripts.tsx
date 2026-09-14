@@ -1,14 +1,19 @@
 import Script from "next/script";
 
+const DEFAULT_GA4_ID = "G-4KRT81Y146";
+const DEFAULT_CLARITY_ID = "yi8bqh8gbb";
+
 /**
- * Meta Pixel + GA4 loaders. Renders nothing until NEXT_PUBLIC_META_PIXEL_ID /
- * NEXT_PUBLIC_GA4_ID are set (production), so dev stays clean.
+ * Meta Pixel + GA4 + Microsoft Clarity loaders.
+ * GA4 / Clarity have public defaults for the live store; env vars can override
+ * them if the tracking IDs change.
  * Events themselves are sent from lib/analytics.ts.
  */
 export function AnalyticsScripts() {
   const metaPixelId = process.env.NEXT_PUBLIC_META_PIXEL_ID;
-  const ga4Id = process.env.NEXT_PUBLIC_GA4_ID;
-  if (!metaPixelId && !ga4Id) return null;
+  const ga4Id = process.env.NEXT_PUBLIC_GA4_ID || DEFAULT_GA4_ID;
+  const clarityId = process.env.NEXT_PUBLIC_CLARITY_ID || DEFAULT_CLARITY_ID;
+  if (!metaPixelId && !ga4Id && !clarityId) return null;
 
   return (
     <>
@@ -37,6 +42,17 @@ export function AnalyticsScripts() {
             gtag('config', '${ga4Id}');
           `}</Script>
         </>
+      )}
+      {clarityId && (
+        <Script id="microsoft-clarity" strategy="afterInteractive">
+          {`
+            (function(c,l,a,r,i,t,y){
+              c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
+              t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;
+              y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
+            })(window, document, "clarity", "script", "${clarityId}");
+          `}
+        </Script>
       )}
     </>
   );

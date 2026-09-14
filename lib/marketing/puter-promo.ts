@@ -23,6 +23,7 @@ export interface PuterPromoInput {
   fabric?: string;
   price: number;
   heroImageUrl: string;
+  assetImageUrls?: string[];
   styleHint?: string;
   seed?: number;
 }
@@ -34,41 +35,50 @@ export interface PuterPromoResult {
   localPath?: string;
 }
 
+const PUTER_PROMO_MODEL =
+  process.env.PUTER_PROMO_IMAGE_MODEL?.trim() || "gemini-3.1-flash-image-preview";
+
 export function puterPromoEnabled(): boolean {
   return Boolean(process.env.PUTER_TXT2IMG_ENDPOINT?.trim()) || puterRelayConnected();
 }
 
 export function buildPuterPromoPrompt(input: PuterPromoInput): string {
-  const styleSeed = Math.abs(input.seed ?? Date.now()) % 6;
-  const layouts = [
-    "minimal premium magazine layout with large negative space on the left and the model fully visible on the right",
-    "warm boutique fashion poster with a realistic seated model, clean offer area, and uncluttered traditional decor",
-    "festive Bengali editorial scene with subtle brass lamp and warm wall texture, model visible from head to toe",
-    "modern Indian ecommerce campaign with soft cream background, elegant arches, and balanced product-first composition",
-    "luxury saree catalogue advertisement with earthy terracotta backdrop, tasteful floral accents, and realistic studio lighting",
-    "bright but refined sale poster with red, cream and gold accents, clean typography zone, and natural lifestyle pose",
+  const styleSeed = Math.abs(input.seed ?? Date.now()) % 4;
+  const themes = [
+    "Theme A Warm Heritage: a photorealistic Bengali woman in a saree seated near aged stone/terracotta architecture, warm sunlight and natural shadow play, premium boutique fashion mood",
+    "Theme B Minimalist Studio: a photorealistic Bengali woman in a saree standing in a beige/champagne studio, linen drapery, soft pedestal shapes, subtle rim lighting, modern luxury ecommerce mood",
+    "Theme C Festive Luxury: a photorealistic Bengali woman in a saree in a deep emerald/burgundy/navy festive set, antique gold accents, soft diya bokeh, tasteful Durga Puja season richness",
+    "Theme D Earthy Contemporary: a photorealistic Bengali woman in a saree with raw clay plaster walls, dried botanical shadows, warm bokeh, calm editorial craft mood",
+  ];
+  const poses = [
+    "standing in a graceful three-quarter pose with relaxed hands and direct warm eye contact",
+    "seated elegantly on a carved wooden chair, saree pleats visible, calm editorial expression",
+    "walking softly through the set with natural movement in the pallu, candid premium catalogue feel",
+    "adjusting earrings beside a mirror, composed side profile, refined festive styling",
+    "standing near an old window with the pallu held lightly, natural daylight and serene expression",
+  ];
+  const styling = [
+    "minimal gold jewellery, small bindi, neatly tied low bun with jasmine hints",
+    "soft open hair, small bindi, understated earrings, natural Bengali beauty styling",
+    "traditional low bun, kohl-lined eyes, tasteful necklace, polished but realistic makeup",
+    "simple everyday jewellery, natural skin texture, friendly non-plastic expression",
   ];
   const fabric = input.fabric?.trim() ? ` Fabric: ${input.fabric.trim()}.` : "";
-  const style = input.styleHint?.trim() || layouts[styleSeed];
+  const style = input.styleHint?.trim() || themes[styleSeed];
+  const assetCount = input.assetImageUrls?.length ?? 1;
+  const pose = poses[Math.abs((input.seed ?? 0) * 3 + 1) % poses.length];
+  const modelStyling = styling[Math.abs((input.seed ?? 0) * 5 + 2) % styling.length];
 
   return [
-    `Create a premium, eye-catching square 1:1 Facebook and Instagram advertisement for ${SITE.name}, a Bengali saree marketplace.`,
+    `Create a full-bleed premium portrait 1080x1350 fashion campaign photograph for ${SITE.name}, a Bengali saree marketplace.`,
     `Product: ${input.productName}. Category: ${input.category.replace(/-/g, " ")}.${fabric}`,
-    "Show an elegant realistic Indian/Bengali woman wearing a beautiful saree. She should look like a real everyday woman photographed professionally, not a plastic AI model.",
-    "The saree must be the hero: rich fabric texture, clear border, detailed drape, visible pallu, authentic Indian saree styling.",
+    `Use the provided reference image if available only to infer the saree's colour family, fabric character, border feel, and motif mood. It is acceptable to create a more professional text-to-image campaign look if the reference product photo is not studio quality. Reference assets available: ${assetCount}.`,
     style + ".",
-    "Keep the model fully visible and never hidden behind promotional text. Leave clean negative space for text away from the face and saree details.",
-    "Use premium commercial fashion photography: natural skin texture, realistic hands, realistic body proportions, professional studio lighting, sharp high-resolution finish.",
-    "Use a refined Bengali-inspired palette with reds, creams, golds, terracotta, magenta, teal or deep blue. Vary the composition from previous posts.",
-    "Include only this promotional text, with strong hierarchy and professional fonts:",
-    `"${SITE.name}"`,
-    `"OUR SAREE"`,
-    `"₹${input.price} FLAT"`,
-    `"SHIPPING INCLUDED"`,
-    `"SHOP NOW"`,
-    `"₹${input.price} FLAT" must be the largest and instantly readable.`,
-    "No regional coverage text. No fake brand names, no watermark, no extra logos, no crossed-out text, no spelling mistakes, no clutter.",
-    "The final image should feel trustworthy, affordable, fashionable, modern, minimalistic, and suitable for a professional saree marketplace ad.",
+    `Model direction: ${pose}; ${modelStyling}.`,
+    "Composition: one main model, elegant head-to-knee or full-body crop, model on center/right with clear negative space on the left and lower third for text overlays. Vary the set, pose, face, and styling from previous generations. Do not use collage panels.",
+    "The model must look like a real adult Bengali woman, not plastic AI: natural face, believable hands, normal body proportions, tasteful saree drape, subtle bindi and jewellery. Avoid distorted anatomy, extra fingers, waxy skin, or fantasy faces.",
+    "Make it look like a premium Indian fashion brand advertisement: cinematic light, deep but natural contrast, crisp saree fabric, elegant pose, refined editorial styling.",
+    "Absolutely no generated text, no readable words, no logo, no watermark, no fake brand names, no price, no numbers, no QR code, no UI. The app will add all typography later.",
   ].join(" ");
 }
 
@@ -90,9 +100,10 @@ export async function generatePuterPromoImage(input: PuterPromoInput): Promise<P
         fabric: input.fabric,
         price: input.price,
       },
+      model: PUTER_PROMO_MODEL,
       width: 1080,
-      height: 1080,
-      format: "square",
+      height: 1350,
+      format: "portrait",
     });
     const completed = await waitForPuterRelayJob(job.id, Number(process.env.PUTER_RELAY_TIMEOUT_MS ?? 180_000));
     if (completed.status === "failed") throw new Error(completed.error || "Puter relay failed");
@@ -117,9 +128,10 @@ export async function generatePuterPromoImage(input: PuterPromoInput): Promise<P
         fabric: input.fabric,
         price: input.price,
       },
+      model: PUTER_PROMO_MODEL,
       width: 1080,
-      height: 1080,
-      format: "square",
+      height: 1350,
+      format: "portrait",
     }),
   });
   if (!res.ok) throw new Error(`Puter relay failed (${res.status}): ${await res.text()}`);

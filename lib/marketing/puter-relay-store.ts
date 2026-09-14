@@ -9,9 +9,10 @@ export interface PuterRelayJobPayload {
     fabric?: string;
     price: number;
   };
+  model?: string;
   width: number;
   height: number;
-  format: "square";
+  format: "square" | "portrait";
 }
 
 export interface PuterRelayJob {

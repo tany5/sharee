@@ -80,6 +80,11 @@ function puterImageUrl(out: unknown): string | undefined {
   return undefined;
 }
 
+function puterModelId(model?: string): string {
+  const clean = model?.trim() || "gemini-3.1-flash-image-preview";
+  return clean.replace(/^(openai|gemini):/i, "");
+}
+
 export function AdminMarketingAI() {
   const toast = useToast();
   const [posts, setPosts] = useState<SocialPostRecord[]>([]);
@@ -101,7 +106,7 @@ export function AdminMarketingAI() {
   const [editDraft, setEditDraft] = useState({ hook: "", body: "", cta: "" });
   const [genSlug, setGenSlug] = useState("");
   const [genKind, setGenKind] = useState("promo_poster");
-  const [genLanguage, setGenLanguage] = useState("hinglish");
+  const [genLanguage, setGenLanguage] = useState("banglish");
   const [genObjective, setGenObjective] = useState("OUTCOME_TRAFFIC");
   const [genBudget, setGenBudget] = useState(100);
   const puterWorkerId = useRef(`admin-puter-${Math.random().toString(36).slice(2)}`);
@@ -182,10 +187,35 @@ export function AdminMarketingAI() {
     ).catch(() => null);
     if (!res?.ok) return;
     const data = await res.json();
-    const job = data?.job as { id?: string; payload?: { prompt?: string } } | null;
+    const job = data?.job as {
+      id?: string;
+      payload?: { prompt?: string; imageDataUrl?: string; model?: string; width?: number; height?: number };
+    } | null;
     if (!job?.id || !job.payload?.prompt) return;
     try {
-      const out = await puter.ai.txt2img(job.payload.prompt, { model: "gpt-image-2.5-flare" });
+      const requestedModel = puterModelId(job.payload.model);
+      const attempts: { model: string; image?: string; width?: number; height?: number }[] = [];
+      const addAttempt = (model: string, image?: string) => {
+        const key = `${model}:${image ? "with-image" : "text-only"}`;
+        if (attempts.some((a) => `${a.model}:${a.image ? "with-image" : "text-only"}` === key)) return;
+        attempts.push({ model, image, width: job.payload?.width, height: job.payload?.height });
+      };
+      addAttempt(requestedModel, job.payload.imageDataUrl);
+      addAttempt(requestedModel);
+      addAttempt("gpt-image-2.5-flare", job.payload.imageDataUrl);
+      addAttempt("gpt-image-2.5-flare");
+
+      let out: unknown | undefined;
+      let lastError: unknown;
+      for (const options of attempts) {
+        try {
+          out = await puter.ai.txt2img(job.payload.prompt, options);
+          break;
+        } catch (err) {
+          lastError = err;
+        }
+      }
+      if (!out) throw lastError instanceof Error ? lastError : new Error("Puter image generation failed");
       const imageUrl = puterImageUrl(out);
       if (!imageUrl) throw new Error("Puter returned no image URL");
       await completePuterJob(job.id, { imageUrl });

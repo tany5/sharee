@@ -96,12 +96,71 @@ describe("promo poster e2e (demo + Puter only)", () => {
       seed: 2,
     });
     expect(prompt).toContain("TheTanti");
-    expect(prompt).toContain("OUR SAREE");
-    expect(prompt).toContain("₹199 FLAT");
-    expect(prompt).toContain("SHIPPING INCLUDED");
+    expect(prompt).toContain("full-bleed premium portrait 1080x1350 fashion campaign photograph");
+    expect(prompt).toContain("provided reference image");
+    expect(prompt).toContain("1080x1350");
     expect(prompt).not.toMatch(/ALL OVER WEST BENGAL/i);
-    expect(prompt).toMatch(/real everyday woman/i);
-    expect(prompt).toMatch(/never hidden behind promotional text/i);
+    expect(prompt).toMatch(/real adult Bengali woman/i);
+    expect(prompt).toMatch(/Absolutely no generated text/i);
+  }, 30_000);
+
+  it("composes a high-resolution real-asset promo poster", async () => {
+    await seedProduct(199);
+    const { composeLuxuryPromoPoster } = await import("@/lib/marketing/promo/poster-image");
+    const poster = await composeLuxuryPromoPoster({
+      productName: "Promo Smoke Saree",
+      price: 199,
+      productUrl: "https://www.thetanti.shop/sarees/promo-smoke-saree",
+      heroImageUrl: `/api/media/${PHOTO}`,
+      assetImageUrls: [`/api/media/${PHOTO}`],
+      seed: 3,
+    });
+    const meta = await sharp(poster.buffer).metadata();
+    expect(poster.contentType).toBe("image/jpeg");
+    expect(meta.width).toBe(1080);
+    expect(meta.height).toBe(1350);
+  }, 30_000);
+
+  it("uses Puter output as an editorial poster base when available", async () => {
+    await seedProduct(199);
+    const backgroundBuffer = await sharp({
+      create: { width: 1080, height: 1350, channels: 3, background: { r: 62, g: 46, b: 35 } },
+    })
+      .jpeg()
+      .toBuffer();
+    const { composeLuxuryPromoPoster } = await import("@/lib/marketing/promo/poster-image");
+    const poster = await composeLuxuryPromoPoster({
+      productName: "Promo Smoke Saree",
+      price: 199,
+      productUrl: "https://www.thetanti.shop/sarees/promo-smoke-saree",
+      heroImageUrl: `/api/media/${PHOTO}`,
+      assetImageUrls: [`/api/media/${PHOTO}`],
+      backgroundBuffer,
+      seed: 9,
+    });
+    const meta = await sharp(poster.buffer).metadata();
+    expect(poster.engine).toContain("sharp-editorial-campaign");
+    expect(meta.width).toBe(1080);
+    expect(meta.height).toBe(1350);
+  }, 30_000);
+
+  it("builds varied Banglish SEO promo captions without emoji or Hinglish", async () => {
+    const { buildPromoBanglishCaption } = await import("@/lib/marketing/promo/poster-plan");
+    const base = {
+      productName: "Crimson And Deep Green With Gold Zari Accents Saree",
+      category: "silk-sarees",
+      fabric: "Silk",
+      price: 199,
+      productUrl: "https://www.thetanti.shop/sarees/crimson-and-deep-green-with-gold-zari-accents-saree-mu16wbhv",
+    };
+    const first = buildPromoBanglishCaption({ ...base, seed: 101 });
+    const second = buildPromoBanglishCaption({ ...base, seed: 202 });
+    const combined = `${first.hook}\n${first.body}\n${first.cta}`;
+    expect(first.hook).not.toBe(second.hook);
+    expect(first.body).not.toBe(second.body);
+    expect(combined).toMatch(/Bengali saree|daily wear saree|budget saree|affordable Bengali saree/i);
+    expect(combined).not.toMatch(/sirf|kariye|aapke|roz|aaram|🙌/i);
+    expect(first.cta).toContain(base.productUrl);
   }, 30_000);
 
   it("refuses to build when the product price breaks the campaign", async () => {
@@ -137,7 +196,7 @@ describe("promo poster e2e (demo + Puter only)", () => {
     await seedProduct(199);
     const { deleteSocialPost, getSocialPostByKey } = await import("@/lib/marketing/ai-store");
     const { socialKey } = await import("@/lib/marketing/social");
-    const old = await getSocialPostByKey(socialKey(SLUG, "promo_poster", "hinglish"));
+    const old = await getSocialPostByKey(socialKey(SLUG, "promo_poster", "banglish"));
     if (old) await deleteSocialPost(old.id);
     const { generateSocialPost } = await import("@/lib/marketing/social-engine");
     await expect(generateSocialPost({

@@ -12,6 +12,7 @@
  */
 import "server-only";
 import sharp from "sharp";
+import { SITE } from "@/lib/site";
 import {
   POSTER,
   POSTER_PALETTES,
@@ -571,6 +572,408 @@ export async function composePoster(input: ComposePosterInput): Promise<ComposeP
     durationMs: bg.durationMs,
     seed: input.seed ?? 0,
   };
+}
+
+export interface ComposeLuxuryPromoPosterInput {
+  productName: string;
+  price: number;
+  productUrl: string;
+  heroImageUrl: string;
+  assetImageUrls: string[];
+  /** Optional Puter-generated mood/background layer. Real product assets are still overlaid by Sharp. */
+  backgroundBuffer?: Buffer;
+  seed?: number;
+}
+
+export interface ComposeLuxuryPromoPosterResult {
+  buffer: Buffer;
+  contentType: "image/jpeg";
+  engine: string;
+  seed: number;
+}
+
+type LuxuryTheme = {
+  name: string;
+  hook: string;
+  ink: string;
+  soft: string;
+  accent: string;
+  accent2: string;
+  panel: string;
+  surface: string;
+  border: string;
+};
+
+const LUXURY_THEMES: LuxuryTheme[] = [
+  {
+    name: "warm-heritage",
+    hook: "Everyday Grace",
+    ink: "f7f1e8",
+    soft: "c8b9aa",
+    accent: "d6ad72",
+    accent2: "c45a5a",
+    panel: "171311",
+    surface: "2a201c",
+    border: "3a2c26",
+  },
+  {
+    name: "minimalist-studio",
+    hook: "Handcrafted Comfort",
+    ink: "f7f1e8",
+    soft: "c8b9aa",
+    accent: "e4c38d",
+    accent2: "d98a88",
+    panel: "171311",
+    surface: "342823",
+    border: "3a2c26",
+  },
+  {
+    name: "festive-luxury",
+    hook: "Timeless Elegance",
+    ink: "f7f1e8",
+    soft: "d6ad72",
+    accent: "d6ad72",
+    accent2: "c45a5a",
+    panel: "171311",
+    surface: "241b17",
+    border: "3a2c26",
+  },
+  {
+    name: "earthy-contemporary",
+    hook: "Soft Bengali Charm",
+    ink: "f7f1e8",
+    soft: "c8b9aa",
+    accent: "d6ad72",
+    accent2: "878a5d",
+    panel: "171311",
+    surface: "2a201c",
+    border: "3a2c26",
+  },
+];
+
+function luxuryTheme(seed = 0): LuxuryTheme {
+  return LUXURY_THEMES[Math.abs(Math.trunc(seed)) % LUXURY_THEMES.length] ?? LUXURY_THEMES[0];
+}
+
+function uniqueImages(hero: string, urls: string[]): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const url of [hero, ...urls]) {
+    const clean = url.trim();
+    if (!clean || seen.has(clean)) continue;
+    seen.add(clean);
+    out.push(clean);
+  }
+  return out.slice(0, 4);
+}
+
+async function luxuryBackground(theme: LuxuryTheme, seed: number): Promise<Buffer> {
+  const motif = Array.from({ length: 13 }, (_, i) => {
+    const x = (70 + ((i * 151 + seed) % 960));
+    const y = (90 + ((i * 227 + seed * 3) % 1160));
+    const r = 20 + (i % 4) * 9;
+    return `<path d="M${x} ${y} c${r} -${r} ${r * 2} -${r} ${r * 3} 0 c-${r} ${r} -${r * 2} ${r} -${r * 3} 0z" fill="#${theme.accent}" opacity="0.055"/>`;
+  }).join("");
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${CANVAS.width}" height="${CANVAS.height}">
+    <defs>
+      <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0" stop-color="#211916"/>
+        <stop offset="0.52" stop-color="#171311"/>
+        <stop offset="1" stop-color="#0f0c0a"/>
+      </linearGradient>
+      <radialGradient id="glow" cx="0.74" cy="0.23" r="0.62">
+        <stop offset="0" stop-color="#${theme.accent2}" stop-opacity="0.18"/>
+        <stop offset="1" stop-color="#${theme.accent}" stop-opacity="0"/>
+      </radialGradient>
+      <linearGradient id="terracotta" x1="0" y1="0" x2="0.8" y2="1">
+        <stop offset="0" stop-color="#c45a5a" stop-opacity="0.16"/>
+        <stop offset="1" stop-color="#d6ad72" stop-opacity="0"/>
+      </linearGradient>
+    </defs>
+    <rect width="1080" height="1350" fill="url(#bg)"/>
+    <rect width="1080" height="1350" fill="url(#glow)"/>
+    <rect width="1080" height="1350" fill="url(#terracotta)"/>
+    ${motif}
+    <g opacity="0.07">
+      ${Array.from({ length: 18 }, (_, i) => `<path d="M0 ${80 + i * 72} C220 ${112 + i * 72} 410 ${44 + i * 72} 650 ${88 + i * 72} S930 ${132 + i * 72} 1080 ${80 + i * 72}" stroke="#f7f1e8" stroke-width="2" fill="none"/>`).join("")}
+    </g>
+    <rect x="32" y="32" width="1016" height="1286" rx="48" fill="none" stroke="#${theme.border}" stroke-width="2"/>
+  </svg>`;
+  return sharp(Buffer.from(svg)).png().toBuffer();
+}
+
+async function framedImage(url: string, width: number, height: number, radius: number, theme: LuxuryTheme): Promise<Buffer> {
+  const { bytes } = await import("@/lib/marketing/storage").then((m) => m.fetchImageBytes(url));
+  const mask = imageMask(width, height, radius, "panel");
+  const image = await sharp(bytes)
+    .resize(width, height, { fit: "cover", position: "attention" })
+    .modulate({ brightness: 1.04, saturation: 1.12 })
+    .sharpen({ sigma: 0.6, m1: 1.1, m2: 1.8 })
+    .ensureAlpha()
+    .composite([{ input: mask, blend: "dest-in" }])
+    .png()
+    .toBuffer();
+  const frame = Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="${width + 24}" height="${height + 24}">
+    <defs><filter id="shadow"><feDropShadow dx="0" dy="16" stdDeviation="13" flood-color="#000000" flood-opacity="0.38"/></filter></defs>
+    <rect x="3" y="3" width="${width + 18}" height="${height + 18}" rx="${radius + 10}" fill="#${theme.accent}" opacity="0.2" filter="url(#shadow)"/>
+    <rect x="12" y="12" width="${width}" height="${height}" rx="${radius}" fill="#${theme.surface}" stroke="#${theme.accent}" stroke-width="4" opacity="0.96"/>
+  </svg>`);
+  return sharp(frame)
+    .composite([{ input: image, left: 12, top: 12 }])
+    .png()
+    .toBuffer();
+}
+
+function wrapWords(text: string, maxChars: number, maxLines: number): string[] {
+  const words = text.split(/\s+/).filter(Boolean);
+  const lines: string[] = [];
+  let cur = "";
+  for (const word of words) {
+    const next = cur ? `${cur} ${word}` : word;
+    if (next.length <= maxChars || !cur) {
+      cur = next;
+    } else {
+      lines.push(cur);
+      cur = word;
+    }
+    if (lines.length >= maxLines) break;
+  }
+  if (cur && lines.length < maxLines) lines.push(cur);
+  return lines;
+}
+
+function luxuryTextLayer(input: ComposeLuxuryPromoPosterInput, theme: LuxuryTheme): Buffer {
+  const titleLines = wrapWords(input.productName, 24, 3);
+  const title = titleLines
+    .map((line, i) => `<text x="72" y="${332 + i * 38}" font-family="Inter, Arial, sans-serif" font-size="29" font-weight="750" fill="#${theme.ink}">${esc(line)}</text>`)
+    .join("");
+  const hookLines = wrapWords(theme.hook, 12, 2)
+    .map((line, i) => `<text x="70" y="${184 + i * 74}" font-family="Playfair Display, Georgia, 'Times New Roman', serif" font-size="72" font-weight="700" fill="#${theme.ink}" filter="url(#softShadow)">${esc(line)}</text>`)
+    .join("");
+  const displayUrl = "thetanti.shop";
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${CANVAS.width}" height="${CANVAS.height}">
+    <defs>
+      <filter id="softShadow"><feDropShadow dx="0" dy="10" stdDeviation="8" flood-color="#000" flood-opacity="0.32"/></filter>
+      <linearGradient id="price" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0" stop-color="#${theme.accent2}"/>
+        <stop offset="1" stop-color="#${theme.accent}"/>
+      </linearGradient>
+    </defs>
+    <text x="70" y="116" font-family="Inter, Arial, sans-serif" font-size="20" font-weight="850" letter-spacing="7" fill="#${theme.accent}" opacity="0.98">THE TANTI</text>
+    ${hookLines}
+    ${title}
+    <g transform="translate(70 486)" filter="url(#softShadow)">
+      <rect x="0" y="0" width="326" height="118" rx="20" fill="url(#price)"/>
+      <text x="32" y="76" font-family="Inter, Arial, sans-serif" font-size="54" font-weight="900" fill="#fffdf5">₹${input.price}</text>
+      <text x="194" y="74" font-family="Inter, Arial, sans-serif" font-size="25" font-weight="900" letter-spacing="3" fill="#fffdf5">FLAT</text>
+    </g>
+    <text x="72" y="662" font-family="Inter, Arial, sans-serif" font-size="23" font-weight="700" fill="#${theme.soft}">Premium-look sarees. One simple price.</text>
+    <g transform="translate(70 1128)">
+      <rect x="0" y="0" width="268" height="70" rx="35" fill="#${theme.ink}" opacity="0.96"/>
+      <text x="134" y="45" text-anchor="middle" font-family="Inter, Arial, sans-serif" font-size="25" font-weight="900" letter-spacing="1.5" fill="#${theme.panel}">SHOP NOW</text>
+    </g>
+    <text x="70" y="1278" font-family="Inter, Arial, sans-serif" font-size="23" font-weight="700" fill="#${theme.ink}">${esc(SITE.name)}</text>
+    <text x="198" y="1278" font-family="Inter, Arial, sans-serif" font-size="21" font-weight="650" fill="#${theme.soft}">• ${esc(displayUrl)}</text>
+  </svg>`;
+  return Buffer.from(svg);
+}
+
+type EditorialPosterStyle = {
+  hook: string;
+  tagline: string;
+  cta: string;
+  displayFont: string;
+  bodyFont: string;
+  layout: 0 | 1 | 2;
+};
+
+function editorialPosterStyle(seed: number, theme: LuxuryTheme): EditorialPosterStyle {
+  const hooks = [
+    theme.hook,
+    "Timeless, By Design",
+    "The Saree Edit",
+    "Grace In Every Drape",
+    "Rooted In Bengal",
+    "Soft Festive Ease",
+    "Everyday Elegance",
+  ];
+  const taglines = [
+    "SAREES FOR REAL LIFE",
+    "BENGALI SAREE STYLING",
+    "READY TO WEAR, READY TO LOVE",
+    "ONE PRICE. MANY MOMENTS.",
+    "WOVEN FOR EVERYDAY BEAUTY",
+  ];
+  const ctas = ["SHOP NOW", "ORDER NOW", "DISCOVER", "SHOP THE LOOK"];
+  const fonts = [
+    { displayFont: "Playfair Display, Georgia, 'Times New Roman', serif", bodyFont: "Inter, Arial, sans-serif" },
+    { displayFont: "Cormorant Garamond, Garamond, Georgia, serif", bodyFont: "'Segoe UI', Arial, sans-serif" },
+    { displayFont: "Bodoni 72, Didot, Georgia, serif", bodyFont: "Trebuchet MS, 'Segoe UI', sans-serif" },
+    { displayFont: "Georgia, 'Times New Roman', serif", bodyFont: "Arial, 'Helvetica Neue', sans-serif" },
+  ];
+  const safeSeed = Math.abs(Math.trunc(seed));
+  const font = fonts[safeSeed % fonts.length] ?? fonts[0];
+  return {
+    hook: hooks[(safeSeed * 3 + 1) % hooks.length] ?? theme.hook,
+    tagline: taglines[(safeSeed * 5 + 2) % taglines.length] ?? taglines[0],
+    cta: ctas[(safeSeed * 7 + 3) % ctas.length] ?? ctas[0],
+    displayFont: font.displayFont,
+    bodyFont: font.bodyFont,
+    layout: (safeSeed % 3) as 0 | 1 | 2,
+  };
+}
+
+async function editorialCampaignBase(source: Buffer, theme: LuxuryTheme): Promise<Buffer> {
+  const base = await sharp(source)
+    .resize(CANVAS.width, CANVAS.height, { fit: "cover", position: "attention" })
+    .modulate({ brightness: 0.96, saturation: 1.05 })
+    .sharpen({ sigma: 0.55, m1: 0.9, m2: 1.55 })
+    .png()
+    .toBuffer();
+  const grading = Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="${CANVAS.width}" height="${CANVAS.height}">
+    <defs>
+      <linearGradient id="leftShade" x1="0" y1="0" x2="1" y2="0">
+        <stop offset="0" stop-color="#171311" stop-opacity="0.76"/>
+        <stop offset="0.36" stop-color="#171311" stop-opacity="0.44"/>
+        <stop offset="0.62" stop-color="#171311" stop-opacity="0.10"/>
+        <stop offset="1" stop-color="#171311" stop-opacity="0.00"/>
+      </linearGradient>
+      <linearGradient id="bottomShade" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0" stop-color="#171311" stop-opacity="0.00"/>
+        <stop offset="0.64" stop-color="#171311" stop-opacity="0.18"/>
+        <stop offset="1" stop-color="#171311" stop-opacity="0.70"/>
+      </linearGradient>
+      <radialGradient id="warmGlow" cx="0.24" cy="0.18" r="0.76">
+        <stop offset="0" stop-color="#${theme.accent}" stop-opacity="0.12"/>
+        <stop offset="1" stop-color="#${theme.accent}" stop-opacity="0"/>
+      </radialGradient>
+    </defs>
+    <rect width="${CANVAS.width}" height="${CANVAS.height}" fill="url(#warmGlow)"/>
+    <rect width="${CANVAS.width}" height="${CANVAS.height}" fill="url(#leftShade)"/>
+    <rect width="${CANVAS.width}" height="${CANVAS.height}" fill="url(#bottomShade)"/>
+    <rect x="28" y="28" width="${CANVAS.width - 56}" height="${CANVAS.height - 56}" fill="none" stroke="#${theme.ink}" stroke-width="2" opacity="0.18"/>
+  </svg>`);
+  return sharp(base).composite([{ input: grading, left: 0, top: 0 }]).png().toBuffer();
+}
+
+function editorialCampaignTextLayer(
+  input: ComposeLuxuryPromoPosterInput,
+  theme: LuxuryTheme,
+  posterStyle: EditorialPosterStyle,
+): Buffer {
+  const productLines = wrapWords(input.productName, 25, 2);
+  const layout = posterStyle.layout;
+  const x = layout === 1 ? 78 : 70;
+  const brandY = layout === 2 ? 96 : 104;
+  const tagY = layout === 2 ? 1012 : 178;
+  const hookY = layout === 1 ? 272 : layout === 2 ? 1080 : 300;
+  const productY = layout === 1 ? 528 : layout === 2 ? 642 : 562;
+  const priceY = layout === 1 ? 656 : layout === 2 ? 762 : 666;
+  const bodyY = layout === 1 ? 824 : layout === 2 ? 938 : 838;
+  const ctaY = layout === 1 ? 1116 : layout === 2 ? 1180 : 1110;
+  const productTitle = productLines
+    .map(
+      (line, i) =>
+        `<text x="${x + 2}" y="${productY + i * 38}" font-family="${posterStyle.bodyFont}" font-size="30" font-weight="750" fill="#${theme.ink}">${esc(line)}</text>`,
+    )
+    .join("");
+  const hookLines = wrapWords(posterStyle.hook, layout === 2 ? 16 : 13, 2)
+    .map(
+      (line, i) =>
+        `<text x="${x}" y="${hookY + i * 82}" font-family="${posterStyle.displayFont}" font-size="${layout === 2 ? 68 : 78}" font-weight="700" fill="#${theme.ink}" filter="url(#shadow)">${esc(line)}</text>`,
+    )
+    .join("");
+  const price = `₹${input.price}`;
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${CANVAS.width}" height="${CANVAS.height}">
+    <defs>
+      <filter id="shadow"><feDropShadow dx="0" dy="10" stdDeviation="8" flood-color="#000000" flood-opacity="0.42"/></filter>
+      <filter id="smallShadow"><feDropShadow dx="0" dy="7" stdDeviation="5" flood-color="#000000" flood-opacity="0.32"/></filter>
+      <linearGradient id="badge" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0" stop-color="#${theme.accent2}"/>
+        <stop offset="1" stop-color="#${theme.accent}"/>
+      </linearGradient>
+    </defs>
+    <text x="${x}" y="${brandY}" font-family="${posterStyle.bodyFont}" font-size="19" font-weight="850" letter-spacing="7" fill="#${theme.accent}" opacity="0.98">THE TANTI</text>
+    <line x1="${x}" y1="${brandY + 28}" x2="${x + 174}" y2="${brandY + 28}" stroke="#${theme.accent}" stroke-width="2" opacity="0.72"/>
+    <text x="${x}" y="${tagY}" font-family="${posterStyle.bodyFont}" font-size="18" font-weight="750" letter-spacing="4" fill="#${theme.soft}" opacity="0.96">${esc(posterStyle.tagline)}</text>
+    ${hookLines}
+    <text x="${x + 2}" y="${productY - 48}" font-family="${posterStyle.bodyFont}" font-size="21" font-weight="850" letter-spacing="5" fill="#${theme.accent}">FEATURED SAREE</text>
+    ${productTitle}
+    <g transform="translate(${x} ${priceY})" filter="url(#smallShadow)">
+      <rect x="0" y="0" width="318" height="110" rx="55" fill="url(#badge)" opacity="0.96"/>
+      <text x="36" y="72" font-family="${posterStyle.bodyFont}" font-size="54" font-weight="950" fill="#fffdf5">${esc(price)}</text>
+      <text x="192" y="70" font-family="${posterStyle.bodyFont}" font-size="23" font-weight="950" letter-spacing="3.5" fill="#fffdf5">FLAT</text>
+    </g>
+    <text x="${x + 2}" y="${bodyY}" font-family="${posterStyle.bodyFont}" font-size="24" font-weight="700" fill="#${theme.ink}" filter="url(#shadow)">Premium Bengali saree style at one simple price.</text>
+    <g transform="translate(${x} ${ctaY})" filter="url(#smallShadow)">
+      <rect x="0" y="0" width="286" height="68" rx="34" fill="#${theme.ink}" opacity="0.96"/>
+      <text x="143" y="44" text-anchor="middle" font-family="${posterStyle.bodyFont}" font-size="24" font-weight="950" letter-spacing="1.6" fill="#${theme.panel}">${esc(posterStyle.cta)}</text>
+    </g>
+    <text x="${x}" y="1266" font-family="${posterStyle.bodyFont}" font-size="22" font-weight="800" fill="#${theme.ink}">${esc(SITE.name)}</text>
+    <text x="${x + 126}" y="1266" font-family="${posterStyle.bodyFont}" font-size="20" font-weight="650" fill="#${theme.soft}">• thetanti.shop</text>
+  </svg>`;
+  return Buffer.from(svg);
+}
+
+export async function composeLuxuryPromoPoster(
+  input: ComposeLuxuryPromoPosterInput,
+): Promise<ComposeLuxuryPromoPosterResult> {
+  const seed = input.seed ?? 0;
+  const theme = luxuryTheme(seed);
+
+  if (input.backgroundBuffer) {
+    const posterStyle = editorialPosterStyle(seed, theme);
+    const base = await editorialCampaignBase(input.backgroundBuffer, theme);
+    const final = await sharp(base)
+      .composite([{ input: editorialCampaignTextLayer(input, theme, posterStyle), left: 0, top: 0 }])
+      .jpeg({ quality: 96, mozjpeg: false, chromaSubsampling: "4:4:4" })
+      .toBuffer();
+
+    return {
+      buffer: final,
+      contentType: "image/jpeg",
+      engine: `sharp-editorial-campaign:${theme.name}:layout-${posterStyle.layout}`,
+      seed,
+    };
+  }
+
+  const images = uniqueImages(input.heroImageUrl, input.assetImageUrls);
+  const hero = images[0] ?? input.heroImageUrl;
+  const detail = images[1] ?? hero;
+  const third = images[2] ?? detail;
+
+  const [bg, heroPanel, detailPanel, thirdPanel] = await Promise.all([
+    luxuryBackground(theme, seed),
+    framedImage(hero, 452, 812, 28, theme),
+    framedImage(detail, 332, 236, 22, theme),
+    framedImage(third, 270, 196, 20, theme),
+  ]);
+
+  const glow = Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" width="${CANVAS.width}" height="${CANVAS.height}">
+    <defs>
+      <linearGradient id="left" x1="0" y1="0" x2="1" y2="0">
+        <stop offset="0" stop-color="#000000" stop-opacity="0.46"/>
+        <stop offset="0.48" stop-color="#000000" stop-opacity="0.16"/>
+        <stop offset="1" stop-color="#000000" stop-opacity="0"/>
+      </linearGradient>
+    </defs>
+    <rect width="1080" height="1350" fill="url(#left)"/>
+    <circle cx="812" cy="250" r="350" fill="#${theme.accent}" opacity="0.12"/>
+  </svg>`);
+
+  const final = await sharp(bg)
+    .resize(CANVAS.width, CANVAS.height, { fit: "cover" })
+    .composite([
+      { input: glow, left: 0, top: 0 },
+      { input: heroPanel, left: 570, top: 162 },
+      { input: detailPanel, left: 70, top: 760 },
+      { input: thirdPanel, left: 378, top: 984 },
+      { input: luxuryTextLayer(input, theme), left: 0, top: 0 },
+    ])
+    .jpeg({ quality: 96, mozjpeg: false, chromaSubsampling: "4:4:4" })
+    .toBuffer();
+
+  return { buffer: final, contentType: "image/jpeg", engine: `sharp-luxury-collage:${theme.name}`, seed };
 }
 
 /** Procedural bright gradient (used when ComfyUI is off or failed). */

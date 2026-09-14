@@ -56,10 +56,11 @@ export default function PrivacyPolicyPage() {
         <PolicySection title="3. Cookies and Analytics">
           <p>
             Our platform utilizes industry-standard tracking elements, such as
-            Google Analytics and Meta Pixels, to evaluate general advertisement
-            metrics and see which regional saree styles perform best. These
-            tools measure anonymous browser trends and never access your private
-            data files.
+            Google Analytics, Microsoft Clarity, and Meta Pixels, to evaluate
+            general advertisement metrics and see which regional saree styles
+            perform best. These tools may measure visits, purchases, clicks,
+            scroll depth, heatmaps, and session recordings, but they never
+            access your private data files.
           </p>
         </PolicySection>
 

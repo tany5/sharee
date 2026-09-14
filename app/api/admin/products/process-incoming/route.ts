@@ -7,7 +7,9 @@ import { requireAdmin, unauthorized } from "@/lib/admin/guard";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
-export const maxDuration = 900;
+// Vercel Hobby caps serverless functions at 300s (this route is local-PC-only
+// anyway — the VERCEL guard below refuses to run intake in production).
+export const maxDuration = 300;
 
 const DEFAULT_AI_ROOT = "D:/TheTanti-AI";
 

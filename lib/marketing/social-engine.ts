@@ -20,6 +20,7 @@ import {
   socialSystemPrompt,
   socialToCaption,
   socialUserPrompt,
+  tagCaptionLinks,
   type SocialCaption,
   type SocialLanguage,
   type SocialPostKind,
@@ -311,16 +312,26 @@ export async function publishSocialPost(
     igUserId: secrets.igUserId!,
   };
   let failed: string | undefined;
+  // Per-platform UTM-tagged captions so GA4 attributes traffic to the exact
+  // platform + creative kind (approved text itself is never modified).
   if (!next.fbPostId) {
     try {
-      next.fbPostId = await publishFacebookPhoto(imageUrl, caption, s);
+      next.fbPostId = await publishFacebookPhoto(
+        imageUrl,
+        tagCaptionLinks(caption, "facebook", post.productSlug, post.kind),
+        s,
+      );
     } catch (err) {
       failed = `Facebook: ${(err as Error).message}`;
     }
   }
   if (!next.igMediaId) {
     try {
-      next.igMediaId = await publishInstagramImage(imageUrl, caption, s);
+      next.igMediaId = await publishInstagramImage(
+        imageUrl,
+        tagCaptionLinks(caption, "instagram", post.productSlug, post.kind),
+        s,
+      );
     } catch (err) {
       failed = `${failed ? `${failed}; ` : ""}Instagram: ${(err as Error).message}`;
     }

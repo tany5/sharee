@@ -239,6 +239,47 @@ export function socialToCaption(caption: SocialCaption): string {
   ].join("\n");
 }
 
+/* ---------------------------- UTM attribution ---------------------------- */
+
+/**
+ * UTM-tag a product link so GA4 can attribute visits/purchases to the exact
+ * platform and creative (Reports → Traffic acquisition → Session source).
+ */
+export function taggedSocialUrl(
+  productUrl: string,
+  platform: "facebook" | "instagram",
+  kind?: string,
+): string {
+  const params = new URLSearchParams({
+    utm_source: platform,
+    utm_medium: "social",
+    utm_campaign: "organic_social",
+  });
+  if (kind) params.set("utm_content", kind);
+  return productUrl.includes("?") ? `${productUrl}&${params.toString()}` : `${productUrl}?${params.toString()}`;
+}
+
+/**
+ * Rewrite every occurrence of the product link inside a finished caption with
+ * the UTM-tagged variant for one platform. Handles both the absolute form
+ * (`https://www.thetanti.shop/sarees/x`) and the shortLink form
+ * (`www.thetanti.shop/sarees/x`). Leaves the caption untouched when the link
+ * is absent — tagging must never break a caption.
+ */
+export function tagCaptionLinks(
+  caption: string,
+  platform: "facebook" | "instagram",
+  productSlug: string,
+  kind?: string,
+): string {
+  const host = SITE.url.replace(/^https?:\/\//, "");
+  let out = caption;
+  for (const bare of [`${SITE.url}/sarees/${productSlug}`, `${host}/sarees/${productSlug}`]) {
+    out = out.split(bare).join(taggedSocialUrl(bare, platform, kind));
+  }
+  return out;
+}
+
 /* --------------------------------- helpers --------------------------------- */
 
 /** Idempotency key: one post per product+kind+language. */

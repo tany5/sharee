@@ -136,6 +136,13 @@ export function CheckoutView() {
       trackInitiateCheckout(
         visibleItems.map((i) => i.slug),
         summary.subtotal,
+        // Rich items for GA4's checkout funnel reports.
+        visibleItems.map((i) => ({
+          item_id: i.slug,
+          item_name: i.name ?? PRODUCT_INDEX[i.slug]?.name ?? i.slug,
+          price: i.price ?? SITE.price,
+          quantity: i.qty,
+        })),
       );
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps

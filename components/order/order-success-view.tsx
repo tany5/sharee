@@ -122,6 +122,12 @@ export function OrderSuccessView({ id }: { id: string }) {
         transactionId: order.id,
         value: order.total,
         contentIds: order.items.map((i) => i.slug),
+        items: order.items.map((i) => ({
+          item_id: i.slug,
+          item_name: i.name,
+          price: i.price,
+          quantity: i.qty,
+        })),
       });
       window.sessionStorage.setItem(`ambika.purchase.${order.id}`, "1");
     } catch {

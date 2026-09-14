@@ -15,6 +15,7 @@ import { PRODUCT_INDEX } from "@/lib/data/catalog";
 import { summarizeCart } from "@/lib/cart";
 import { SITE } from "@/lib/site";
 import { useCart } from "@/components/store/providers";
+import { trackRemoveFromCart } from "@/lib/analytics";
 import { ButtonLink, EmptyState } from "@/components/ui";
 import { WornThumb } from "@/components/product/worn-image";
 import { formatINR } from "@/lib/format";
@@ -96,7 +97,10 @@ export function CartView() {
                   </div>
                   <button
                     type="button"
-                    onClick={() => remove(line.slug, line.color)}
+                    onClick={() => {
+                      trackRemoveFromCart(line.slug, name, line.qty);
+                      remove(line.slug, line.color);
+                    }}
                     aria-label={`Remove ${name}`}
                     className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-muted transition-colors hover:bg-danger/10 hover:text-danger"
                   >

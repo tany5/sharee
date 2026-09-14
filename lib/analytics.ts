@@ -31,6 +31,35 @@ const META_EVENT: Record<AnalyticsEvent, string> = {
   Purchase: "Purchase",
 };
 
+/**
+ * GA4 canonical ecommerce event names — using these (instead of Meta's names)
+ * turns on GA4's built-in Monetization reports (item views, cart abandonment,
+ * product purchase counts) without any extra configuration.
+ */
+const GA_EVENT: Record<AnalyticsEvent, string> = {
+  PageView: "page_view",
+  ViewContent: "view_item",
+  Search: "search",
+  AddToCart: "add_to_cart",
+  InitiateCheckout: "begin_checkout",
+  AddPaymentInfo: "add_payment_info",
+  Purchase: "purchase",
+};
+
+/** GA4 `items` entry — powers per-product ecommerce reports. */
+export interface EcommerceItem {
+  item_id: string;
+  item_name: string;
+  price?: number;
+  quantity?: number;
+}
+
+function toGaItems(items?: EcommerceItem[], contentIds?: string[]): EcommerceItem[] | undefined {
+  if (items && items.length > 0) return items;
+  if (!contentIds) return undefined;
+  return contentIds.map((id) => ({ item_id: id, item_name: id }));
+}
+
 interface TrackParams {
   /** Product slugs / item ids relevant to the event. */
   content_ids?: string[];
@@ -42,6 +71,8 @@ interface TrackParams {
   transaction_id?: string;
   content_name?: string;
   num_items?: number;
+  /** Rich item detail — forwarded to GA4 only (Meta has no items array). */
+  items?: EcommerceItem[];
   [key: string]: unknown;
 }
 
@@ -66,9 +97,10 @@ export function track(
 
   try {
     window.fbq?.("track", META_EVENT[event], payload);
-    window.gtag?.("event", META_EVENT[event], {
+    window.gtag?.("event", GA_EVENT[event], {
       ...payload,
       currency: "INR",
+      items: toGaItems(payload.items, payload.content_ids),
     });
   } catch {
     /* never let analytics break the store */
@@ -96,25 +128,44 @@ export function trackSearch(term: string): void {
   track("Search", { search_string: term.slice(0, 200) });
 }
 
-export function trackAddToCart(slug: string, name: string, qty = 1): void {
+export function trackAddToCart(slug: string, name: string, qty = 1, price?: number): void {
   track("AddToCart", {
     content_ids: [slug],
     content_type: "product",
     content_name: name,
     value: qty, // placeholder value; real basket value tracked at checkout
     num_items: qty,
+    items: [{ item_id: slug, item_name: name, price, quantity: qty }],
   });
+}
+
+/** Meta has no standard remove event — GA4-only, still useful for cart analytics. */
+export function trackRemoveFromCart(slug: string, name: string, qty = 1): void {
+  if (!isBrowser()) return;
+  try {
+    window.gtag?.("event", "remove_from_cart", {
+      currency: "INR",
+      items: [{ item_id: slug, item_name: name, quantity: qty }],
+    });
+  } catch {
+    /* never let analytics break the store */
+  }
+  if (process.env.NEXT_PUBLIC_ANALYTICS_DEBUG === "1") {
+    console.debug("[analytics] RemoveFromCart", { slug, qty });
+  }
 }
 
 export function trackInitiateCheckout(
   contentIds: string[],
   value: number,
+  items?: EcommerceItem[],
 ): void {
   track("InitiateCheckout", {
     content_ids: contentIds,
     content_type: "product_group",
     value,
     num_items: contentIds.length,
+    items,
   });
 }
 
@@ -126,6 +177,7 @@ export function trackPurchase(order: {
   transactionId: string;
   value: number;
   contentIds: string[];
+  items?: EcommerceItem[];
 }): void {
   track("Purchase", {
     transaction_id: order.transactionId,
@@ -133,5 +185,6 @@ export function trackPurchase(order: {
     currency: "INR",
     content_ids: order.contentIds,
     content_type: "product_group",
+    items: order.items,
   });
 }

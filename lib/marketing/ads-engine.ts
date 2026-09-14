@@ -34,6 +34,7 @@ import {
   type AdRecord,
 } from "@/lib/marketing/ads";
 import { getAd, getAdByKey, newAdId, saveAd } from "@/lib/marketing/ai-store";
+import { taggedSocialUrl } from "@/lib/marketing/social";
 import { uploadPipelineAsset } from "@/lib/marketing/storage";
 import { sendTelegramCard } from "@/lib/marketing/telegram";
 import { pipelineProduct } from "@/lib/marketing/store";
@@ -100,7 +101,13 @@ export async function generateAd(input: GenerateAdInput): Promise<GenerateAdResu
     return { ad: existing, created: false, engine: existing.engine };
   }
 
-  const destinationUrl = input.destinationUrl?.trim() || `${SITE.url}/sarees/${row.slug}`;
+  const destinationUrl = taggedSocialUrl(
+    input.destinationUrl?.trim() || `${SITE.url}/sarees/${row.slug}`,
+    // Paid Meta campaign attribution for GA4 (medium=paid_social distinguishes
+    // ads from organic posts in Traffic acquisition).
+    "facebook",
+    `paid_${input.objective}`,
+  );
   const promptInput: AdPromptInput = {
     productName: row.name,
     productCategory: row.category,

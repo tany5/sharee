@@ -7,6 +7,7 @@ import {
   ArrowLeft,
   ImagePlus,
   Loader2,
+  RefreshCcw,
   Save,
   Tags,
   Trash2,
@@ -246,7 +247,7 @@ export function ProductEditor({ slug }: { slug?: string }) {
    * persists partial progress immediately. To replace a bad render, remove it
    * from the product, save, then run generation again.
    */
-  const runGeneration = async () => {
+  const runGeneration = async (forceAll = false) => {
     const source = garmentSource;
     if (!source) {
       const msg = "Upload a saree photo first";
@@ -263,9 +264,13 @@ export function ProductEditor({ slug }: { slug?: string }) {
     setAiBusy(true);
     setError(null);
     setAiProgress({ done: 0, total: aiPhotoTotal });
+    if (forceAll) {
+      aiPhotoUrlsRef.current = [];
+      setHasAiRenders(false);
+    }
     let landed = 0;
     try {
-      for (let round = 0; round < 1; round++) {
+      for (let round = 0; round < aiPhotoTotal; round++) {
         const res = await fetch("/api/admin/products/generate-photos", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -273,7 +278,7 @@ export function ProductEditor({ slug }: { slug?: string }) {
             garmentUrl: source,
             name: draft.name.trim() || "Saree",
             slug: slugify(draft.slug || draft.name || "saree"),
-            force: false,
+            force: forceAll && round === 0,
           }),
         });
         const data = (await res.json()) as {
@@ -292,7 +297,7 @@ export function ProductEditor({ slug }: { slug?: string }) {
           aiPhotoUrlsRef.current = [...aiPhotoUrlsRef.current, ...generated];
           setAiProgress({ done: Math.min(aiPhotoTotal, landed), total: aiPhotoTotal });
           setImages((prev) => {
-            const keep = prev.filter((url) => !generated.includes(url));
+            const keep = forceAll && round === 0 ? [] : prev.filter((url) => !generated.includes(url));
             return [...generated, ...keep].slice(0, 8);
           });
           setHasAiRenders(true);
@@ -468,14 +473,27 @@ export function ProductEditor({ slug }: { slug?: string }) {
 
   const deleteCurrentProduct = async () => {
     if (!editing || !slug) return;
-    if (!window.confirm(`Delete "${draft.name || slug}"? It will be hidden from the store.`)) return;
+    if (!window.confirm(`Permanently delete "${draft.name || slug}" and remove its photos from storage?`)) return;
     setDeleting(true);
     setError(null);
     try {
       const res = await fetch(`/api/admin/products/${slug}`, { method: "DELETE" });
-      const data = (await res.json()) as { ok: boolean; error?: string };
+      const data = (await res.json()) as {
+        ok: boolean;
+        error?: string;
+        cleanupError?: string;
+        deletedImages?: number;
+      };
       if (!res.ok || !data.ok) throw new Error(data.error ?? "Could not delete the product");
-      toast.success(`"${draft.name || slug}" deleted.`);
+      if (data.cleanupError) {
+        toast.info(`"${draft.name || slug}" deleted. Media cleanup needs checking: ${data.cleanupError}`, {
+          duration: 9000,
+        });
+      } else {
+        toast.success(
+          `"${draft.name || slug}" deleted${data.deletedImages ? ` with ${data.deletedImages} media file${data.deletedImages === 1 ? "" : "s"}` : ""}.`,
+        );
+      }
       router.push("/admin/products");
       router.refresh();
     } catch (err) {
@@ -734,7 +752,7 @@ export function ProductEditor({ slug }: { slug?: string }) {
                 type="button"
                 variant="outline"
                 disabled={busy || aiBusy || images.length === 0}
-                onClick={runGeneration}
+                onClick={() => runGeneration()}
               >
                 {aiBusy ? <Loader2 size={16} className="animate-spin" /> : <ImagePlus size={16} />}
                 {aiBusy
@@ -743,10 +761,23 @@ export function ProductEditor({ slug }: { slug?: string }) {
                     ? "Generate missing photos"
                     : "Generate model photos (front · side · back · full)"}
               </Button>
+              {hasAiRenders ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  disabled={busy || aiBusy || images.length === 0}
+                  onClick={() => runGeneration(true)}
+                >
+                  {aiBusy ? <Loader2 size={16} className="animate-spin" /> : <RefreshCcw size={16} />}
+                  Regenerate all photos
+                </Button>
+              ) : null}
               <p className="text-xs leading-5 text-muted">
                 {aiBusy
                   ? "Catalogue photoshoot running — previews appear as each photo finishes."
-                  : "Finished photos are reused to avoid extra image calls. To replace a bad photo, delete it, save, then generate again."}
+                  : hasAiRenders
+                    ? "Use regenerate all when the current AI photos are wrong, flat, or mismatched."
+                    : "Finished photos are reused to avoid extra image calls."}
               </p>
             </div>
           </section>

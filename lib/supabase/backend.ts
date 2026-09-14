@@ -243,7 +243,7 @@ export async function supabaseDeleteProduct(slug: string): Promise<void> {
   const supabase = await supabaseServer();
   const { data, error } = await supabase
     .from("products")
-    .update({ db_status: "deleted", updated_at: new Date().toISOString() })
+    .delete()
     .eq("slug", slug)
     .select("id")
     .maybeSingle();
@@ -550,14 +550,18 @@ export async function supabaseSaveMedia(
 export async function supabaseDeleteMedia(url: string): Promise<void> {
   const clean = url.trim();
   if (!clean) return;
-  const marker = `/storage/v1/object/public/${SUPABASE_STORAGE_BUCKET}/`;
-  const index = clean.indexOf(marker);
+  const withoutQuery = clean.split(/[?#]/)[0] ?? clean;
+  const generic = withoutQuery.match(/\/storage\/v1\/object\/public\/([^/]+)\/(.+)$/);
+  const bucket = generic?.[1] ? decodeURIComponent(generic[1]) : SUPABASE_STORAGE_BUCKET;
+  if (!bucket || bucket.includes("..") || bucket.includes("/")) return;
+  const marker = `/storage/v1/object/public/${bucket}/`;
+  const index = withoutQuery.indexOf(marker);
   if (index === -1) return;
-  const storagePath = decodeURIComponent(clean.slice(index + marker.length));
+  const storagePath = decodeURIComponent(withoutQuery.slice(index + marker.length));
   if (!storagePath || storagePath.includes("..")) return;
   const supabase = await supabaseServer();
   const { error } = await supabase.storage
-    .from(SUPABASE_STORAGE_BUCKET)
+    .from(bucket)
     .remove([storagePath]);
   if (error) fail(error, "Could not delete image from storage");
 }

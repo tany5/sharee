@@ -288,6 +288,30 @@ async function saveGeneratedLocalCopy(input: {
   }
 }
 
+async function assertModelDrapeImage(input: {
+  pose: GalleryPose;
+  bytes: Buffer;
+  contentType: string;
+  provider?: string;
+}): Promise<void> {
+  if (input.pose === "full_saree" || !input.contentType.startsWith("image/")) return;
+
+  try {
+    const sharp = (await import("sharp")).default;
+    const meta = await sharp(input.bytes).metadata();
+    const width = meta.width ?? 0;
+    const height = meta.height ?? 0;
+    if (width > 0 && height > 0 && width / height > 1.35) {
+      throw new Error(
+        `${input.provider ?? "AI"} returned a wide/fabric image instead of a portrait model drape. Regenerate the product photos after using a clear saree source image.`,
+      );
+    }
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "";
+    if (message.includes("portrait model drape")) throw err;
+  }
+}
+
 function isTheTantiLocalEngine(url?: string): boolean {
   if (!url) return false;
   try {
@@ -401,6 +425,9 @@ export async function generateProductTryOnGallery({
 
   const garment = garmentFromRow(row, storedMarketing, garmentUrl);
   if (!garment) throw new Error("Upload a saree photo first");
+  if (force) {
+    await persistGallery(slug, baseImages, marketing);
+  }
 
   const secrets = await loadPipelineSecrets();
   const tryOnProvider = (process.env.TRYON_PROVIDER ?? "kaggle").trim().toLowerCase();
@@ -647,6 +674,12 @@ export async function generateProductTryOnGallery({
             );
           })();
       provider = result.provider;
+      await assertModelDrapeImage({
+        pose,
+        bytes: result.bytes,
+        contentType: result.contentType,
+        provider: result.provider,
+      });
       const ext = result.contentType.includes("png")
         ? "png"
         : result.contentType.includes("webp")

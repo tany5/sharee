@@ -3,6 +3,19 @@ import { adminProducts, deleteMediaFiles, deleteProduct, upsertProduct } from "@
 import { requireAdmin, unauthorized } from "@/lib/admin/guard";
 import { parseMarketing } from "@/lib/marketing/types";
 import type { DbStatus } from "@/lib/types";
+import type { DbProduct } from "@/lib/demo/db";
+
+function productMediaUrls(product: DbProduct): string[] {
+  const marketing = parseMarketing(product.marketing);
+  return [
+    ...(product.images ?? []),
+    marketing.tryOn?.imageUrl,
+    marketing.tryOn?.garmentUrl,
+    ...(marketing.tryOn?.renders?.map((render) => render.imageUrl) ?? []),
+    marketing.video?.url,
+    ...(marketing.posts?.map((post) => post.url) ?? []),
+  ].filter((url): url is string => typeof url === "string" && url.trim().length > 0);
+}
 
 export async function PATCH(
   request: Request,
@@ -106,8 +119,25 @@ export async function DELETE(
   if (!(await requireAdmin())) return unauthorized();
   const { slug } = await params;
   try {
+    const product = (await adminProducts()).find((p) => p.slug === slug);
+    if (!product) {
+      return NextResponse.json({ ok: false, error: "Product not found" }, { status: 404 });
+    }
+    const cleanupUrls = productMediaUrls(product);
     await deleteProduct(slug);
-    return NextResponse.json({ ok: true });
+    try {
+      await deleteMediaFiles(cleanupUrls);
+    } catch (cleanupErr) {
+      return NextResponse.json({
+        ok: true,
+        cleanupError:
+          cleanupErr instanceof Error
+            ? cleanupErr.message
+            : "Product deleted, but some media files could not be removed.",
+        deletedImages: 0,
+      });
+    }
+    return NextResponse.json({ ok: true, deletedImages: new Set(cleanupUrls).size });
   } catch (err) {
     const e = err as { code?: string; message?: string };
     return NextResponse.json(

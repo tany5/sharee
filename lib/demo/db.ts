@@ -299,10 +299,9 @@ export async function upsertProduct(
 
 export async function deleteProduct(slug: string): Promise<void> {
   await mutate((db) => {
-    const row = db.products.find((p) => p.slug === slug);
-    if (!row) throw new DbError("Product not found", "not_found");
-    row.dbStatus = "deleted";
-    row.updatedAt = new Date().toISOString();
+    const index = db.products.findIndex((p) => p.slug === slug);
+    if (index === -1) throw new DbError("Product not found", "not_found");
+    db.products.splice(index, 1);
   });
 }
 

@@ -113,12 +113,23 @@ export function AdminProducts() {
     async (slug: string, name: string) => {
       if (!window.confirm(`Delete "${name}"? It will be hidden from the store.`)) return;
       const res = await fetch(`/api/admin/products/${slug}`, { method: "DELETE" });
-      const data = (await res.json()) as { ok: boolean; error?: string };
+      const data = (await res.json()) as {
+        ok: boolean;
+        error?: string;
+        cleanupError?: string;
+        deletedImages?: number;
+      };
       if (!data.ok) {
         toast.error(data.error ?? "Could not delete the product");
         return;
       }
-      toast.success(`"${name}" deleted.`);
+      if (data.cleanupError) {
+        toast.info(`"${name}" deleted. Media cleanup needs checking: ${data.cleanupError}`, {
+          duration: 9000,
+        });
+      } else {
+        toast.success(`"${name}" deleted${data.deletedImages ? ` with ${data.deletedImages} media file${data.deletedImages === 1 ? "" : "s"}` : ""}.`);
+      }
       setRows((prev) => prev?.filter((p) => p.slug !== slug) ?? null);
       router.refresh();
     },

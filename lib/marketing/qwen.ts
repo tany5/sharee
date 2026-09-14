@@ -43,9 +43,12 @@ const DEFAULT_MODEL = "qwen-image-edit";
 const MAX_POLL_MS = Number(process.env.QWEN_IMAGE_TIMEOUT_MS ?? 180_000) || 180_000;
 
 const POSE_PROMPTS: Record<QwenPose, string> = {
-  front: "front-facing full-body catalogue pose, camera at chest height, both feet visible",
-  side: "side-view full-body catalogue pose, body turned 70 degrees, face natural, both feet visible",
-  back: "back-view full-body catalogue pose, show the pallu and back drape clearly, both feet visible",
+  front:
+    "front-facing full-body catalogue pose, camera at chest height, relaxed natural stance, both feet visible",
+  side:
+    "side-view full-body catalogue pose, body turned 70 degrees, face natural, relaxed natural stance, both feet visible",
+  back:
+    "back-view full-body catalogue pose, show the pallu and back drape clearly, relaxed natural stance, both feet visible",
 };
 
 function sleep(ms: number): Promise<void> {
@@ -82,13 +85,17 @@ function buildPrompt(input: QwenImageEditInput): string {
   const product = input.productName ? `Product: ${input.productName}.` : "";
   return [
     product,
-    "Use image 1 as the exact human model reference and image 2 as the exact saree fabric reference.",
-    "Create a professional Indian saree ecommerce try-on photo.",
+    "Use image 1 as the exact adult human model reference and image 2 as the exact saree product reference.",
+    "Create a professional Indian saree ecommerce try-on photo for a Bengali saree shop.",
     `Pose: ${POSE_PROMPTS[input.pose]}.`,
-    "Drape the exact saree from image 2 onto the model, preserving the saree's dominant colour, border colour, motif style, zari/embroidery placement, sheen, weave feel, and pallu identity.",
-    "Use a tasteful matching blouse, Bengali styling with a small forehead bindi, clean makeup, natural hands, realistic face, realistic body proportions, studio/catalogue lighting, plain warm neutral background.",
-    "Show the full body and full saree drape. Keep the face sharp and undistorted.",
-    "Do not add mask, sunglasses, watermark, extra text, extra logos, duplicate limbs, distorted fingers, or cropped feet.",
+    "First visually inspect image 2: identify the true base colour, border palette, border width, printed motif style, scattered body motifs, pallu design, fabric sheen, and weave texture. Reproduce those exact product traits on the draped saree.",
+    "Drape the same saree from image 2 onto the model. Preserve the original teal/turquoise base when present, printed paisley/floral border when present, magenta/yellow/blue accent motifs when present, scattered small body motifs, dark fold shadows, sheen, pallu identity, and border placement.",
+    "Do not invent a new saree. Do not convert printed borders into gold zari, do not simplify the fabric into a plain solid saree, do not change the colour family, and do not replace the pallu pattern.",
+    "Use a simple matching blouse based on the saree base colour. Keep Bengali styling subtle: small forehead bindi, simple earrings, clean makeup, natural hair, no heavy bridal jewellery unless present in the reference.",
+    "The model must look like a normal real adult Bengali woman, not a synthetic beauty render: realistic skin texture, slight natural facial asymmetry, normal eyes, normal hands, natural shoulders and waist, believable body proportions.",
+    "The final output must be a vertical portrait catalogue image, preferably 4:5 or 3:4. Do not return a landscape banner, flat lay, fabric-only image, folded saree image, or garment-only product photo.",
+    "Show the full body and full saree drape with head, hands, and feet inside frame. Keep generous safe space above the head and below the feet. Keep the face sharp and undistorted. Use clean studio/catalogue lighting and a plain warm neutral background.",
+    "Avoid fashion-poster exaggeration, doll-like face, plastic skin, tiny waist, extra limbs, duplicate fingers, broken hands, warped torso, cropped head, cropped feet, flat-lay fabric, garment-only image, landscape canvas, mask, sunglasses, watermark, text, logo, and any mismatch with the source saree.",
   ].join(" ");
 }
 
@@ -209,7 +216,7 @@ export async function runQwenImageEdit(input: QwenImageEditInput): Promise<QwenI
     ],
     parameters: {
       negative_prompt:
-        "low quality, blurry face, distorted face, mask, sunglasses, watermark, text, logo, cropped feet, extra fingers, extra arms, deformed hands, wrong saree colour, missing border",
+        "low quality, blurry face, distorted face, doll face, plastic skin, synthetic CGI model, tiny waist, warped torso, mask, sunglasses, watermark, text, logo, cropped head, cropped feet, flat lay, fabric-only, garment-only, folded cloth, landscape banner, wide canvas, extra fingers, extra arms, deformed hands, broken fingers, wrong saree colour, generic gold saree, invented zari border, plain solid saree, missing printed border, missing motifs, wrong pallu",
     },
   });
 }

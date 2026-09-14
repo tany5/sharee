@@ -41,16 +41,20 @@ function runOnce({
   cookieFile,
   aiRoot,
   origin,
+  engine,
 }: {
   script: string;
   cookieFile: string;
   aiRoot: string;
   origin: string;
+  engine?: string | null;
 }): Promise<{ code: number | null; stdout: string; stderr: string; timedOut: boolean }> {
   return new Promise((resolve, reject) => {
+    const args = [script, "--once", "--cookie-file", cookieFile];
+    if (engine) args.push("--engine", engine);
     const child = spawn(
       process.execPath,
-      [script, "--once", "--cookie-file", cookieFile],
+      args,
       {
         cwd: path.dirname(script),
         env: {
@@ -102,6 +106,13 @@ export async function POST(request: Request) {
     );
   }
 
+  let body: Record<string, unknown> = {};
+  try {
+    body = (await request.json()) as Record<string, unknown>;
+  } catch {
+    body = {}; // body is optional
+  }
+
   const aiRoot = process.env.THETANTI_AI_ROOT || DEFAULT_AI_ROOT;
   const script = path.join(aiRoot, "scripts", "watch-incoming-products.mjs");
   if (!existsSync(script)) {
@@ -110,6 +121,10 @@ export async function POST(request: Request) {
       { status: 400 },
     );
   }
+
+  // Per-run engine choice from the admin buttons: qwen | cloudflare.
+  const engineParam = String(body.engine ?? "").trim().toLowerCase();
+  const engine = engineParam === "qwen" || engineParam === "cloudflare" ? engineParam : null;
 
   const tmpDir = path.join(aiRoot, ".tmp");
   const cookieFile = path.join(tmpDir, "admin-cookie-from-ui.txt");
@@ -121,6 +136,7 @@ export async function POST(request: Request) {
     cookieFile,
     aiRoot,
     origin: requestOrigin(request),
+    engine,
   });
   const parsed = parseLastJson(result.stdout) ?? parseLastJson(result.stderr);
   if (result.timedOut) {

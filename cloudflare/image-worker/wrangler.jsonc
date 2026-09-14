@@ -1,0 +1,30 @@
+/**
+ * TheTanti Image Worker — Wrangler configuration.
+ *
+ * Local dev:   npx wrangler dev          → http://localhost:8787
+ * Deploy:      npx wrangler deploy       → https://thetanti-image-worker.<subdomain>.workers.dev
+ *
+ * Secrets (values never go in this file):
+ *   npx wrangler secret put CLOUDFLARE_IMAGE_WORKER_SECRET
+ *
+ * Non-secret config lives in [vars]; override per environment as needed.
+ * The `ai` binding exposes Workers AI as env.AI — no API token is used.
+ */
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "thetanti-image-worker",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-01-15",
+  "workers_dev": true,
+  "ai": {
+    "binding": "AI"
+  },
+  "observability": {
+    "enabled": true
+  },
+  // Override in .dev.vars (local) or with `npx wrangler secret put …` (prod).
+  "vars": {
+    // "CLOUDFLARE_IMAGE_MODEL": "@cf/black-forest-labs/flux-2-klein-9b",
+    "ALLOWED_ORIGIN": "http://localhost:3000"
+  }
+}

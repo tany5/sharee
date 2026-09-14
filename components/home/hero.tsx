@@ -1,10 +1,16 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import {
+  useEffect,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import Link from "next/link";
 import Image from "next/image";
 import {
   ArrowRight,
+  ChevronLeft,
+  ChevronRight,
   RotateCcw,
   ShieldCheck,
   Truck,
@@ -59,9 +65,22 @@ const HERO_PROMISES = [
   {
     Icon: Truck,
     t: "Free shipping",
-    s: "Across West Bengal",
+    s: "Across India over ₹999",
   },
 ];
+
+/** Subscribe to a media query without setState-in-effect churn (SSR: false). */
+function useMediaQuery(query: string): boolean {
+  return useSyncExternalStore(
+    (onChange) => {
+      const mq = window.matchMedia(query);
+      mq.addEventListener("change", onChange);
+      return () => mq.removeEventListener("change", onChange);
+    },
+    () => window.matchMedia(query).matches,
+    () => false,
+  );
+}
 
 function CtaButtons() {
   const base =
@@ -93,28 +112,8 @@ function CtaButtons() {
 export function Hero() {
   const [index, setIndex] = useState(0);
   const activeSlide = SLIDES[index];
-  const [reducedMotion, setReducedMotion] = useState(
-    () =>
-      typeof window !== "undefined" &&
-      window.matchMedia("(prefers-reduced-motion: reduce)").matches,
-  );
-  const [compactHero, setCompactHero] = useState(
-    () => typeof window !== "undefined" && window.matchMedia("(max-width: 767px)").matches,
-  );
-
-  useEffect(() => {
-    const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
-    const onChange = (e: MediaQueryListEvent) => setReducedMotion(e.matches);
-    mq.addEventListener?.("change", onChange);
-    return () => mq.removeEventListener?.("change", onChange);
-  }, []);
-
-  useEffect(() => {
-    const mq = window.matchMedia("(max-width: 767px)");
-    const onChange = (e: MediaQueryListEvent) => setCompactHero(e.matches);
-    mq.addEventListener?.("change", onChange);
-    return () => mq.removeEventListener?.("change", onChange);
-  }, []);
+  const compactHero = useMediaQuery("(max-width: 767px)");
+  const reducedMotion = useMediaQuery("(prefers-reduced-motion: reduce)");
 
   useEffect(() => {
     if (reducedMotion) return;
@@ -136,23 +135,30 @@ export function Hero() {
           fill
           sizes="100vw"
           priority
-          className={cx(
-            "object-cover opacity-80 transition-transform duration-[1400ms] ease-out sm:opacity-65 motion-reduce:transition-none",
-            !reducedMotion && "scale-[1.005]",
-          )}
+          className="object-cover opacity-95 sm:opacity-80"
           style={{ objectPosition: compactHero ? activeSlide.mobilePosition : activeSlide.position }}
           aria-hidden
         />
       </div>
 
-      {/* A layered scrim keeps copy readable while the photo still bleeds behind it. */}
+      {/*
+       * Scrims — two variants so each viewport gets a clean blend:
+       *  · Mobile: a soft vertical wash (top for the header, bottom for the
+       *    promise card) with a clear middle, so the photo reads sharp.
+       *  · sm+: a horizontal editorial fade with eased stops — no hard seam
+       *    between the copy panel and the photography on wide screens.
+       */}
       <div
         aria-hidden
-        className="absolute inset-0 bg-[linear-gradient(90deg,rgba(17,8,5,0.88)_0%,rgba(24,11,7,0.76)_27%,rgba(40,20,12,0.45)_51%,rgba(40,20,12,0.16)_73%,rgba(24,11,7,0.08)_100%)]"
+        className="absolute inset-0 bg-[linear-gradient(180deg,rgba(15,8,5,0.66)_0%,rgba(15,8,5,0.34)_26%,rgba(18,10,6,0.28)_52%,rgba(15,9,5,0.6)_76%,rgba(12,7,4,0.85)_100%)] sm:hidden"
       />
       <div
         aria-hidden
-        className="absolute inset-0 bg-[radial-gradient(circle_at_78%_48%,rgba(255,232,188,0.18),transparent_34%),linear-gradient(0deg,rgba(12,7,5,0.78)_0%,rgba(12,7,5,0.16)_36%,rgba(12,7,5,0.08)_100%)]"
+        className="absolute inset-0 hidden bg-[linear-gradient(90deg,rgba(15,8,5,0.92)_0%,rgba(17,9,5,0.84)_16%,rgba(20,11,6,0.62)_32%,rgba(24,13,7,0.38)_48%,rgba(28,15,8,0.2)_64%,rgba(26,14,8,0.1)_80%,rgba(24,13,7,0.04)_100%)] sm:block"
+      />
+      <div
+        aria-hidden
+        className="absolute inset-0 hidden bg-[radial-gradient(circle_at_78%_46%,rgba(255,232,188,0.12),transparent_36%),linear-gradient(0deg,rgba(12,7,5,0.62)_0%,rgba(12,7,5,0.12)_30%,rgba(12,7,5,0)_58%)] sm:block"
       />
 
       {/* ---------------------------- Banner copy --------------------------- */}
@@ -196,13 +202,14 @@ export function Hero() {
             <CtaButtons />
           </div>
 
-          <div className="mt-7 grid max-w-[42rem] grid-cols-3 gap-1.5 rounded-3xl border border-white/12 bg-black/22 p-2 text-[#f6ebdf] shadow-2xl shadow-black/25 backdrop-blur-md sm:gap-3 sm:p-3">
+          {/* All three promises stay visible on mobile as stacked rows. */}
+          <div className="mt-7 grid max-w-[42rem] grid-cols-1 gap-1 rounded-3xl border border-white/12 bg-black/22 p-2 text-[#f6ebdf] shadow-2xl shadow-black/25 backdrop-blur-md sm:grid-cols-3 sm:gap-3 sm:p-3">
             {HERO_PROMISES.map(({ Icon, t, s }) => (
-              <div key={t} className="flex min-w-0 items-center gap-1.5 px-1 py-2 sm:gap-2.5 sm:px-3">
-                <Icon size={16} className="shrink-0 text-goldlight sm:size-5" strokeWidth={1.8} />
+              <div key={t} className="flex min-w-0 items-center gap-2.5 px-1.5 py-1.5 sm:gap-2.5 sm:px-3 sm:py-2">
+                <Icon size={18} className="shrink-0 text-goldlight sm:size-5" strokeWidth={1.8} />
                 <span className="min-w-0">
-                  <span className="block truncate text-[10px] font-bold sm:text-[14px]">{t}</span>
-                  <span className="block truncate text-[8px] text-[#e4cdb7]/75 sm:text-[12px]">{s}</span>
+                  <span className="block truncate text-[12px] font-bold sm:text-[14px]">{t}</span>
+                  <span className="block truncate text-[10px] text-[#e4cdb7]/80 sm:text-[12px]">{s}</span>
                 </span>
               </div>
             ))}
@@ -210,8 +217,26 @@ export function Hero() {
         </div>
       </div>
 
-      {/* Slide picker, treated like a small story strip over the image. */}
-      <div className="pointer-events-none absolute inset-x-0 bottom-5 z-20">
+      {/* Edge prev/next arrows — mid-height, kept clear of the bottom strip. */}
+      <button
+        type="button"
+        aria-label="Previous banner"
+        onClick={() => setIndex((i) => (i - 1 + SLIDES.length) % SLIDES.length)}
+        className="absolute left-2 top-1/2 z-20 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border border-white/25 bg-black/30 text-white shadow-lg shadow-black/30 backdrop-blur-md transition-colors duration-200 hover:bg-black/50 sm:left-4 sm:h-12 sm:w-12"
+      >
+        <ChevronLeft size={22} strokeWidth={2} />
+      </button>
+      <button
+        type="button"
+        aria-label="Next banner"
+        onClick={() => setIndex((i) => (i + 1) % SLIDES.length)}
+        className="absolute right-2 top-1/2 z-20 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border border-white/25 bg-black/30 text-white shadow-lg shadow-black/30 backdrop-blur-md transition-colors duration-200 hover:bg-black/50 sm:right-4 sm:h-12 sm:w-12"
+      >
+        <ChevronRight size={22} strokeWidth={2} />
+      </button>
+
+      {/* Slide picker — thumbnails only, lifted above the mobile browser bar. */}
+      <div className="pointer-events-none absolute inset-x-0 bottom-24 z-20 sm:bottom-6">
         <div className="tt-container flex justify-end">
           <div className="pointer-events-auto flex items-center gap-1.5 rounded-pill border border-white/15 bg-black/22 p-1.5 shadow-2xl shadow-black/30 backdrop-blur-md sm:gap-2 sm:p-2">
             {SLIDES.map((s, i) => (

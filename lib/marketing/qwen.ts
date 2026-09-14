@@ -83,19 +83,31 @@ function qwenError(prefix: string, data?: DashScopeTaskResponse): Error {
 
 function buildPrompt(input: QwenImageEditInput): string {
   const product = input.productName ? `Product: ${input.productName}.` : "";
+  // Each pose gets its OWN background so a four-photo gallery reads like a
+  // real catalogue shoot in different setups, not the same frame repeated.
+  const BACKGROUNDS: Record<QwenPose, string> = {
+    front:
+      "seamless warm ivory studio backdrop with soft falloff, clean and bright",
+    side:
+      "warm beige textured wall with soft window light from the left and gentle floor shadow",
+    back:
+      "muted terracotta plaster wall, softly lit, editorial boutique feel",
+  };
+  const background = BACKGROUNDS[input.pose];
   return [
     product,
     "Use image 1 as the exact adult human model reference and image 2 as the exact saree product reference.",
     "Create a professional Indian saree ecommerce try-on photo for a Bengali saree shop.",
     `Pose: ${POSE_PROMPTS[input.pose]}.`,
+    `Background: ${background}. This photo must NOT share its background with the other catalogue shots.`,
     "First visually inspect image 2: identify the true base colour, border palette, border width, printed motif style, scattered body motifs, pallu design, fabric sheen, and weave texture. Reproduce those exact product traits on the draped saree.",
     "Drape the same saree from image 2 onto the model. Preserve the original teal/turquoise base when present, printed paisley/floral border when present, magenta/yellow/blue accent motifs when present, scattered small body motifs, dark fold shadows, sheen, pallu identity, and border placement.",
     "Do not invent a new saree. Do not convert printed borders into gold zari, do not simplify the fabric into a plain solid saree, do not change the colour family, and do not replace the pallu pattern.",
-    "Use a simple matching blouse based on the saree base colour. Keep Bengali styling subtle: small forehead bindi, simple earrings, clean makeup, natural hair, no heavy bridal jewellery unless present in the reference.",
-    "The model must look like a normal real adult Bengali woman, not a synthetic beauty render: realistic skin texture, slight natural facial asymmetry, normal eyes, normal hands, natural shoulders and waist, believable body proportions.",
+    "Use a simple matching blouse based on the saree base colour. Keep Bengali styling subtle: small forehead bindi, LIGHT everyday jewellery only — small stud or jhumka earrings, a thin chain or simple pendant, at most one thin bangle. No heavy bridal jewellery sets, no large chokers, no maang tikka, no stacks of bangles.",
+    "The model must look like a normal real adult Bengali woman, not a synthetic beauty render: realistic skin texture with visible pores, slight natural facial asymmetry, normal eyes, normal hands, natural shoulders and waist, believable body proportions. No plastic or porcelain skin, no doll face, no beauty-filter smoothness, no glossy lips, no exaggerated tiny waist.",
     "The final output must be a vertical portrait catalogue image, preferably 4:5 or 3:4. Do not return a landscape banner, flat lay, fabric-only image, folded saree image, or garment-only product photo.",
-    "Show the full body and full saree drape with head, hands, and feet inside frame. Keep generous safe space above the head and below the feet. Keep the face sharp and undistorted. Use clean studio/catalogue lighting and a plain warm neutral background.",
-    "Avoid fashion-poster exaggeration, doll-like face, plastic skin, tiny waist, extra limbs, duplicate fingers, broken hands, warped torso, cropped head, cropped feet, flat-lay fabric, garment-only image, landscape canvas, mask, sunglasses, watermark, text, logo, and any mismatch with the source saree.",
+    "Show the full body and full saree drape with head, hands, and feet inside frame. Keep generous safe space above the head and below the feet. Keep the face sharp and undistorted. Use clean catalogue lighting that fits the described background.",
+    "Avoid fashion-poster exaggeration, doll-like face, plastic skin, tiny waist, extra limbs, duplicate fingers, broken hands, warped torso, cropped head, cropped feet, flat-lay fabric, garment-only image, landscape canvas, mask, sunglasses, heavy bridal jewellery, watermark, text, logo, and any mismatch with the source saree.",
   ].join(" ");
 }
 

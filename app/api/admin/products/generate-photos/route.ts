@@ -34,9 +34,16 @@ export async function POST(request: Request) {
   const name = String(body.name ?? "Saree").trim() || "Saree";
   const garmentUrl = String(body.garmentUrl ?? "").trim() || undefined;
   const force = body.force === true;
+  // Per-run engine choice from the admin buttons: qwen | cloudflare.
+  // Anything else falls back to TRYON_PROVIDER (kaggle by default).
+  const engineParam = String(body.engine ?? "").trim().toLowerCase();
+  const engine =
+    engineParam === "qwen" || engineParam === "cloudflare"
+      ? (engineParam as "qwen" | "cloudflare")
+      : undefined;
 
   try {
-    const progress = await generateProductTryOnGallery({ slug, name, garmentUrl, force });
+    const progress = await generateProductTryOnGallery({ slug, name, garmentUrl, force, engine });
     const done = progress.remaining.length === 0 && !progress.error;
     const product = (await adminProducts()).find((p) => p.slug === slug);
     return NextResponse.json({

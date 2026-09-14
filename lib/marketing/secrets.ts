@@ -62,33 +62,46 @@ async function readSecret(name: string): Promise<string | undefined> {
   }
 }
 
+/**
+ * Parse secret/secret/meta.txt. The owner keeps credential snapshots in this
+ * file and has used several layouts over time — handle them all:
+ *
+ *   Access Token = …          (original token line)
+ *   new Access Token = …      (refreshed token — preferred over the old one)
+ *   Pageid = …                (original page id)
+ *   FB_PAGE_ID = … / IG_USER_ID = …   (explicit ids — preferred)
+ *   {"instagram_business_account": {"id": …}} JSON block (tolerates `=` for `:`)
+ */
+export function parseMetaFile(raw: string): Pick<PipelineSecrets, "metaPageToken" | "fbPageId" | "igUserId"> {
+  const last = (re: RegExp): string | undefined => {
+    let out: string | undefined;
+    for (const m of raw.matchAll(re)) {
+      const v = m[1]?.trim().replace(/^["']+|["']+$/g, "");
+      if (v) out = v;
+    }
+    return out;
+  };
+  const token =
+    last(/^\s*new\s+Access\s+Token\s*[=: ]\s*(.+?)\s*$/gim) ??
+    last(/^\s*Access\s+Token\s*[=: ]\s*(.+?)\s*$/gim);
+  const pageId =
+    last(/^\s*FB_PAGE_ID\s*[=:]\s*(.+?)\s*$/gim) ??
+    last(/^\s*Pageid\s*[=: ]\s*(.+?)\s*$/gim);
+  const igUserId =
+    last(/^\s*IG_USER_ID\s*[=:]\s*(.+?)\s*$/gim) ??
+    (/"instagram_business_account"\s*[=:]\s*\{?\s*"id"\s*[=:]\s*"?([A-Za-z0-9_]+)"?/im.exec(raw)?.[1] ?? undefined);
+  return {
+    metaPageToken: token || undefined,
+    fbPageId: pageId || undefined,
+    igUserId,
+  };
+}
+
 function readLocalMetaFile(): Pick<PipelineSecrets, "metaPageToken" | "fbPageId" | "igUserId"> {
   const file = path.resolve(process.cwd(), "secret", "secret", "meta.txt");
   if (!existsSync(file)) return {};
   try {
-    const raw = readFileSync(file, "utf8");
-    const token = /^\s*Access\s+Token\s*=\s*(.+?)\s*$/im.exec(raw)?.[1]?.trim();
-    const pageId = /^\s*Pageid\s*=\s*(.+?)\s*$/im.exec(raw)?.[1]?.trim();
-    let igUserId: string | undefined;
-    const jsonStart = raw.indexOf("{");
-    if (jsonStart >= 0) {
-      try {
-        const parsed = JSON.parse(raw.slice(jsonStart)) as {
-          instagram_business_account?: { id?: unknown };
-        };
-        igUserId =
-          typeof parsed.instagram_business_account?.id === "string"
-            ? parsed.instagram_business_account.id
-            : undefined;
-      } catch {
-        /* ignore malformed JSON block */
-      }
-    }
-    return {
-      metaPageToken: token || undefined,
-      fbPageId: pageId || undefined,
-      igUserId,
-    };
+    return parseMetaFile(readFileSync(file, "utf8"));
   } catch {
     return {};
   }

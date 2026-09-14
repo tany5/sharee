@@ -3,6 +3,7 @@ import { baseModels, pipelineProduct } from "@/lib/marketing/store";
 import { loadPipelineSecrets } from "@/lib/marketing/secrets";
 import { pickRandomBaseModel, runTryOn, type TryOnPose } from "@/lib/marketing/tryon";
 import { runQwenImageEdit } from "@/lib/marketing/qwen";
+import { runCloudflarePose } from "@/lib/ai/cloudflare";
 import {
   submitKaggleTryOn,
   kaggleRunStatus,
@@ -116,6 +117,9 @@ async function generateLocalEnginePose(input: {
   return { bytes, contentType: "image/png", provider: "comfyui-sd15-rv", seed: data.result.seed ?? 0 };
 }
 
+/** Which image engine the gallery should use for this run. */
+export type GalleryEngine = "kaggle" | "qwen" | "cloudflare";
+
 export interface GenerateGalleryInput {
   slug: string;
   name?: string;
@@ -124,6 +128,12 @@ export interface GenerateGalleryInput {
   /** Clear previous generated catalogue renders and start again. */
   force?: boolean;
   timeBudgetMs?: number;
+  /**
+   * Engine for THIS run. Default follows TRYON_PROVIDER (kaggle).
+   * "qwen" forces the Qwen image-edit path; "cloudflare" forces the
+   * Cloudflare Worker (Workers AI FLUX.2 klein) path.
+   */
+  engine?: GalleryEngine;
 }
 
 export interface GenerateGalleryProgress {
@@ -407,7 +417,13 @@ export async function generateProductTryOnGallery({
   garmentUrl,
   force = false,
   timeBudgetMs = DEFAULT_BUDGET_MS,
+  engine,
 }: GenerateGalleryInput): Promise<GenerateGalleryProgress> {
+  const requestedEngine: GalleryEngine =
+    engine ??
+    ((process.env.TRYON_PROVIDER ?? "kaggle").trim().toLowerCase() as GalleryEngine);
+  const useCloudflareEngine = requestedEngine === "cloudflare";
+  const useQwenProviderFlag = requestedEngine === "qwen";
   const row = await pipelineProduct(slug);
   if (!row) throw new Error("Product not found — save it first");
   const storedMarketing = parseMarketing(row.marketing);
@@ -430,10 +446,9 @@ export async function generateProductTryOnGallery({
   }
 
   const secrets = await loadPipelineSecrets();
-  const tryOnProvider = (process.env.TRYON_PROVIDER ?? "kaggle").trim().toLowerCase();
-  const useQwenProvider = ["qwen", "dashscope", "local-first", "local-first-qwen"].includes(
-    tryOnProvider,
-  );
+  const tryOnProvider = requestedEngine;
+  const useQwenProvider =
+    useQwenProviderFlag || ["dashscope", "local-first", "local-first-qwen"].includes(tryOnProvider);
   const configuredTryOnUrl = secrets.localTryOnUrl?.trim();
   const useLegacyVtonFallback = process.env.TRYON_ENABLE_LEGACY_VTON?.trim().toLowerCase() === "true";
   const useLocalEngineFallback = process.env.TRYON_ENABLE_LOCAL_ENGINE?.trim().toLowerCase() === "true";
@@ -453,7 +468,7 @@ export async function generateProductTryOnGallery({
   // the product gallery and can hide the real FLUX retry path behind quota
   // errors.
   const kaggleState = marketing.tryOn?.kaggle;
-  if (!useQwenProvider && kaggleState && !kaggleState.error) {
+  if (!useQwenProvider && !useCloudflareEngine && kaggleState && !kaggleState.error) {
     const { state } = await kaggleRunStatus();
     const submittedAtMs = Date.parse(kaggleState.submittedAt);
     const isStale =
@@ -564,7 +579,7 @@ export async function generateProductTryOnGallery({
   // Try submitting a fresh Kaggle job when the CLI is available and there is
   // no previous attempt for this product (retries = press Generate again).
   const canSubmitFreshKaggle = !kaggleState || Boolean(kaggleState.error);
-  if (!useQwenProvider && canSubmitFreshKaggle && !process.env.TRYON_MOCK && (await kaggleAvailable())) {
+  if (!useQwenProvider && !useCloudflareEngine && canSubmitFreshKaggle && !process.env.TRYON_MOCK && (await kaggleAvailable())) {
     const person = await (async () => {
       const models = await baseModels();
       if (models.length === 0) return undefined;
@@ -614,7 +629,7 @@ export async function generateProductTryOnGallery({
   }
   let models: Awaited<ReturnType<typeof baseModels>> = [];
   let modelSet: ModelPoseSet | undefined;
-  if (!useLocalEngine && (useLegacyVtonFallback || useQwenProvider)) {
+  if (!useLocalEngine && (useLegacyVtonFallback || useQwenProvider || useCloudflareEngine)) {
     // Remote try-on/image-edit paths need a base model + garment reference;
     // the local engine creates its own model and does not.
     models = await baseModels();
@@ -625,6 +640,8 @@ export async function generateProductTryOnGallery({
   }
   const urls: string[] = [];
   const startedAt = Date.now();
+  // Cloudflare Workers AI runs in seconds (not GPU minutes) — the default
+  // route budget is fine; the local engine still gets its long budget.
   const budget = useLocalEngine ? Math.max(timeBudgetMs, LOCAL_BUDGET_MS) : timeBudgetMs;
   let provider: string | undefined;
 
@@ -645,6 +662,13 @@ export async function generateProductTryOnGallery({
             colorway: row.colorway,
             fabric: row.fabric,
             garmentUrl: garment,
+          })
+        : useCloudflareEngine
+        ? await runCloudflarePose({
+            modelUrl: modelForPose(modelSet!, pose).imageUrl,
+            garmentUrl: garment,
+            productName: name ?? row.name,
+            pose,
           })
         : useQwenProvider
         ? await runQwenImageEdit({

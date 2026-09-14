@@ -270,7 +270,13 @@ export async function publishSocialPost(
   if (post.state === "published") {
     return { post, simulated: isSocialTestMode(), note: "Already published (idempotent)" };
   }
-  assertState(post.state, "approved", "publish");
+  // A partial publish (fb done, ig failed) is retry-safe: ids are kept and
+  // only the missing platform is attempted — allow re-entry for those.
+  if (post.state === "approved" && (post.fbPostId || post.igMediaId)) {
+    // fall through — partial retry below
+  } else {
+    assertState(post.state, "approved", "publish");
+  }
 
   const { secrets, missing } = await metaSecrets();
   if (missing.length > 0 && !isSocialTestMode()) {
@@ -313,13 +319,18 @@ export async function publishSocialPost(
       failed = `${failed ? `${failed}; ` : ""}Instagram: ${(err as Error).message}`;
     }
   }
+  // Persist partial progress BEFORE deciding the outcome, so a retry only
+  // attempts the missing platform and the failed one's error is visible.
+  next.publishError = failed;
+  next.updatedAt = new Date().toISOString();
   if (!next.fbPostId && !next.igMediaId) {
-    next.publishError = failed;
-    next.updatedAt = new Date().toISOString();
     await saveSocialPost(next);
     throw new Error(failed ?? "Publishing failed");
   }
-  next.publishError = undefined;
+  if (failed) {
+    await saveSocialPost(next);
+    throw new Error(`Partially published${next.fbPostId ? " (Facebook live" : ""}${next.fbPostId && next.igMediaId ? ", " : ""}${next.igMediaId ? "Instagram live" : ""}${next.fbPostId || next.igMediaId ? ")" : ""}: ${failed}. Retry publish to complete the missing platform.`);
+  }
   next.state = "published";
   next.publishedAt = new Date().toISOString();
   await saveSocialPost(next);

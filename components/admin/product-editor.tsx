@@ -5,10 +5,12 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   ArrowLeft,
+  Check,
   ImagePlus,
   Loader2,
   RefreshCcw,
   Save,
+  Sparkles,
   Tags,
   Trash2,
   Upload,
@@ -19,6 +21,7 @@ import { useToast } from "@/components/admin/toast";
 import { AdminThumb, PageHeader } from "@/components/admin/shared";
 import type { Category, DbStatus } from "@/lib/types";
 import type { DbProduct } from "@/lib/demo/db";
+import type { ImageProviderStatus } from "@/lib/ai/types";
 import { parseMarketing } from "@/lib/marketing/types";
 
 function slugify(text: string): string {
@@ -104,6 +107,17 @@ function chipClass(on: boolean): string {
     : "bg-surface text-ink2 border border-line hover:border-accent/40";
 }
 
+/** Reads a File as a data URL (provider payloads are JSON, not multipart). */
+function fileToDataUrl(file?: File): Promise<string> {
+  if (!file) return Promise.resolve("");
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result));
+    reader.onerror = () => reject(new Error("Could not read the uploaded image"));
+    reader.readAsDataURL(file);
+  });
+}
+
 export function ProductEditor({ slug }: { slug?: string }) {
   const router = useRouter();
   const toast = useToast();
@@ -123,6 +137,16 @@ export function ProductEditor({ slug }: { slug?: string }) {
   const [hasAiRenders, setHasAiRenders] = useState(false);
   const [pendingUploads, setPendingUploads] = useState<PendingUpload[]>([]);
   const [removedImageUrls, setRemovedImageUrls] = useState<string[]>([]);
+  const [aiEngine, setAiEngine] = useState<"qwen" | "cloudflare" | null>(null);
+  const [aiProvider, setAiProvider] = useState<ImageProviderStatus | null>(null);
+  const [testBusy, setTestBusy] = useState(false);
+  const [testResult, setTestResult] = useState<{
+    imageUrl: string;
+    provider: string;
+    model: string;
+    durationMs?: number;
+  } | null>(null);
+  const [testError, setTestError] = useState<string | null>(null);
   const aiPhotoUrlsRef = useRef<string[]>([]);
   const pendingUploadsRef = useRef<PendingUpload[]>([]);
   const autoStartedRef = useRef(false);
@@ -193,6 +217,20 @@ export function ProductEditor({ slug }: { slug?: string }) {
     pendingUploadsRef.current = pendingUploads;
   }, [pendingUploads]);
 
+  /** Active image-generation provider (env-switched; refresh after restart). */
+  useEffect(() => {
+    let active = true;
+    fetch("/api/ai/generate-product-image", { cache: "no-store" })
+      .then((r) => (r.ok ? (r.json() as Promise<{ ok: boolean; status?: ImageProviderStatus }>) : null))
+      .then((d) => {
+        if (active && d?.status) setAiProvider(d.status);
+      })
+      .catch(() => undefined);
+    return () => {
+      active = false;
+    };
+  }, []);
+
   useEffect(() => {
     return () => {
       pendingUploadsRef.current.forEach((pending) => URL.revokeObjectURL(pending.previewUrl));
@@ -246,8 +284,9 @@ export function ProductEditor({ slug }: { slug?: string }) {
    * Resumable generation loop: each POST generates only missing poses and
    * persists partial progress immediately. To replace a bad render, remove it
    * from the product, save, then run generation again.
+   * `engine` picks the photoshoot engine for THIS run: qwen or cloudflare.
    */
-  const runGeneration = async (forceAll = false) => {
+  const runGeneration = async (engine?: "qwen" | "cloudflare", forceAll = false) => {
     const source = garmentSource;
     if (!source) {
       const msg = "Upload a saree photo first";
@@ -264,6 +303,7 @@ export function ProductEditor({ slug }: { slug?: string }) {
     setAiBusy(true);
     setError(null);
     setAiProgress({ done: 0, total: aiPhotoTotal });
+    setAiEngine(engine ?? null);
     if (forceAll) {
       aiPhotoUrlsRef.current = [];
       setHasAiRenders(false);
@@ -279,6 +319,7 @@ export function ProductEditor({ slug }: { slug?: string }) {
             name: draft.name.trim() || "Saree",
             slug: slugify(draft.slug || draft.name || "saree"),
             force: forceAll && round === 0,
+            engine,
           }),
         });
         const data = (await res.json()) as {
@@ -342,7 +383,71 @@ export function ProductEditor({ slug }: { slug?: string }) {
     } finally {
       setAiBusy(false);
       setAiProgress(null);
+      setAiEngine(null);
     }
+  };
+
+  /**
+   * Provider test: one-off generation through the active provider (Cloudflare
+   * Worker or Puter relay) without touching the product. The result stays a
+   * local preview until the admin presses "Use this image", which simply adds
+   * it to the product's photo list — the product keeps its current status.
+   */
+  const runProviderTest = async () => {
+    const source = garmentSource;
+    if (!source) {
+      const msg = "Upload a saree photo first";
+      setTestError(msg);
+      toast.error(msg);
+      return;
+    }
+    setTestBusy(true);
+    setTestError(null);
+    setTestResult(null);
+    try {
+      const sareeImage = source.startsWith("blob:")
+        ? await fileToDataUrl(pendingUploads.find((p) => p.previewUrl === source)?.file)
+        : source; // stored URL — the server fetches it
+      const res = await fetch("/api/ai/generate-product-image", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          sareeImage,
+          prompt: undefined,
+          aspectRatio: "3:4",
+        }),
+      });
+      const data = (await res.json()) as {
+        ok: boolean;
+        result?: { imageUrl?: string; provider?: string; model?: string; durationMs?: number; error?: string };
+        error?: string;
+      };
+      const result = data.result;
+      if (!data.ok || !result?.imageUrl) {
+        throw new Error(result?.error ?? data.error ?? "Image generation failed");
+      }
+      setTestResult({
+        imageUrl: result.imageUrl,
+        provider: result.provider ?? aiProvider?.provider ?? "",
+        model: result.model ?? "",
+        durationMs: result.durationMs,
+      });
+      toast.success(`${result.provider ?? "AI"} image ready — preview below.`);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Image generation failed";
+      setTestError(message);
+      toast.error(message);
+    } finally {
+      setTestBusy(false);
+    }
+  };
+
+  /** Adds the approved test image to the product photos (still a draft). */
+  const useTestImage = () => {
+    if (!testResult) return;
+    setImages((prev) => [testResult.imageUrl, ...prev].slice(0, 8));
+    toast.info("Image added to the product photos — press Save to keep it. The product status did not change.");
+    setTestResult(null);
   };
 
   /**
@@ -361,8 +466,9 @@ export function ProductEditor({ slug }: { slug?: string }) {
     const hasGarment = garmentSource !== null;
     const hasRenders = hasAiRenders;
     if (hasGarment && !hasRenders) {
-      // Deferred so the effect body itself stays setState-free.
-      const t = setTimeout(() => void runGeneration(), 0);
+      // Deferred so the effect body itself stays setState-free. Defaults to
+      // the TRYON_PROVIDER engine (no engine param = server default).
+      const t = setTimeout(() => void runGeneration(undefined), 0);
       return () => clearTimeout(t);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -752,33 +858,159 @@ export function ProductEditor({ slug }: { slug?: string }) {
                 type="button"
                 variant="outline"
                 disabled={busy || aiBusy || images.length === 0}
-                onClick={() => runGeneration()}
+                onClick={() => runGeneration("qwen")}
               >
-                {aiBusy ? <Loader2 size={16} className="animate-spin" /> : <ImagePlus size={16} />}
-                {aiBusy
-                  ? `Generating photo ${aiProgress ? Math.min(aiProgress.done + 1, aiProgress.total) : 1} of ${aiProgress?.total ?? 3}…`
-                  : hasAiRenders
-                    ? "Generate missing photos"
-                    : "Generate model photos (front · side · back · full)"}
+                {aiBusy && aiEngine === "qwen" ? (
+                  <Loader2 size={16} className="animate-spin" />
+                ) : (
+                  <ImagePlus size={16} />
+                )}
+                {aiBusy && aiEngine === "qwen"
+                  ? `Qwen: photo ${aiProgress ? Math.min(aiProgress.done + 1, aiProgress.total) : 1} of ${aiProgress?.total ?? 4}…`
+                  : "Use Qwen (front · side · back · full)"}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                disabled={busy || aiBusy || images.length === 0}
+                onClick={() => runGeneration("cloudflare")}
+              >
+                {aiBusy && aiEngine === "cloudflare" ? (
+                  <Loader2 size={16} className="animate-spin" />
+                ) : (
+                  <Sparkles size={16} />
+                )}
+                {aiBusy && aiEngine === "cloudflare"
+                  ? `Cloudflare: photo ${aiProgress ? Math.min(aiProgress.done + 1, aiProgress.total) : 1} of ${aiProgress?.total ?? 4}…`
+                  : "Use Cloudflare (front · side · back · full)"}
               </Button>
               {hasAiRenders ? (
                 <Button
                   type="button"
                   variant="ghost"
                   disabled={busy || aiBusy || images.length === 0}
-                  onClick={() => runGeneration(true)}
+                  onClick={() => runGeneration(aiEngine ?? "qwen", true)}
                 >
                   {aiBusy ? <Loader2 size={16} className="animate-spin" /> : <RefreshCcw size={16} />}
                   Regenerate all photos
                 </Button>
               ) : null}
-              <p className="text-xs leading-5 text-muted">
-                {aiBusy
-                  ? "Catalogue photoshoot running — previews appear as each photo finishes."
-                  : hasAiRenders
-                    ? "Use regenerate all when the current AI photos are wrong, flat, or mismatched."
-                    : "Finished photos are reused to avoid extra image calls."}
-              </p>
+            </div>
+            <p className="mt-2 text-xs leading-5 text-muted">
+              {aiBusy
+                ? `${aiEngine === "cloudflare" ? "Cloudflare" : "Qwen"} photoshoot running — previews appear as each photo finishes.`
+                : "Qwen = DashScope image-edit (needs QWEN_API_KEY). Cloudflare = Workers AI FLUX.2 klein (needs the image worker running). Both keep the same model across poses and vary the background per photo."}
+            </p>
+
+            {/* --------------------- Provider test panel --------------------- */}
+            <div className="mt-5 rounded-xl border border-line bg-bg p-4">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <Sparkles size={15} className="text-bronze" />
+                  <p className="text-sm font-bold text-ink">Test AI Image</p>
+                  {aiProvider && (
+                    <span className="rounded-pill border border-line bg-surface px-2.5 py-0.5 text-[11px] font-semibold text-ink2">
+                      Image Provider: {aiProvider.provider === "cloudflare" ? "Cloudflare" : "Puter"}
+                    </span>
+                  )}
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  disabled={testBusy || images.length === 0}
+                  onClick={() => void runProviderTest()}
+                >
+                  {testBusy ? (
+                    <Loader2 size={16} className="animate-spin" />
+                  ) : (
+                    <Sparkles size={16} />
+                  )}
+                  {testBusy
+                    ? "Generating…"
+                    : aiProvider?.provider === "cloudflare"
+                      ? "Generate with Cloudflare"
+                      : "Test AI Image"}
+                </Button>
+              </div>
+
+              {/* Debug block — dev only by default (IMAGE_GENERATION_DEBUG). */}
+              {aiProvider?.debug && (
+                <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1 text-[11px] leading-4 text-muted sm:grid-cols-3">
+                  <div>
+                    <dt className="inline">Provider: </dt>
+                    <dd className="inline font-semibold text-ink2">{aiProvider.provider}</dd>
+                  </div>
+                  <div className="min-w-0 truncate">
+                    <dt className="inline">Model: </dt>
+                    <dd className="inline font-semibold text-ink2">{aiProvider.model}</dd>
+                  </div>
+                  {aiProvider.workerUrl && (
+                    <div className="min-w-0 truncate">
+                      <dt className="inline">Worker: </dt>
+                      <dd className="inline font-semibold text-ink2">{aiProvider.workerUrl}</dd>
+                    </div>
+                  )}
+                  <div>
+                    <dt className="inline">Status: </dt>
+                    <dd className="inline font-semibold text-ink2">
+                      {testBusy ? "Generating…" : testResult ? "Success" : testError ? "Failed" : "Idle"}
+                    </dd>
+                  </div>
+                  {aiProvider.provider === "puter" && (
+                    <div>
+                      <dt className="inline">Relay: </dt>
+                      <dd className="inline font-semibold text-ink2">
+                        {aiProvider.puterRelayConnected ? "connected" : "not connected"}
+                      </dd>
+                    </div>
+                  )}
+                </dl>
+              )}
+
+              {testError && (
+                <p role="alert" className="mt-3 rounded-lg bg-danger/10 px-3 py-2 text-xs font-semibold text-danger">
+                  {testError}
+                </p>
+              )}
+
+              {testBusy && (
+                <p className="mt-3 text-xs text-muted">
+                  Creating your saree campaign… the first request after a cold start can take a while.
+                </p>
+              )}
+
+              {testResult && (
+                <div className="mt-3 flex flex-wrap items-start gap-4">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={testResult.imageUrl}
+                    alt="Generated preview"
+                    className="h-48 w-36 rounded-lg border border-line object-cover"
+                  />
+                  <div className="min-w-0 space-y-1.5">
+                    <p className="text-xs text-muted">
+                      {testResult.provider} · {testResult.model}
+                      {testResult.durationMs ? ` · ${(testResult.durationMs / 1000).toFixed(1)}s` : ""}
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      <Button type="button" size="sm" onClick={useTestImage}>
+                        <Check size={14} /> Use this image
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => setTestResult(null)}
+                      >
+                        Discard
+                      </Button>
+                    </div>
+                    <p className="max-w-xs text-[11px] leading-4 text-muted">
+                        The preview is not saved anywhere until you press Use this image + Save.
+                    </p>
+                  </div>
+                </div>
+              )}
             </div>
           </section>
         </div>

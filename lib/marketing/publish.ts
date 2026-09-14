@@ -55,7 +55,9 @@ export async function graphPost<T>(
 }
 
 export async function graphGet<T>(path: string, token: string): Promise<T> {
-  const res = await fetch(`${GRAPH}/${path}?access_token=${encodeURIComponent(token)}`);
+  const url = new URL(`${GRAPH}/${path}`);
+  url.searchParams.set("access_token", token);
+  const res = await fetch(url);
   const json = (await res.json()) as T & GraphError;
   if (!res.ok || json.error) {
     throw new Error(json.error?.message ?? `Graph API HTTP ${res.status}`);
@@ -156,11 +158,17 @@ export async function publishInstagramReel(
   throw new Error("Instagram container processing timed out");
 }
 
-/** Publish one still image to Instagram. */
+/**
+ * Publish one still image to Instagram.
+ * Image containers usually process in seconds but media_publish immediately
+ * after creation races Meta's pipeline ("media not ready"). Poll status_code
+ * like the reel path — images finish fast, so the budget is short.
+ */
 export async function publishInstagramImage(
   imageUrl: string,
   caption: string,
   s: PublishSecrets,
+  poll = { intervalMs: 2_000, maxAttempts: 15 }, // up to ~30 s
 ): Promise<string> {
   const container = await graphPost<ContainerReply>(
     `${s.igUserId}/media`,
@@ -171,13 +179,24 @@ export async function publishInstagramImage(
     s.metaPageToken,
   );
   if (!container.id) throw new Error("Instagram image container returned no id");
-  const publish = await graphPost<IdReply>(
-    `${s.igUserId}/media_publish`,
-    { creation_id: container.id },
-    s.metaPageToken,
-  );
-  if (!publish.id) throw new Error("Instagram image publish returned no id");
-  return publish.id;
+
+  for (let attempt = 1; attempt <= poll.maxAttempts; attempt++) {
+    const status = await graphGet<ContainerStatus>(`${container.id}?fields=status_code`, s.metaPageToken);
+    if (status.status_code === "FINISHED") {
+      const publish = await graphPost<IdReply>(
+        `${s.igUserId}/media_publish`,
+        { creation_id: container.id },
+        s.metaPageToken,
+      );
+      if (!publish.id) throw new Error("Instagram image publish returned no id");
+      return publish.id;
+    }
+    if (status.status_code === "ERROR") {
+      throw new Error(`Instagram image container ${container.id} failed processing`);
+    }
+    await sleep(poll.intervalMs);
+  }
+  throw new Error("Instagram image container processing timed out");
 }
 
 /** Publish to both platforms (FB first — IG depends on the same video URL). */

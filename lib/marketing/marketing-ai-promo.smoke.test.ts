@@ -31,7 +31,6 @@ const tmpDir = mkdtempSync(path.join(os.tmpdir(), "thetanti-promo-"));
 process.env.MARKETING_AI_DEMO_PATH = path.join(tmpDir, "marketing-ai.json");
 
 const demoUploads = path.join(process.cwd(), ".demo-data", "uploads");
-let createdCard: string | null = null;
 
 beforeEach(() => {
   for (const k of CLEAR) {
@@ -53,13 +52,6 @@ afterAll(() => {
     rmSync(tmpDir, { recursive: true, force: true });
   } catch {
     /* best effort */
-  }
-  if (createdCard) {
-    try {
-      rmSync(createdCard, { force: true });
-    } catch {
-      /* best effort */
-    }
   }
 });
 

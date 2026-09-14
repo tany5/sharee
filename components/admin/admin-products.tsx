@@ -75,12 +75,15 @@ export function AdminProducts() {
     void loadProducts();
   }, [loadProducts]);
 
-  const processIncoming = useCallback(async () => {
+  const processIncoming = useCallback(
+    async (engine?: "qwen" | "cloudflare") => {
     setIntakeBusy(true);
     try {
       const res = await fetch("/api/admin/products/process-incoming", {
         method: "POST",
         cache: "no-store",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ engine }),
       });
       const data = (await res.json()) as {
         ok: boolean;
@@ -107,7 +110,9 @@ export function AdminProducts() {
     } finally {
       setIntakeBusy(false);
     }
-  }, [loadProducts, router, toast]);
+    },
+    [loadProducts, router, toast],
+  );
 
   const remove = useCallback(
     async (slug: string, name: string) => {
@@ -160,12 +165,21 @@ export function AdminProducts() {
           <div className="flex flex-wrap items-center gap-2">
             <button
               type="button"
-              onClick={processIncoming}
+              onClick={() => void processIncoming("qwen")}
               disabled={intakeBusy}
               className="inline-flex h-11 items-center gap-2 rounded-full border border-line bg-surface px-5 text-[15px] font-semibold text-ink transition-colors hover:bg-surface2 disabled:cursor-not-allowed disabled:opacity-60"
             >
               <FolderInput size={16} />
-              {intakeBusy ? "Processing..." : "Process incoming"}
+              {intakeBusy ? "Processing…" : "Process incoming · Qwen"}
+            </button>
+            <button
+              type="button"
+              onClick={() => void processIncoming("cloudflare")}
+              disabled={intakeBusy}
+              className="inline-flex h-11 items-center gap-2 rounded-full border border-line bg-surface px-5 text-[15px] font-semibold text-ink transition-colors hover:bg-surface2 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              <FolderInput size={16} />
+              {intakeBusy ? "Processing…" : "Process incoming · Cloudflare"}
             </button>
             <Link
               href="/admin/products/new"

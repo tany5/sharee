@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import { OrderSuccessView } from "@/components/order/order-success-view";
-import { pageMetadata } from "@/lib/meta";
+import { utilityMetadata } from "@/lib/meta";
 
-export const metadata: Metadata = pageMetadata({
+export const metadata: Metadata = utilityMetadata({
   title: "Order Confirmed",
   description:
     "Your saree order is confirmed. Track delivery and get back to shopping — all sarees are ₹199.",

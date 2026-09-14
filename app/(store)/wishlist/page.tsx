@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import { WishlistView } from "@/components/wishlist/wishlist-view";
-import { pageMetadata } from "@/lib/meta";
+import { utilityMetadata } from "@/lib/meta";
 
-export const metadata: Metadata = pageMetadata({
+export const metadata: Metadata = utilityMetadata({
   title: "My Wishlist",
   description:
     "Sarees you've saved for later — every one still just ₹199. Add them to your cart whenever you're ready.",

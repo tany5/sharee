@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import { CheckoutView } from "@/components/checkout/checkout-view";
-import { pageMetadata } from "@/lib/meta";
+import { utilityMetadata } from "@/lib/meta";
 
-export const metadata: Metadata = pageMetadata({
+export const metadata: Metadata = utilityMetadata({
   title: "Checkout",
   description:
     "Fast, guest-friendly checkout for your sarees. Delivery details, UPI / cards / net banking / COD payment and a clear order summary.",

@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import { AccountView } from "@/components/account/account-view";
-import { pageMetadata } from "@/lib/meta";
+import { utilityMetadata } from "@/lib/meta";
 
-export const metadata: Metadata = pageMetadata({
+export const metadata: Metadata = utilityMetadata({
   title: "My Account & Orders",
   description:
     "View orders placed from this device, manage your wishlist and reach customer care. Guest checkout — no account required.",

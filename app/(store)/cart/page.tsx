@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import { CartView } from "@/components/cart/cart-view";
-import { pageMetadata } from "@/lib/meta";
+import { utilityMetadata } from "@/lib/meta";
 
-export const metadata: Metadata = pageMetadata({
+export const metadata: Metadata = utilityMetadata({
   title: "Your Cart",
   description:
     "Review your sarees, adjust quantities and proceed to a fast, guest-friendly checkout. Every saree is ₹199.",

@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import { OrderFailureView } from "@/components/order/order-failure-view";
-import { pageMetadata } from "@/lib/meta";
+import { utilityMetadata } from "@/lib/meta";
 
-export const metadata: Metadata = pageMetadata({
+export const metadata: Metadata = utilityMetadata({
   title: "Payment Not Completed",
   description:
     "Your payment was not completed. Retry the payment or get in touch — your sarees are reserved in your cart.",

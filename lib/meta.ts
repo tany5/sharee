@@ -32,8 +32,21 @@ export function pageMetadata({
       type,
       siteName: SITE.name,
       locale: "en_IN",
+      images: [{ url: "/og-image.jpg", width: 1200, height: 630 }],
     },
     robots: { index: true, follow: true },
+  };
+}
+
+/**
+ * Metadata for utility pages that must never appear in search results
+ * (cart, checkout, account, order status). Still reachable via links, so
+ * `follow` stays on — only indexing is blocked.
+ */
+export function utilityMetadata(opts: Omit<PageMetaInput, "type">): Metadata {
+  return {
+    ...pageMetadata(opts),
+    robots: { index: false, follow: true },
   };
 }
 

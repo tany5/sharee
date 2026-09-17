@@ -30,7 +30,7 @@ export interface MetaProfileUpdateResult {
   manualSteps: string[];
 }
 
-const FACEBOOK_ABOUT = `${SITE.name} sarees for real life. Every saree is ${SITE.price} INR with simple pricing, quality checked designs, easy returns and fast delivery across India. Order online at ${SITE.url}.`;
+const FACEBOOK_ABOUT = `${SITE.name} sarees for everyday life. Every saree is ${SITE.price} INR with simple pricing, quality checked designs, easy returns and fast delivery across India. Order online at ${SITE.url}.`;
 const FACEBOOK_DESCRIPTION =
   `TheTanti is a saree marketplace built for everyday Indian women: affordable, beautiful sarees, one clear price, and a smoother online shopping experience. Support: ${SITE.email} | ${SITE.phone}. Fulfilment: ${SITE.address}.`;
 

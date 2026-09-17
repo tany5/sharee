@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
@@ -15,7 +15,6 @@ import {
 import { CATEGORIES } from "@/lib/data/catalog";
 import { useCart, useWishlist } from "@/components/store/providers";
 import { Logo } from "@/components/layout/logo";
-import { ThemeToggle } from "@/components/layout/theme-toggle";
 import { AnnouncementBar } from "@/components/layout/announcement-bar";
 import { MobileMenu } from "@/components/layout/mobile-menu";
 import { cx } from "@/lib/utils";
@@ -88,16 +87,13 @@ function SearchBox({
   );
 }
 
-function CategoriesDropdown({ inverted }: { inverted?: boolean }) {
+function CategoriesDropdown() {
   const router = useRouter();
   return (
     <div className="group relative">
       <button
         type="button"
-        className={cx(
-          "flex items-center gap-1 px-3 py-2 text-[13px] font-medium tracking-wide transition-colors",
-          inverted ? "text-white/82 hover:text-white" : "text-ink2 hover:text-ink",
-        )}
+        className="flex items-center gap-1 px-3 py-2 text-[13px] font-medium tracking-wide text-ink2 transition-colors hover:text-ink"
       >
         Categories
         <ChevronDown
@@ -136,35 +132,17 @@ export function SiteHeader() {
   const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
-  const [scrolled, setScrolled] = useState(false);
-  const isHome = pathname === "/";
-  const glassHeader = isHome;
-  const strongerGlass = scrolled || searchOpen || menuOpen;
   const activeHrefs = new Set<string>(
     NAV.map((n) => n.href).filter((h) => isActive(pathname, h)),
   );
   const { count: cartCount } = useCart();
   const { count: wishCount } = useWishlist();
 
-  useEffect(() => {
-    if (!glassHeader) {
-      setScrolled(false);
-      return;
-    }
-
-    const update = () => setScrolled(window.scrollY > 24);
-    update();
-    window.addEventListener("scroll", update, { passive: true });
-    return () => window.removeEventListener("scroll", update);
-  }, [glassHeader]);
-
   // Transient UI closes itself: drawer links call onClose, and the search form
   // closes on submit — so no navigation effect (and no cascading render).
   const iconBtn = cx(
     "relative flex h-10 w-10 items-center justify-center rounded-pill transition-colors",
-    glassHeader
-      ? "text-white/84 hover:bg-white/12 hover:text-white"
-      : "text-ink2 hover:bg-accent/12 hover:text-ink",
+    "text-ink2 hover:bg-accent/12 hover:text-ink",
   );
 
   return (
@@ -174,18 +152,9 @@ export function SiteHeader() {
         "sticky",
       )}
     >
-      <AnnouncementBar glass={glassHeader} scrolled={strongerGlass} />
+      <AnnouncementBar />
 
-      <div
-        className={cx(
-          "border-b backdrop-blur-xl transition-colors duration-300 supports-[backdrop-filter]:backdrop-blur-xl",
-          glassHeader
-            ? strongerGlass
-              ? "border-white/16 bg-[#120c08]/78 shadow-[0_12px_36px_rgba(0,0,0,0.24)] supports-[backdrop-filter]:bg-[#120c08]/62"
-              : "border-white/10 bg-[#120c08]/26 supports-[backdrop-filter]:bg-[#120c08]/18"
-            : "border-line bg-bg/92 supports-[backdrop-filter]:bg-bg/85",
-        )}
-      >
+      <div className="border-b border-line bg-bg/92 backdrop-blur-xl supports-[backdrop-filter]:bg-bg/85">
         <div className="tt-container flex h-16 items-center gap-3 lg:h-[76px] lg:gap-5">
           {/* Mobile: menu */}
           <button
@@ -198,7 +167,7 @@ export function SiteHeader() {
           </button>
 
           {/* Logo */}
-          <Logo compact lightOnDark={glassHeader} className="lg:-ml-1" />
+          <Logo className="lg:-ml-1" />
 
           {/* Desktop nav */}
           <nav
@@ -212,7 +181,7 @@ export function SiteHeader() {
               if (item.dropdown) {
                 return (
                   <span key={item.label} className={hidden}>
-                    <CategoriesDropdown inverted={glassHeader} />
+                    <CategoriesDropdown />
                   </span>
                 );
               }
@@ -223,13 +192,9 @@ export function SiteHeader() {
                   className={cx(
                     hidden,
                     "items-center px-3 py-2 text-[13px] font-medium tracking-wide transition-colors",
-                    glassHeader
-                      ? activeHrefs.has(item.href)
-                        ? "text-goldlight"
-                        : "text-white/82 hover:text-white"
-                      : activeHrefs.has(item.href)
-                        ? "text-accent"
-                        : "text-ink2 hover:text-ink",
+                    activeHrefs.has(item.href)
+                      ? "text-accent"
+                      : "text-ink2 hover:text-ink",
                   )}
                 >
                   {item.label}
@@ -275,19 +240,12 @@ export function SiteHeader() {
               <ShoppingCart size={20} strokeWidth={1.8} />
               <CountBadge count={cartCount} />
             </Link>
-
-            <ThemeToggle className="hidden sm:flex" />
           </div>
         </div>
 
         {/* Expandable search — works at every width */}
         {searchOpen && (
-          <div
-            className={cx(
-              "border-t",
-              glassHeader ? "border-white/12" : "border-line",
-            )}
-          >
+          <div className="border-t border-line">
             <div className="tt-container py-3">
               <SearchBox autoFocus onDone={() => setSearchOpen(false)} />
             </div>

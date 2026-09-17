@@ -1,5 +1,4 @@
 import type { Metadata, Viewport } from "next";
-import Script from "next/script";
 import { Inter, Playfair_Display } from "next/font/google";
 import { SITE } from "@/lib/site";
 import "./globals.css";
@@ -43,7 +42,7 @@ export const metadata: Metadata = {
         url: "/og-image.jpg",
         width: 1200,
         height: 630,
-        alt: "TheTanti — Sarees for real life. All sarees ₹199 flat.",
+        alt: "TheTanti — Sarees for Everyday Life. All sarees ₹199 flat.",
       },
     ],
   },
@@ -56,15 +55,8 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
-  themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#fbf7f1" },
-    { media: "(prefers-color-scheme: dark)", color: "#171311" },
-  ],
-};
-
-// The storefront is dark-first (espresso editorial); a stored preference always
-// wins, and light remains one tap away via the header toggle.
-const themeInitScript = `(function(){try{var t=localStorage.getItem("ambika-theme");var d=t?t==="dark":true;if(d)document.documentElement.classList.add("dark");}catch(e){}})();`;
+  themeColor: "#e2448f",
+};;
 
 export default function RootLayout({
   children,
@@ -78,9 +70,6 @@ export default function RootLayout({
       suppressHydrationWarning
     >
       <body className="flex min-h-full flex-col">
-        <Script id="theme-init" strategy="beforeInteractive">
-          {themeInitScript}
-        </Script>
         {children}
       </body>
     </html>

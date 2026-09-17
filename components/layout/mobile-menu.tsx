@@ -6,7 +6,6 @@ import { ChevronRight, Heart, User, X } from "lucide-react";
 import { SITE } from "@/lib/site";
 import { CATEGORIES } from "@/lib/data/catalog";
 import { Logo } from "@/components/layout/logo";
-import { ThemeToggle } from "@/components/layout/theme-toggle";
 import { FacebookIcon, InstagramIcon } from "@/components/icons/brand";
 import { cx } from "@/lib/utils";
 
@@ -158,7 +157,6 @@ export function MobileMenu({
               <FacebookIcon size={16} />
             </a>
           </div>
-          <ThemeToggle />
         </div>
       </aside>
     </div>

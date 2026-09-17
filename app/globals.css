@@ -1,78 +1,48 @@
 @import "tailwindcss";
 
-/* Class-based dark mode: toggled by adding `.dark` on <html>. */
-@custom-variant dark (&:where(.dark, .dark *));
-
 /* ---------------------------------------------------------------------------
-   TheTanti design system.
+   TheTanti design system — BRIGHT single theme.
 
-   ONE canonical palette lives in `--tt-*` tokens (light in `:root`, dark in
-   `.dark`). The older utility names (`--color-bg`, `--color-ink`, …) are pure
-   aliases mapped straight onto those tokens inside `@theme inline`, which
-   inlines `var(--tt-*)` into every generated utility — so switching theme
-   re-resolves correctly at the element, with no duplicated colour values.
+   ONE canonical palette lives in `--tt-*` tokens. The older utility names
+   (`--color-bg`, `--color-ink`, …) are pure aliases mapped straight onto
+   those tokens inside `@theme inline`, which inlines `var(--tt-*)` into every
+   generated utility.
 
-   Direction: modern, minimal, editorial, subtly Bengali.
-     70% espresso surface · 15% ivory text · 8% terracotta · 5% muted gold
-   Terracotta carries the Bengali character; gold stays an accent.
+   Direction: bright, feminine, vibrant — blush-white surfaces, rose-pink
+   accent, deep raspberry ink. Saree photography stays warm, bright and
+   saturated; the UI never competes with it.
+
+   There is exactly ONE theme: no dark variant, no theme toggle.
 --------------------------------------------------------------------------- */
 
 :root {
   color-scheme: light;
 
   /* Surfaces */
-  --tt-bg: #fbf7f1;
-  --tt-bg-secondary: #f4ece1;
+  --tt-bg: #fff7fa;
+  --tt-bg-secondary: #ffeef5;
   --tt-surface: #ffffff;
-  --tt-surface-raised: #f8f2e9;
-  --tt-footer: #1c130f;
-  --tt-border: #e8dbca;
+  --tt-surface-raised: #fff0f6;
+  --tt-footer: #4a0d2e;
+  --tt-border: #f7d5e3;
 
   /* Text */
-  --tt-text: #2b1c15;
-  --tt-text-secondary: #6d5849;
-  --tt-text-muted: #9a8a78;
+  --tt-text: #4d1526;
+  --tt-text-secondary: #8a5568;
+  --tt-text-muted: #b58a99;
 
   /* Accents */
-  --tt-accent: #b8493f;
-  --tt-accent-light: #c9736b;
-  --tt-gold: #a97c3c;
-  --tt-gold-light: #c49a5c;
-  --tt-success: #3f8f63;
-  --tt-error: #c1463f;
+  --tt-accent: #e2448f;
+  --tt-accent-light: #ef6fae;
+  --tt-accent-deep: #c22e6f;
+  --tt-gold: #b23a70;
+  --tt-gold-light: #d86ba4;
+  --tt-success: #2e9e63;
+  --tt-error: #e04f5f;
 
   /* Fills */
-  --tt-chip: #efe4d6;
-  --tt-tint: #f3e7da;
-}
-
-.dark {
-  color-scheme: dark;
-
-  /* Surfaces */
-  --tt-bg: #171311;
-  --tt-bg-secondary: #211916;
-  --tt-surface: #2a201c;
-  --tt-surface-raised: #342823;
-  --tt-footer: #0f0c0a;
-  --tt-border: #3a2c26;
-
-  /* Text */
-  --tt-text: #f7f1e8;
-  --tt-text-secondary: #c8b9aa;
-  --tt-text-muted: #9e8f83;
-
-  /* Accents */
-  --tt-accent: #c45a5a;
-  --tt-accent-light: #d98a88;
-  --tt-gold: #d6ad72;
-  --tt-gold-light: #e4c38d;
-  --tt-success: #4caf7a;
-  --tt-error: #e05d5d;
-
-  /* Fills */
-  --tt-chip: #342823;
-  --tt-tint: #241b17;
+  --tt-chip: #ffe4ef;
+  --tt-tint: #fff5f9;
 }
 
 @theme inline {
@@ -84,6 +54,7 @@
   --color-ink2: var(--tt-text-secondary);
   --color-accent: var(--tt-accent);
   --color-accent2: var(--tt-accent-light);
+  --color-accentdeep: var(--tt-accent-deep);
   --color-bronze: var(--tt-gold);
   --color-muted: var(--tt-text-muted);
   --color-line: var(--tt-border);
@@ -92,6 +63,7 @@
   --color-btntext: #ffffff;
   --color-tint: var(--tt-tint);
   --color-danger: var(--tt-error);
+  --color-success: var(--tt-success);
   --color-footer: var(--tt-footer);
   --color-goldlight: var(--tt-gold-light);
 
@@ -179,7 +151,7 @@
     }
   }
 
-  /* Editorial eyebrow: uppercase, wide tracking, terracotta. */
+  /* Editorial eyebrow: uppercase, wide tracking, rose. */
   .tt-eyebrow {
     font-size: 11px;
     line-height: 16px;
@@ -238,11 +210,90 @@
     transform: translateY(0);
   }
 }
-
 @utility tt-rise {
   animation: tt-rise 560ms cubic-bezier(0.22, 0.61, 0.36, 1) both;
   @media (prefers-reduced-motion: reduce) {
     animation: none;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   Hero balloons — light-pink balloons with knots and curved strings drifting
+   slowly up the section. `top` is animated (not transform) so the travel spans
+   the FULL section height — important on mobile where the hero is much taller
+   than the viewport. Sway uses transform; paused for reduced motion.
+-------------------------------------------------------------------------- */
+@keyframes tt-balloon {
+  0% {
+    top: 103%;
+    transform: translateX(0);
+    opacity: 0;
+  }
+  8% {
+    opacity: calc(var(--balloon-opacity, 0.7) * 0.72);
+  }
+  50% {
+    transform: translateX(calc(var(--balloon-sway, 18px) * -1));
+  }
+  92% {
+    opacity: calc(var(--balloon-opacity, 0.7) * 0.72);
+  }
+  100% {
+    top: -22%;
+    transform: translateX(var(--balloon-sway, 18px));
+    opacity: 0;
+  }
+}
+
+.tt-balloon {
+  position: absolute;
+  bottom: auto;
+  border-radius: 50% 50% 50% 50% / 44% 44% 56% 56%;
+  background: radial-gradient(
+    circle at 32% 26%,
+    rgba(255, 235, 244, 0.95) 0%,
+    rgba(249, 158, 197, 0.72) 36%,
+    rgba(240, 110, 168, 0.6) 66%,
+    rgba(216, 82, 143, 0.55) 88%,
+    rgba(198, 62, 122, 0.5) 100%
+  );
+  opacity: 0;
+  animation: tt-balloon linear infinite;
+  will-change: top, transform, opacity;
+
+  /* Knot at the bottom of the balloon */
+  &::before {
+    content: "";
+    position: absolute;
+    top: 97%;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 16%;
+    height: 9%;
+    background: rgba(190, 70, 130, 0.55);
+    clip-path: polygon(50% 100%, 0 0, 100% 0);
+  }
+
+  /* String — starts exactly at the knot and hangs straight down from it */
+  &::after {
+    content: "";
+    position: absolute;
+    top: 105.5%;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 2px;
+    height: calc(var(--balloon-size, 60px) * 1.5);
+    background: linear-gradient(
+      to bottom,
+      rgba(190, 70, 130, 0.55),
+      rgba(190, 70, 130, 0.18)
+    );
+    border-radius: 1px;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+    opacity: 0;
   }
 }
 

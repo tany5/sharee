@@ -13,7 +13,7 @@ from PIL import Image, ImageDraw, ImageEnhance, ImageFilter, ImageFont, ImageOps
 BRAND = "TheTanti"
 PRICE = "199.00 INR"
 SITE_URL = "https://www.thetanti.shop"
-PHONE = "+91 79804 29183"
+PHONE = "+91 90381 27527"
 
 
 META_COLUMNS = [

@@ -124,10 +124,10 @@ export function ProductCard({ product }: { product: ProductCardData }) {
         className="block focus:outline-none"
         aria-label={product.name}
       >
-        <div className="relative aspect-[4/5] overflow-hidden bg-bg2">
+        <div className="relative aspect-[4/5] overflow-hidden bg-bg2 [&_img]:saturate-[1.12]">
           <CardCarousel slides={slides} />
           {product.tags.length > 0 && (
-            <span className="absolute left-2.5 top-2.5 z-10">
+            <span className="absolute bottom-2.5 left-2.5 z-10">
               <TagBadge tag={product.tags[0]} />
             </span>
           )}
@@ -175,7 +175,7 @@ export function ProductCard({ product }: { product: ProductCardData }) {
           className={cx(
             "group/qa pointer-events-auto absolute bottom-2.5 right-2.5 z-20 flex h-10 w-10 items-center justify-center rounded-pill shadow-md transition-all duration-300",
             justAdded
-              ? "bg-[#4caf7a] text-white hover:scale-105"
+              ? "bg-success text-white hover:scale-105"
               : "bg-accent text-white hover:scale-105 hover:bg-accent-light",
           )}
         >

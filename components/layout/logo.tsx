@@ -34,7 +34,7 @@ export function Logo({
       aria-label={`${SITE.name} — ${SITE.tagline}`}
       className={cx("inline-flex shrink-0 items-center", className)}
     >
-      {/* Dark maroon lockup — light theme surfaces only */}
+      {/* Dark maroon lockup — bright surfaces (header, mobile menu) */}
       <Image
         src="/logo/logo.webp"
         alt={`${SITE.name} — ${SITE.tagline}`}
@@ -42,12 +42,12 @@ export function Logo({
         height={216}
         priority
         className={cx(
-          "h-auto w-auto object-contain dark:hidden",
+          "h-auto w-auto object-contain",
           lightOnDark && "hidden",
           sizeCls,
         )}
       />
-      {/* Ivory + gold lockup — dark theme surfaces only */}
+      {/* Ivory + gold lockup — deep surfaces only (passed via lightOnDark) */}
       <Image
         src="/logo/logo-light.webp"
         alt={`${SITE.name} — ${SITE.tagline}`}
@@ -56,7 +56,7 @@ export function Logo({
         priority
         className={cx(
           "h-auto w-auto object-contain",
-          lightOnDark ? "block" : "hidden dark:block",
+          lightOnDark ? "block" : "hidden",
           sizeCls,
         )}
       />

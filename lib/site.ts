@@ -10,7 +10,7 @@ export const SITE = {
   legalName: "THETANTI",
   tagline: "All Sarees ₹199",
   /** Editorial brand line — hero headline, footer and campaign copy. */
-  motto: "Sarees for real life.",
+  motto: "Sarees for everyday life.",
   /** Supporting line shown under the hero headline. */
   supporting:
     "Beautiful styles, simple prices. Discover sarees made for everyday moments.",
@@ -25,10 +25,10 @@ export const SITE = {
   shippingFee: 49,
 
   announcementMain: "ALL SAREES ₹199",
-  announcementSub: "FREE SHIPPING OVER ₹999",
+  announcementSub: "FREE SHIPPING All OVER INDIA",
 
   email: "info@thetanti.com",
-  phone: "+91 79804 29183",
+  phone: "+91 90381 27527",
   instagramHandle: "@theta.nti",
   instagramUrl: "https://www.instagram.com/theta.nti/",
   facebookUrl: "https://www.facebook.com/profile.php?id=61593967300734",

@@ -94,7 +94,7 @@ function overlaySvg(width, height, kind) {
       <text x="${isStory ? 499 : 448}" y="${isStory ? 48 : 42}" text-anchor="middle" font-family="${body}" font-size="${isStory ? 25 : 22}" font-weight="850" fill="#fff7ee">CONTACT US</text>
     </g>
     <text x="${x}" y="${footerY}" font-family="${body}" font-size="${isStory ? 28 : 22}" font-weight="800" fill="#fff7ee">thetanti.shop</text>
-    <text x="${x}" y="${footerY + (isStory ? 42 : 32)}" font-family="${body}" font-size="${isStory ? 23 : 18}" font-weight="650" fill="#dacbbc">WhatsApp +91 79804 29183</text>
+    <text x="${x}" y="${footerY + (isStory ? 42 : 32)}" font-family="${body}" font-size="${isStory ? 23 : 18}" font-weight="650" fill="#dacbbc">WhatsApp +91 90381 27527</text>
     <text x="${x}" y="${footerY + (isStory ? 82 : 58)}" font-family="${body}" font-size="${isStory ? 18 : 15}" font-weight="650" fill="#b9aa9d">Welcome discount subject to contact confirmation.</text>
   </svg>`;
   return svg;
@@ -127,7 +127,7 @@ async function main() {
       "Website ghure dekhun, pochondo hole order korun, aar kono question thakle amader contact korun.",
       "",
       "Visit: https://www.thetanti.shop",
-      "WhatsApp: +91 79804 29183",
+      "WhatsApp: +91 90381 27527",
       "",
       "#TheTanti #BengaliSaree #Saree199 #BudgetSaree #DailyWearSaree #SareeOnline",
       "",

@@ -1,0 +1,8 @@
+storage/inputs/*
+storage/outputs/*
+storage/temp/*
+!storage/inputs/.gitkeep
+!storage/outputs/.gitkeep
+!storage/temp/.gitkeep
+__pycache__/
+.pytest_cache/

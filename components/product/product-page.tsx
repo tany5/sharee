@@ -244,7 +244,7 @@ export function ProductPage({ product, related }: ProductPageProps) {
                 {zoomPos && (
                   <>
                     <div
-                      className="pointer-events-none absolute z-20 hidden h-36 w-44 -translate-x-1/2 -translate-y-1/2 border border-accent/80 bg-accent/15 shadow-[inset_0_0_0_1px_rgba(246,235,225,0.35)] outline outline-1 outline-dashed outline-[#f6ebe1]/70 md:block"
+                      className="pointer-events-none absolute z-20 hidden h-36 w-44 -translate-x-1/2 -translate-y-1/2 border border-accent/80 bg-accent/15 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.35)] outline outline-1 outline-dashed outline-white/70 md:block"
                       style={{
                         left: `${zoomPos.x}%`,
                         top: `${zoomPos.y}%`,
@@ -282,7 +282,7 @@ export function ProductPage({ product, related }: ProductPageProps) {
                 </button>
               </>
             )}
-            <span className="absolute left-3 top-3 rounded-full bg-[#7c2d3a] px-3 py-1.5 font-display text-sm font-bold text-[#f9eeda] shadow-md">
+            <span className="absolute left-3 top-3 rounded-full bg-accentdeep px-3 py-1.5 font-display text-sm font-bold text-white shadow-md">
               {formatINR(product.price)}
             </span>
             {product.stock <= 10 && (
@@ -305,7 +305,7 @@ export function ProductPage({ product, related }: ProductPageProps) {
           <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1.5">
             <Stars rating={product.rating} size={16} />
             <span className="text-sm text-muted">({product.reviewCount} reviews)</span>
-            <span className="flex items-center gap-1 text-sm font-semibold text-[#4c7a4f]">
+            <span className="flex items-center gap-1 text-sm font-semibold text-success">
               <BadgeCheck size={15} />
               In stock · ships in 24h
             </span>

@@ -6,6 +6,8 @@ import { useRouter } from "next/navigation";
 import {
   ArrowLeft,
   Check,
+  ChevronLeft,
+  ChevronRight,
   ImagePlus,
   Loader2,
   RefreshCcw,
@@ -151,7 +153,21 @@ export function ProductEditor({ slug }: { slug?: string }) {
   const pendingUploadsRef = useRef<PendingUpload[]>([]);
   const autoStartedRef = useRef(false);
   const [error, setError] = useState<string | null>(null);
+  const [lightbox, setLightbox] = useState<number | null>(null);
   const aiPhotoTotal = 4;
+
+  /** Lightbox: arrow keys / Esc, with the image list pinned while open. */
+  useEffect(() => {
+    if (lightbox === null) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setLightbox(null);
+      if (e.key === "ArrowLeft") setLightbox((i) => (i === null ? i : (i - 1 + images.length) % images.length));
+      if (e.key === "ArrowRight") setLightbox((i) => (i === null ? i : (i + 1) % images.length));
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lightbox === null, images.length]);
 
   /** While creating (slug untouched), typing the name keeps the slug in sync. */
   const setName = (value: string) => {
@@ -813,16 +829,21 @@ export function ProductEditor({ slug }: { slug?: string }) {
               full-saree photos automatically.
             </p>
             <div className="flex flex-wrap items-start gap-3">
-              {images.map((url) => (
+              {images.map((url, idx) => (
                 <div key={url} className="group relative">
-                  <a href={url} target="_blank" rel="noreferrer" title="Open photo in new tab">
+                  <button
+                    type="button"
+                    title="View photo"
+                    onClick={() => setLightbox(idx)}
+                    className="cursor-zoom-in"
+                  >
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={url}
-                      alt="Product photo"
+                      alt={`Product photo ${idx + 1}`}
                       className="h-24 w-20 rounded-lg border border-line object-cover transition-opacity hover:opacity-85"
                     />
-                  </a>
+                  </button>
                   <button
                     type="button"
                     aria-label="Remove photo"
@@ -1144,6 +1165,62 @@ export function ProductEditor({ slug }: { slug?: string }) {
           {editing ? "Save changes" : "Create saree & AI photos"}
         </Button>
       </div>
+
+      {lightbox !== null && images[lightbox] && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Product photo viewer"
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/85 p-4 backdrop-blur-sm"
+          onClick={() => setLightbox(null)}
+        >
+          {/* Prev / Next — infinite loop */}
+          {images.length > 1 && (
+            <>
+              <button
+                type="button"
+                aria-label="Previous photo"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setLightbox((i) => (i === null ? i : (i - 1 + images.length) % images.length));
+                }}
+                className="absolute left-3 top-1/2 z-10 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-white/10 text-white transition-colors hover:bg-accent"
+              >
+                <ChevronLeft size={24} />
+              </button>
+              <button
+                type="button"
+                aria-label="Next photo"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setLightbox((i) => (i === null ? i : (i + 1) % images.length));
+                }}
+                className="absolute right-3 top-1/2 z-10 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-white/10 text-white transition-colors hover:bg-accent"
+              >
+                <ChevronRight size={24} />
+              </button>
+            </>
+          )}
+          <button
+            type="button"
+            aria-label="Close viewer"
+            onClick={() => setLightbox(null)}
+            className="absolute right-3 top-3 z-10 flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white transition-colors hover:bg-accent"
+          >
+            <X size={20} />
+          </button>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={images[lightbox]}
+            alt={`Product photo ${lightbox + 1} of ${images.length}`}
+            className="max-h-[88vh] max-w-[92vw] rounded-xl object-contain shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          />
+          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 rounded-full bg-black/60 px-3 py-1 text-xs font-bold text-white">
+            {lightbox + 1} / {images.length}
+          </div>
+        </div>
+      )}
     </form>
   );
 }

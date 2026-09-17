@@ -10,7 +10,7 @@ Use this checklist before submitting Meta Business, Google Merchant/Ads, and Raz
 - Major activity: Trading
 - NIC: Retail sale via mail order houses or via Internet / ecommerce
 - Registered address: Chakpara Dagabagan, Liluah, Howrah 711204, West Bengal, India
-- Registered phone: 7980429183
+- Registered phone: 9038127527
 - Udyam email currently shown on certificate: Gmail address
 
 Important: use the Udyam certificate as proof of business identity, but keep public site/profile details consistent with the certificate and with Razorpay/Meta/Google forms.
@@ -54,7 +54,7 @@ Meta business verification should use:
 - Legal business name: `THETANTI`
 - Website/domain: `https://www.thetanti.shop`
 - Address: Chakpara Dagabagan, Liluah, Howrah 711204, West Bengal, India
-- Phone: `+91 79804 29183`
+- Phone: `+91 90381 27527`
 - Email: `info@thetanti.com`
 - Facebook Page: `https://www.facebook.com/profile.php?id=61593967300734`
 - Instagram: `https://www.instagram.com/theta.nti/`

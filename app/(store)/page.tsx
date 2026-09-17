@@ -1,18 +1,20 @@
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
-import {
-  getCategories,
-  getFeatured,
-  getNewArrivals,
-  getProducts,
-} from "@/lib/data/queries";
+import { getCategories, getFeatured, getNewArrivals, getProducts } from "@/lib/data/queries";
 import { SITE } from "@/lib/site";
 import { Hero } from "@/components/home/hero";
 import { CategoriesRail } from "@/components/home/categories-rail";
 import { ReviewsSection } from "@/components/home/reviews-section";
 import { InstagramGrid } from "@/components/home/instagram-grid";
+import { BusinessBanner } from "@/components/home/business-banner";
+import {
+  CollectionTiles,
+  PromoBanner,
+  ShopByColour,
+} from "@/components/home/extra-sections";
 import { ProductGrid } from "@/components/product/product-grid";
 import { SectionHeading } from "@/components/ui";
+import { TrustStrip } from "@/components/home/trust-strip";
 import { pageMetadata, storeJsonLd } from "@/lib/meta";
 import { cx } from "@/lib/utils";
 
@@ -27,7 +29,7 @@ function ViewAll({ href, label }: { href: string; label: string }) {
   return (
     <Link
       href={href}
-      className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-accent transition-colors hover:text-accent-light"
+      className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-accent transition-colors hover:text-accent2"
     >
       {label} <ArrowRight size={15} />
     </Link>
@@ -59,6 +61,9 @@ export default async function HomePage() {
       {/* ------------------------------- Hero ------------------------------- */}
       <Hero />
 
+      {/* --------------------------- Trust promises -------------------------- */}
+      <TrustStrip />
+
       {/* ---------------------------- Categories ---------------------------- */}
       <section
         aria-label="Shop by category"
@@ -82,7 +87,7 @@ export default async function HomePage() {
         >
           <div className="tt-container py-12 lg:py-20">
             <SectionHeading
-              kicker="Customer favourites"
+              kicker="Trending now"
               title="Best Sellers"
               action={<ViewAll href="/sarees?tag=bestseller" label="View all" />}
             />
@@ -103,7 +108,7 @@ export default async function HomePage() {
           )}
         >
           <SectionHeading
-            kicker="Just landed"
+            kicker="New collections"
             title="New Arrivals"
             action={<ViewAll href="/sarees" label="View all" />}
           />
@@ -113,8 +118,20 @@ export default async function HomePage() {
         </section>
       )}
 
+      {/* ---------------------------- Shop by colour ------------------------- */}
+      <ShopByColour />      
+
+      {/* ------------------------- Category split tiles ---------------------- */}
+      <CollectionTiles />
+
+      {/* --------------------------- Promo banner ---------------------------- */}
+      <PromoBanner />
+
       {/* ------------------------------ Reviews ----------------------------- */}
       <ReviewsSection />
+
+      {/* -------------------------- Business banner -------------------------- */}
+      <BusinessBanner />
 
       {/* ----------------------------- Instagram ---------------------------- */}
       <InstagramGrid />

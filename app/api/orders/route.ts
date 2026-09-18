@@ -195,7 +195,15 @@ export async function POST(request: Request) {
       void notifyOwnerOfOrder(persisted, "order").catch(() => undefined);
     }
 
-    return NextResponse.json({ ok: true, order: persisted, razorpay, cashfree });
+    return NextResponse.json({
+      ok: true,
+      order: persisted,
+      // Which gateway the server actually used (or would use) — the checkout
+      // banner follows this so UI copy can never disagree with the real charge.
+      gateway: cashfreeGateway ? "cashfree" : "razorpay",
+      razorpay,
+      cashfree,
+    });
   } catch (err) {
     if (err instanceof CashfreeError) {
       return NextResponse.json(

@@ -67,6 +67,9 @@ export function CheckoutView() {
   const [whatsappSame, setWhatsappSame] = useState(true);
   const [errors, setErrors] = useState<AddressErrors>({});
   const [method, setMethod] = useState<PaymentMethodId>("upi");
+  /** Gateway the SERVER actually used for the pending payment (set on submit) —
+   * the banner follows this so it can never disagree with the real charge. */
+  const [serverGateway, setServerGateway] = useState<"cashfree" | "razorpay" | null>(null);
   const [selectedAddressId, setSelectedAddressId] = useState<string>("manual");
   const [apiError, setApiError] = useState<string | null>(null);
   const [placing, setPlacing] = useState(false);
@@ -603,6 +606,8 @@ export function CheckoutView() {
       const data = (await res.json()) as {
         ok: boolean;
         order?: import("@/lib/types").Order;
+        /** Server-confirmed active gateway — drives the secure-checkout banner. */
+        gateway?: "cashfree" | "razorpay";
         razorpay?: RazorpayPayload;
         cashfree?: CashfreePayload;
         error?: string;
@@ -613,6 +618,8 @@ export function CheckoutView() {
         if (data.fieldErrors) setErrors((prev) => ({ ...prev, ...data.fieldErrors }));
         return;
       }
+      // Banner follows the server's actual gateway (fallback to client guess).
+      setServerGateway(data.gateway ?? (data.cashfree ? "cashfree" : data.razorpay ? "razorpay" : null));
 
       // Guest persistence: remember/forget the address per the opt-in, and
       // clear the checkout draft — the order is with the server now.
@@ -697,13 +704,13 @@ export function CheckoutView() {
 
   return (
     <form id="checkout-form" onSubmit={submit} noValidate>
-      {razorpayLive ? (
+      {serverGateway === "razorpay" || (razorpayLive && !serverGateway && !isCashfreeUi) ? (
         <p className="mb-6 rounded-xl border border-line bg-surface px-4 py-3 text-[13px] leading-5 text-ink2">
           <strong className="text-ink">Secure checkout:</strong> payments are
           processed by <strong>Razorpay</strong> — UPI, cards and net banking.
           Your order is confirmed only after the payment verifies.
         </p>
-      ) : isCashfreeUi ? (
+      ) : serverGateway === "cashfree" || (isCashfreeUi && !serverGateway) ? (
         <p className="mb-6 rounded-xl border border-line bg-surface px-4 py-3 text-[13px] leading-5 text-ink2">
           <strong className="text-ink">Secure checkout:</strong> payments are
           processed by <strong>Cashfree</strong> — UPI, cards and net banking.

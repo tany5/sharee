@@ -13,6 +13,7 @@ import "server-only";
 import { randomUUID } from "node:crypto";
 import { supabaseServer } from "@/lib/supabase/server";
 import {
+  asJson,
   productToRow,
   toProduct,
   type OrderRow,
@@ -56,7 +57,10 @@ function toUserRow(r: ProfileRow): PublicUser {
     email: "", // filled from the auth user when known
     phone: r.phone ?? undefined,
     role: r.role,
-    addresses: Array.isArray(r.addresses) ? (r.addresses as AddressBookAddress[]) : [],
+    // asJson heals rows where addresses was stored double-encoded.
+    addresses: asJson<AddressBookAddress[]>(r.addresses, []).filter(
+      (a): a is AddressBookAddress => Boolean(a && typeof a === "object"),
+    ),
     createdAt: r.created_at,
   };
 }
@@ -163,7 +167,9 @@ export async function supabaseSaveAddresses(
   const supabase = await supabaseServer();
   const { data, error } = await supabase
     .from("profiles")
-    .update({ addresses: JSON.stringify(addresses), updated_at: new Date().toISOString() })
+    // jsonb columns take the object directly — JSON.stringify here would
+    // double-encode (the column would hold a JSON string, not an object).
+    .update({ addresses, updated_at: new Date().toISOString() })
     .eq("id", userId)
     .select("*")
     .single();
@@ -337,16 +343,18 @@ export async function supabaseRemoveCategory(slug: string): Promise<void> {
 /* ------------------------------ orders ------------------------------ */
 
 function toOrder(r: OrderRow): Order {
-  const items = Array.isArray(r.items) ? r.items : [];
-  const address = (r.address as Order["address"]) ?? {
+  // items/address/utm may be double-encoded JSON strings on rows written
+  // before the write-path fix — asJson unwraps them transparently.
+  const items = asJson<unknown[]>(r.items, []);
+  const address = asJson<Order["address"]>(r.address, {
     fullName: "",
     phone: "",
     pincode: "",
     line1: "",
     city: "",
     state: "",
-  };
-  const utmRaw = r.utm as Order["utm"] | null;
+  });
+  const utmRaw = asJson<Order["utm"] | null>(r.utm, null);
   return {
     id: r.id,
     number: String(r.number),
@@ -362,7 +370,7 @@ function toOrder(r: OrderRow): Order {
     cashfreeOrderId: r.cashfree_order_id ?? undefined,
     cashfreePaymentId: r.cashfree_payment_id ?? undefined,
     whatsapp: r.whatsapp ?? undefined,
-    address,
+    address: address && typeof address === "object" ? address : ({} as Order["address"]),
     utm: utmRaw ?? undefined,
     storedIn: (String(r.stored_in) as Order["storedIn"]) ?? "supabase",
     createdAt: r.created_at,
@@ -379,7 +387,7 @@ function orderToRow(o: Order): Record<string, unknown> {
     number: o.number,
     user_id: o.userId ?? null,
     user_email: o.userEmail ?? null,
-    items: JSON.stringify(o.items),
+    items: o.items, // jsonb — pass the array directly (no double-encoding)
     subtotal: o.subtotal,
     shipping: o.shipping,
     total: o.total,
@@ -391,8 +399,8 @@ function orderToRow(o: Order): Record<string, unknown> {
     cashfree_order_id: o.cashfreeOrderId ?? null,
     cashfree_payment_id: o.cashfreePaymentId ?? null,
     whatsapp: o.whatsapp ?? o.address.whatsapp ?? null,
-    address: JSON.stringify(o.address),
-    utm: o.utm ? JSON.stringify(o.utm) : null,
+    address: o.address, // jsonb — pass the object directly
+    utm: o.utm ?? null,
     fulfilment: o.fulfilment ?? "pending",
     stored_in: "supabase",
     estimated_delivery: o.estimatedDelivery,

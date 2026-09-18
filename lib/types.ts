@@ -113,6 +113,10 @@ export interface Order {
   razorpayOrderId?: string;
   /** Razorpay payment id (set once the payment is verified/confirmed). */
   razorpayPaymentId?: string;
+  /** Cashfree order id (set when the order is created against Cashfree). */
+  cashfreeOrderId?: string;
+  /** Cashfree payment id (set once the payment is verified/confirmed). */
+  cashfreePaymentId?: string;
   address: DeliveryAddress;
   utm?: Utm;
   /** Demo only: where the order record is stored locally. */

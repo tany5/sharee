@@ -321,6 +321,26 @@ export async function confirmRazorpayPayment(input: {
   return (await demo()).confirmPayment(input);
 }
 
+/**
+ * Confirm a Cashfree payment server-side and flip the order to paid. Route
+ * layers already verified the payment (Cashfree Orders API status fetch or
+ * webhook signature); backends cross-check the paid amount against the order
+ * total (demo writes the local file, Supabase runs the security-definer
+ * `confirm_cashfree_payment` RPC).
+ */
+export async function confirmCashfreePayment(input: {
+  cashfreeOrderId: string;
+  cashfreePaymentId?: string;
+  amountPaise: number;
+  /** Client order id — ties the confirmation to that exact order. */
+  orderId?: string;
+}): Promise<{ ok: boolean; error?: string; order?: Order }> {
+  if (active()) {
+    return (await supabaseModule()).supabaseConfirmCashfreePayment(input);
+  }
+  return (await demo()).confirmCashfreePayment(input);
+}
+
 export async function setOrderFulfilment(
   orderId: string,
   status: FulfilmentStatus,

@@ -218,79 +218,66 @@
 }
 
 /* --------------------------------------------------------------------------
-   Hero balloons — light-pink balloons with knots and curved strings drifting
-   slowly up the section. `top` is animated (not transform) so the travel spans
-   the FULL section height — important on mobile where the hero is much taller
-   than the viewport. Sway uses transform; paused for reduced motion.
+   Hero silks — flowing silk-ribbon strands (the pallu itself) with zari-gold
+   sparkles. Ribbons sway gently from their top anchor; sparkles twinkle.
+   Transform/opacity only; paused for reduced motion.
 -------------------------------------------------------------------------- */
-@keyframes tt-balloon {
-  0% {
-    top: 103%;
-    transform: translateX(0);
-    opacity: 0;
-  }
-  8% {
-    opacity: calc(var(--balloon-opacity, 0.7) * 0.72);
+@keyframes tt-sway {
+  0%,
+  100% {
+    transform: rotate(calc(var(--silk-tilt, 2.4deg) * -1)) translateY(0);
   }
   50% {
-    transform: translateX(calc(var(--balloon-sway, 18px) * -1));
-  }
-  92% {
-    opacity: calc(var(--balloon-opacity, 0.7) * 0.72);
-  }
-  100% {
-    top: -22%;
-    transform: translateX(var(--balloon-sway, 18px));
-    opacity: 0;
+    transform: rotate(var(--silk-tilt, 2.4deg)) translateY(-14px);
   }
 }
 
-.tt-balloon {
+.tt-silk {
+  transform-origin: top center;
+  transform-box: fill-box;
+  animation: tt-sway ease-in-out infinite alternate;
+  will-change: transform;
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+  }
+}
+
+@keyframes tt-twinkle {
+  0% {
+    opacity: 0;
+    transform: scale(0.55) rotate(0deg);
+  }
+  25% {
+    opacity: var(--tw-max, 0.9);
+    transform: scale(1) rotate(14deg);
+  }
+  60% {
+    opacity: calc(var(--tw-max, 0.9) * 0.55);
+    transform: scale(0.85) rotate(28deg);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(0.55) rotate(40deg);
+  }
+}
+
+.tt-sparkle {
   position: absolute;
-  bottom: auto;
-  border-radius: 50% 50% 50% 50% / 44% 44% 56% 56%;
-  background: radial-gradient(
-    circle at 32% 26%,
-    rgba(255, 235, 244, 0.95) 0%,
-    rgba(249, 158, 197, 0.72) 36%,
-    rgba(240, 110, 168, 0.6) 66%,
-    rgba(216, 82, 143, 0.55) 88%,
-    rgba(198, 62, 122, 0.5) 100%
+  background: radial-gradient(circle, #fffbe8 0%, #f2d98d 42%, #d4a943 100%);
+  filter: drop-shadow(0 0 3px rgba(222, 178, 90, 0.8));
+  clip-path: polygon(
+    50% 0%,
+    61% 39%,
+    100% 50%,
+    61% 61%,
+    50% 100%,
+    39% 61%,
+    0% 50%,
+    39% 39%
   );
   opacity: 0;
-  animation: tt-balloon linear infinite;
-  will-change: top, transform, opacity;
-
-  /* Knot at the bottom of the balloon */
-  &::before {
-    content: "";
-    position: absolute;
-    top: 97%;
-    left: 50%;
-    transform: translateX(-50%);
-    width: 16%;
-    height: 9%;
-    background: rgba(190, 70, 130, 0.55);
-    clip-path: polygon(50% 100%, 0 0, 100% 0);
-  }
-
-  /* String — starts exactly at the knot and hangs straight down from it */
-  &::after {
-    content: "";
-    position: absolute;
-    top: 105.5%;
-    left: 50%;
-    transform: translateX(-50%);
-    width: 2px;
-    height: calc(var(--balloon-size, 60px) * 1.5);
-    background: linear-gradient(
-      to bottom,
-      rgba(190, 70, 130, 0.55),
-      rgba(190, 70, 130, 0.18)
-    );
-    border-radius: 1px;
-  }
-
+  animation: tt-twinkle ease-in-out infinite;
+  will-change: transform, opacity;
   @media (prefers-reduced-motion: reduce) {
     animation: none;
     opacity: 0;

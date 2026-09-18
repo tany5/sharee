@@ -359,6 +359,8 @@ function toOrder(r: OrderRow): Order {
     status: String(r.status) as Order["status"],
     razorpayOrderId: r.razorpay_order_id ?? undefined,
     razorpayPaymentId: r.razorpay_payment_id ?? undefined,
+    cashfreeOrderId: r.cashfree_order_id ?? undefined,
+    cashfreePaymentId: r.cashfree_payment_id ?? undefined,
     address,
     utm: utmRaw ?? undefined,
     storedIn: (String(r.stored_in) as Order["storedIn"]) ?? "supabase",
@@ -385,6 +387,8 @@ function orderToRow(o: Order): Record<string, unknown> {
     status: o.status,
     razorpay_order_id: o.razorpayOrderId ?? null,
     razorpay_payment_id: o.razorpayPaymentId ?? null,
+    cashfree_order_id: o.cashfreeOrderId ?? null,
+    cashfree_payment_id: o.cashfreePaymentId ?? null,
     address: JSON.stringify(o.address),
     utm: o.utm ? JSON.stringify(o.utm) : null,
     fulfilment: o.fulfilment ?? "pending",
@@ -456,6 +460,34 @@ export async function supabaseConfirmPayment(input: {
   if (error) return { ok: false, error: error.message };
   // The security-definer RPC returns the updated row as jsonb (guests can't
   // read their rows through RLS, so this is the authoritative read path).
+  const row = data as OrderRow | null;
+  return row
+    ? { ok: true, order: toOrder(row) }
+    : { ok: false, error: "Payment could not be matched to an order" };
+}
+
+/**
+ * Confirm a Cashfree payment via the security-definer
+ * `confirm_cashfree_payment` RPC (secrets live only in the database — no
+ * service-role key required). The RPC verifies the route-verified amount
+ * itself, is idempotent and returns the updated row as jsonb (guests can't
+ * read their rows through RLS, so this is the authoritative read path).
+ */
+export async function supabaseConfirmCashfreePayment(input: {
+  cashfreeOrderId: string;
+  cashfreePaymentId?: string;
+  amountPaise: number;
+  /** Client order id — ties the confirmation to that exact order. */
+  orderId?: string;
+}): Promise<{ ok: boolean; error?: string; order?: Order }> {
+  const supabase = await supabaseServer();
+  const { data, error } = await supabase.rpc("confirm_cashfree_payment", {
+    p_cashfree_order_id: input.cashfreeOrderId,
+    p_cashfree_payment_id: input.cashfreePaymentId ?? "",
+    p_amount_paise: Math.round(input.amountPaise),
+    p_order_id: input.orderId ?? null,
+  });
+  if (error) return { ok: false, error: error.message };
   const row = data as OrderRow | null;
   return row
     ? { ok: true, order: toOrder(row) }

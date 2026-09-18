@@ -60,6 +60,8 @@ export interface OrderRow {
   status: string;
   razorpay_order_id: string | null;
   razorpay_payment_id: string | null;
+  cashfree_order_id: string | null;
+  cashfree_payment_id: string | null;
   address: unknown;
   utm: unknown;
   fulfilment: string;

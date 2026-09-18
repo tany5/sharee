@@ -20,7 +20,9 @@ import { INDIAN_STATES, validateAddress, type AddressErrors } from "@/lib/valida
 import { saveOrder } from "@/lib/client-store";
 import { readUtmFromUrl } from "@/lib/utm";
 import {
+  activeClientGateway,
   razorpayClientLive,
+  type CashfreePayload,
   type RazorpayPayload,
   type RazorpaySuccessResponse,
 } from "@/lib/payments/client";
@@ -65,17 +67,30 @@ export function CheckoutView() {
   const [placing, setPlacing] = useState(false);
   const [verifying, setVerifying] = useState(false);
   // Restored from session storage when the customer arrives via
-  // "Retry Payment" (failure page) — the pending Razorpay payload for the
+  // "Retry Payment" (failure page) — the pending gateway payload for the
   // exact order is re-offered as "Resume Payment" instead of a duplicate.
   const [pendingPay, setPendingPay] = useState<{
-    payload: RazorpayPayload;
+    gateway: "cashfree" | "razorpay";
+    payload: CashfreePayload | RazorpayPayload;
     orderId: string;
   } | null>(() => {
     try {
       const raw = sessionStorage.getItem("ambika.pending-pay");
       if (!raw) return null;
-      const saved = JSON.parse(raw) as { payload: RazorpayPayload; orderId: string };
-      return saved?.payload?.orderId && saved.orderId ? saved : null;
+      const saved = JSON.parse(raw) as {
+        gateway?: "cashfree" | "razorpay";
+        payload: CashfreePayload | RazorpayPayload;
+        orderId: string;
+      };
+      if (!saved?.payload?.orderId || !saved.orderId) return null;
+      // Legacy entries predate the gateway tag — Razorpay payloads carry a
+      // keyId, Cashfree ones a paymentSessionId.
+      const gateway =
+        saved.gateway ??
+        ((saved.payload as CashfreePayload).paymentSessionId
+          ? "cashfree"
+          : "razorpay");
+      return { gateway, payload: saved.payload, orderId: saved.orderId };
     } catch {
       return null;
     }
@@ -164,7 +179,9 @@ export function CheckoutView() {
     }
   };
 
-  const razorpayLive = razorpayClientLive();
+  const razorpayLive =
+    activeClientGateway() === "razorpay" && razorpayClientLive();
+  const isCashfreeUi = activeClientGateway() === "cashfree";
 
   /** POST the checkout success response to the server for verification. */
   const verifyPayment = async (
@@ -179,6 +196,7 @@ export function CheckoutView() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           orderId,
+          gateway: "razorpay",
           razorpayOrderId: resp.razorpay_order_id,
           razorpayPaymentId: resp.razorpay_payment_id,
           razorpaySignature: resp.razorpay_signature,
@@ -306,7 +324,135 @@ export function CheckoutView() {
     rzp.open();
   };
 
+  /** Load the Cashfree drop-in (once) and open its payment modal. */
+  const openCashfree = async (payload: CashfreePayload, orderId: string) => {
+    setApiError(null);
+    try {
+      if (typeof window === "undefined" || !window.Cashfree) {
+        await new Promise<void>((resolve, reject) => {
+          const s = document.createElement("script");
+          s.src = "https://sdk.cashfree.com/js/v3/cashfree.js";
+          s.async = true;
+          s.onload = () => resolve();
+          s.onerror = () => reject(new Error("gateway load failed"));
+          document.head.appendChild(s);
+        });
+      }
+    } catch {
+      setApiError("Could not load the payment gateway — please retry.");
+      setPlacing(false);
+      return;
+    }
 
+    if (typeof window === "undefined" || !window.Cashfree) {
+      setApiError("Payment gateway is unavailable — please retry.");
+      setPlacing(false);
+      return;
+    }
+
+    const mode = payload.mode === "production" ? "production" : "sandbox";
+    const cf = new window.Cashfree({ mode });
+    try {
+      await cf.checkout({
+        paymentSessionId: payload.paymentSessionId,
+        redirectTarget: "_modal",
+        onSuccess: async () => {
+          // The modal callback isn't signed — the server re-fetches the order
+          // from the Cashfree API before flipping the order to paid.
+          await verifyCashfreePayment(payload.orderId, orderId, payload.amountRupees);
+        },
+        onFailure: (err?: { message?: string }) => {
+          setPlacing(false);
+          setApiError(
+            err?.message ||
+              "Payment failed or was cancelled. Your order is saved — press Resume Payment to try again.",
+          );
+          router.replace(`/order-failure?order=${encodeURIComponent(orderId)}`);
+        },
+        onClose: () => setPlacing(false),
+      });
+    } catch {
+      setPlacing(false);
+      setApiError("Payment window closed — press Resume Payment to try again.");
+    }
+  };
+
+  /** Cashfree verification: the server re-fetches status from the API. */
+  const verifyCashfreePayment = async (
+    cashfreeOrderId: string,
+    orderId: string,
+    amountRupees: number,
+  ) => {
+    setVerifying(true);
+    try {
+      const res = await fetch("/api/payments/verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          orderId,
+          gateway: "cashfree",
+          cashfreeOrderId,
+          amountPaise: Math.round(amountRupees * 100),
+        }),
+      });
+      const data = (await res.json()) as {
+        ok: boolean;
+        order?: import("@/lib/types").Order;
+        error?: string;
+      };
+      if (!res.ok || !data.ok || !data.order) {
+        // Verification could not confirm the payment. It may still have
+        // succeeded on Cashfree's side (webhook pending) — the failure page
+        // double-checks before showing the sad face. Keep the order saved so
+        // "Retry Payment" resumes the exact same order.
+        try {
+          saveOrder({
+            id: orderId,
+            number: "",
+            items: [],
+            subtotal: 0,
+            shipping: 0,
+            total: amountRupees,
+            paymentMethod: "upi",
+            paymentStatus: "pending",
+            status: "placed",
+            address: {
+              fullName: "",
+              phone: "",
+              pincode: "",
+              line1: "",
+              city: "",
+              state: "",
+            },
+            createdAt: new Date().toISOString(),
+            estimatedDelivery: new Date().toISOString(),
+            fulfilment: "pending",
+            storedIn: "local" as const,
+          });
+        } catch {
+          /* ignore */
+        }
+        router.replace(`/order-failure?order=${encodeURIComponent(orderId)}`);
+        return;
+      }
+      // Order is paid (server-verified) — only now do we save it, clear the
+      // cart and show the success page (Purchase fires there).
+      try {
+        sessionStorage.removeItem(PENDING_KEY);
+      } catch {
+        /* ignore */
+      }
+      saveOrder(data.order);
+      clear();
+      setPendingPay(null);
+      router.replace(`/order-success?order=${encodeURIComponent(data.order.id)}`);
+    } catch {
+      router.replace(`/order-failure?order=${encodeURIComponent(orderId)}`);
+    } finally {
+      setVerifying(false);
+      setPlacing(false);
+    }
+  };
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -315,7 +461,17 @@ export function CheckoutView() {
     // Resume an interrupted payment against the same order (no duplicate).
     if (pendingPay) {
       setPlacing(true);
-      await openRazorpay(pendingPay.payload, pendingPay.orderId);
+      if (pendingPay.gateway === "cashfree") {
+        await openCashfree(
+          pendingPay.payload as CashfreePayload,
+          pendingPay.orderId,
+        );
+      } else {
+        await openRazorpay(
+          pendingPay.payload as RazorpayPayload,
+          pendingPay.orderId,
+        );
+      }
       return;
     }
 
@@ -345,6 +501,7 @@ export function CheckoutView() {
         ok: boolean;
         order?: import("@/lib/types").Order;
         razorpay?: RazorpayPayload;
+        cashfree?: CashfreePayload;
         error?: string;
         fieldErrors?: AddressErrors;
       };
@@ -354,16 +511,33 @@ export function CheckoutView() {
         return;
       }
 
-      // Live payment: hold the order as pending and open the Razorpay widget.
-      if (data.razorpay?.orderId && razorpayLive) {
-        setPendingPay({ payload: data.razorpay, orderId: data.order.id });
+      // Live payment: hold the order as pending and open the gateway widget.
+      if (data.cashfree?.paymentSessionId) {
+        const pending = {
+          gateway: "cashfree" as const,
+          payload: data.cashfree,
+          orderId: data.order.id,
+        };
+        setPendingPay(pending);
         try {
           // Persist so "Retry Payment" on the failure page resumes this
           // exact order + payment instead of creating a duplicate.
-          sessionStorage.setItem(
-            PENDING_KEY,
-            JSON.stringify({ payload: data.razorpay, orderId: data.order.id }),
-          );
+          sessionStorage.setItem(PENDING_KEY, JSON.stringify(pending));
+        } catch {
+          /* ignore */
+        }
+        await openCashfree(data.cashfree, data.order.id);
+        return;
+      }
+      if (data.razorpay?.orderId && razorpayLive) {
+        const pending = {
+          gateway: "razorpay" as const,
+          payload: data.razorpay,
+          orderId: data.order.id,
+        };
+        setPendingPay(pending);
+        try {
+          sessionStorage.setItem(PENDING_KEY, JSON.stringify(pending));
         } catch {
           /* ignore */
         }
@@ -371,7 +545,7 @@ export function CheckoutView() {
         return;
       }
 
-      // Fresh (COD / demo) order — no pending Razorpay payment to resume.
+      // Fresh (COD / demo) order — no pending gateway payment to resume.
       try {
         sessionStorage.removeItem(PENDING_KEY);
       } catch {
@@ -412,16 +586,21 @@ export function CheckoutView() {
           processed by <strong>Razorpay</strong> — UPI, cards and net banking.
           Your order is confirmed only after the payment verifies.
         </p>
-      ) : (
-        isDemoMode() && (
-          <p className="mb-6 rounded-xl border border-bronze/40 bg-bronze/10 px-4 py-3 text-[13px] leading-5 text-ink2">
-            <strong className="text-ink">Demo checkout:</strong> no real payment
-            is processed — UPI / cards / net banking orders are simulated and
-            marked paid so you can test the full funnel. Enable Razorpay via the
-            env keys in <code className="rounded bg-surface px-1">.env.example</code>{" "}
-            when going live.
-          </p>
-        )
+      ) : isCashfreeUi ? (
+        <p className="mb-6 rounded-xl border border-line bg-surface px-4 py-3 text-[13px] leading-5 text-ink2">
+          <strong className="text-ink">Secure checkout:</strong> payments are
+          processed by <strong>Cashfree</strong> — UPI, cards and net banking.
+          Your order is confirmed only after the payment verifies.
+        </p>
+      ) : (            isDemoMode() && (
+              <p className="mb-6 rounded-xl border border-bronze/40 bg-bronze/10 px-4 py-3 text-[13px] leading-5 text-ink2">
+                <strong className="text-ink">Demo checkout:</strong> no real payment
+                is processed — UPI / cards / net banking orders are simulated and
+                marked paid so you can test the full funnel. Enable Cashfree via the
+                env keys in <code className="rounded bg-surface px-1">.env.example</code>{" "}
+                when going live.
+              </p>
+            )
       )}
 
       {pendingPay && !verifying && (

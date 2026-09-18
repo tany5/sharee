@@ -7,8 +7,15 @@ import {
   razorpayKeyId,
   RazorpayError,
 } from "@/lib/payments/razorpay";
+import {
+  createCashfreeOrder,
+  isCashfreeLive,
+  cashfreeEnv,
+  CashfreeError,
+} from "@/lib/payments/cashfree";
+import { isCashfreeGateway } from "@/lib/payments/gateway";
 import { SITE } from "@/lib/site";
-import type { RazorpayPayload } from "@/lib/payments/client";
+import type { CashfreePayload, RazorpayPayload } from "@/lib/payments/client";
 import type { CartItem, DeliveryAddress, PaymentMethodId, Utm } from "@/lib/types";
 
 /**
@@ -20,12 +27,15 @@ import type { CartItem, DeliveryAddress, PaymentMethodId, Utm } from "@/lib/type
  *  - signed-in customers get their order persisted to their history
  *  - guest checkout continues to work and returns the same order payload
  *
- * Live Razorpay: when RAZORPAY key id + secret are configured, online-paid
- * orders get a payment order created server-side and are returned as
- * `paymentStatus: "pending"` with a `razorpay` payload for the checkout
- * widget. They flip to "paid" only after signature verification
- * (/api/payments/verify) or the webhook (/api/webhooks/razorpay) — Purchase
- * fires client-side only after that verification (order-success page).
+ * Live payments: when the active gateway's key id + secret are configured,
+ * online-paid orders get a payment order created server-side and are returned
+ * as `paymentStatus: "pending"` with a `razorpay` or `cashfree` payload for
+ * the checkout widget. They flip to "paid" only after server-side
+ * verification (/api/payments/verify or the gateway webhook) — Purchase fires
+ * client-side only after that verification (order-success page).
+ *
+ * Gateway selection is env-driven (PAYMENT_GATEWAY=cashfree|razorpay, with
+ * auto-detection when unset) — see lib/payments/gateway.ts.
  */
 
 interface RateBucket {
@@ -81,7 +91,8 @@ export async function POST(request: Request) {
   const user = await currentUser();
 
   try {
-    const razorpayLive = isRazorpayLive();
+    const cashfreeGateway = isCashfreeGateway();
+    const liveGateway = cashfreeGateway ? isCashfreeLive() : isRazorpayLive();
     const order = await createDemoOrder({
       items: body.items ?? [],
       address: body.address ?? {},
@@ -89,39 +100,69 @@ export async function POST(request: Request) {
       utm: body.utm,
       resolveProduct: resolveOrderSource,
       user: user ? { id: user.id, email: user.email } : undefined,
-      razorpayIntent: razorpayLive,
+      razorpayIntent: liveGateway,
     });
 
-    // Live payments: create the Razorpay order server-side, attach its id to
+    // Live payments: create the gateway order server-side, attach its id to
     // the order record, and hand the widget payload back to the client. COD
     // and demo payments skip this entirely.
     let razorpay: RazorpayPayload | undefined;
-    if (razorpayLive && order.paymentMethod !== "cod") {
-      const rp = await createRazorpayOrder({
-        amountPaise: Math.round(order.total * 100),
-        receipt: order.number,
-        notes: { orderId: order.id },
-      });
-      order.razorpayOrderId = rp.id;
-      razorpay = {
-        keyId: razorpayKeyId() ?? "",
-        orderId: rp.id,
-        amountPaise: rp.amount,
-        currency: rp.currency,
-        name: SITE.name,
-        description: `${SITE.name} order ${order.number}`,
-        prefill: {
-          name: order.address.fullName,
-          contact: order.address.phone,
-          email: order.userEmail ?? user?.email,
-        },
-        theme: { color: "#886644" },
-      };
+    let cashfree: CashfreePayload | undefined;
+    if (liveGateway && order.paymentMethod !== "cod") {
+      if (cashfreeGateway) {
+        const cf = await createCashfreeOrder({
+          // Cashfree order ids allow [A-Za-z0-9_-] (3-45 chars) — our order id
+          // qualifies; prefixed so it can never collide with another merchant id.
+          orderId: `tt_${order.id}`.slice(0, 45),
+          amountRupees: order.total,
+          customerId: order.userEmail ?? order.address.phone,
+          customerName: order.address.fullName,
+          customerEmail: order.userEmail ?? user?.email,
+          customerPhone: order.address.phone,
+          note: `${SITE.name} order ${order.number}`,
+          notifyUrl: `${SITE.url}/api/webhooks/cashfree`,
+        });
+        order.cashfreeOrderId = cf.orderId;
+        cashfree = {
+          orderId: cf.orderId,
+          paymentSessionId: cf.paymentSessionId,
+          amountRupees: cf.orderAmount,
+          currency: cf.orderCurrency,
+          mode: cashfreeEnv(),
+        };
+      } else {
+        const rp = await createRazorpayOrder({
+          amountPaise: Math.round(order.total * 100),
+          receipt: order.number,
+          notes: { orderId: order.id },
+        });
+        order.razorpayOrderId = rp.id;
+        razorpay = {
+          keyId: razorpayKeyId() ?? "",
+          orderId: rp.id,
+          amountPaise: rp.amount,
+          currency: rp.currency,
+          name: SITE.name,
+          description: `${SITE.name} order ${order.number}`,
+          prefill: {
+            name: order.address.fullName,
+            contact: order.address.phone,
+            email: order.userEmail ?? user?.email,
+          },
+          theme: { color: "#886644" },
+        };
+      }
     }
 
     const persisted = await addOrder(order);
-    return NextResponse.json({ ok: true, order: persisted, razorpay });
+    return NextResponse.json({ ok: true, order: persisted, razorpay, cashfree });
   } catch (err) {
+    if (err instanceof CashfreeError) {
+      return NextResponse.json(
+        { ok: false, error: `Payment setup failed: ${err.message}` },
+        { status: 502 },
+      );
+    }
     if (err instanceof RazorpayError) {
       return NextResponse.json(
         { ok: false, error: `Payment setup failed: ${err.message}` },

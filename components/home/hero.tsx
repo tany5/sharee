@@ -62,35 +62,104 @@ const HERO_PROMISES = [
 ];
 
 /**
- * Pink balloons with knots and curved strings drifting up the right side of
- * the hero. Purely decorative (aria-hidden); deterministic values so SSR and
- * client render identically.
+ * Flowing silk-ribbon strands with zari-gold sparkles — "a pallu in the
+ * breeze". Three translucent silk ribbons in the brand's pinks hang from the
+ * top-right and sway slowly; small gold zari sparkles twinkle around them.
+ * Purely decorative (aria-hidden); deterministic values for stable SSR.
  */
-function Balloons() {
-  const balloons = [
-    { size: 84, right: 3, delay: 0, dur: 30, sway: 22, op: 0.75 },
-    { size: 44, right: 17, delay: 7, dur: 24, sway: -16, op: 0.68 },
-    { size: 120, right: 7, delay: 15, dur: 38, sway: 30, op: 0.6 },
-    { size: 30, right: 26, delay: 4, dur: 20, sway: -12, op: 0.78 },
-    { size: 62, right: 12, delay: 22, dur: 28, sway: 18, op: 0.7 },
-    { size: 24, right: 33, delay: 11, dur: 18, sway: 12, op: 0.8 },
-  ];
+function Silks() {
   return (
-    <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden">
-      {balloons.map((b, i) => (
+    <div
+      aria-hidden
+      className="pointer-events-none absolute inset-0 overflow-hidden"
+    >
+      {/* Silk ribbons — anchored top-right, swaying like fabric in a breeze */}
+      <svg
+        className="absolute right-0 top-0 h-[46%] w-auto"
+        viewBox="0 0 420 360"
+        fill="none"
+      >
+        <defs>
+          <linearGradient id="silkA" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stopColor="#f9a8cd" stopOpacity="0.55" />
+            <stop offset="55%" stopColor="#e2448f" stopOpacity="0.34" />
+            <stop offset="100%" stopColor="#c22e6f" stopOpacity="0.12" />
+          </linearGradient>
+          <linearGradient id="silkB" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stopColor="#fbd0e3" stopOpacity="0.5" />
+            <stop offset="60%" stopColor="#ef6fae" stopOpacity="0.26" />
+            <stop offset="100%" stopColor="#d63d86" stopOpacity="0.08" />
+          </linearGradient>
+          <linearGradient id="silkC" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stopColor="#ffd9ea" stopOpacity="0.45" />
+            <stop offset="50%" stopColor="#f78fc0" stopOpacity="0.22" />
+            <stop offset="100%" stopColor="#ec5d9f" stopOpacity="0.06" />
+          </linearGradient>
+        </defs>
+        {/* Ribbon 1 — long, innermost */}
+        <path
+          className="tt-silk"
+          style={{ "--silk-tilt": "2.2deg", animationDuration: "7.5s" } as React.CSSProperties}
+          d="M258 -10 C 236 84, 296 150, 262 236 C 244 282, 268 318, 252 356 L 296 356 C 306 312, 284 276, 302 226 C 330 148, 276 82, 302 -10 Z"
+          fill="url(#silkA)"
+        />
+        {/* Ribbon 2 — mid, crossing over */}
+        <path
+          className="tt-silk"
+          style={{ "--silk-tilt": "-2.8deg", animationDuration: "9s", animationDelay: "0.8s" } as React.CSSProperties}
+          d="M330 -10 C 352 70, 306 138, 340 214 C 358 258, 336 300, 352 348 L 312 348 C 300 306, 322 262, 306 210 C 282 136, 330 72, 306 -10 Z"
+          fill="url(#silkB)"
+        />
+        {/* Ribbon 3 — short, outermost, lighter */}
+        <path
+          className="tt-silk"
+          style={{ "--silk-tilt": "3.4deg", animationDuration: "6.4s", animationDelay: "1.6s" } as React.CSSProperties}
+          d="M392 -10 C 376 56, 412 108, 390 176 C 378 214, 396 248, 384 290 L 416 290 C 428 250, 408 216, 424 172 C 442 112, 410 58, 428 -10 Z"
+          fill="url(#silkC)"
+        />
+        {/* Zari borders — bold gold threads along ribbons 1 and 3 */}
+        <path
+          className="tt-silk"
+          style={{ "--silk-tilt": "2.2deg", animationDuration: "7.5s" } as React.CSSProperties}
+          d="M258 -10 C 236 84, 296 150, 262 236 C 244 282, 268 318, 252 356"
+          stroke="#e6b54a"
+          strokeOpacity="0.95"
+          strokeWidth="3.4"
+          strokeLinecap="round"
+        />
+        <path
+          className="tt-silk"
+          style={{ "--silk-tilt": "3.4deg", animationDuration: "6.4s", animationDelay: "1.6s" } as React.CSSProperties}
+          d="M392 -10 C 376 56, 412 108, 390 176 C 378 214, 396 248, 384 290"
+          stroke="#d9a53f"
+          strokeOpacity="0.85"
+          strokeWidth="2.6"
+          strokeLinecap="round"
+        />
+      </svg>
+
+      {/* Zari sparkles — gold stars twinkling around the ribbons */}
+      {[
+        { size: 18, top: 8, right: 16, delay: 0, dur: 3.2, op: 1 },
+        { size: 13, top: 20, right: 7, delay: 1.1, dur: 2.6, op: 0.9 },
+        { size: 16, top: 33, right: 13, delay: 2.2, dur: 3.8, op: 0.95 },
+        { size: 10, top: 15, right: 24, delay: 0.6, dur: 2.2, op: 1 },
+        { size: 14, top: 42, right: 5, delay: 1.7, dur: 3.4, op: 0.85 },
+        { size: 9, top: 27, right: 32, delay: 2.8, dur: 2.9, op: 0.9 },
+        { size: 15, top: 5, right: 34, delay: 1.3, dur: 3.6, op: 0.85 },
+      ].map((s, i) => (
         <span
           key={i}
-          className="tt-balloon"
+          className="tt-sparkle"
           style={
             {
-              width: b.size,
-              height: b.size * 1.18,
-              right: `${b.right}%`,
-              animationDelay: `${b.delay}s`,
-              animationDuration: `${b.dur}s`,
-              "--balloon-sway": `${b.sway}px`,
-              "--balloon-opacity": b.op,
-              "--balloon-size": `${b.size}px`,
+              width: s.size,
+              height: s.size,
+              top: `${s.top}%`,
+              right: `${s.right}%`,
+              animationDelay: `${s.delay}s`,
+              animationDuration: `${s.dur}s`,
+              "--tw-max": s.op,
             } as React.CSSProperties
           }
         />
@@ -114,16 +183,12 @@ export function Hero() {
       className="relative isolate overflow-hidden bg-[linear-gradient(140deg,#ffeef5_0%,#fff7fa_42%,#ffe4ef_100%)]"
       aria-label="All sarees at one simple price"
     >
-      {/* Soft decorative glow + drifting pink balloons (top-right focus) */}
-      <div
-        aria-hidden
-        className="absolute -right-24 -top-24 h-[26rem] w-[26rem] rounded-full bg-[radial-gradient(circle,rgba(226,68,143,0.14),transparent_65%)]"
-      />
+      {/* Soft decorative glow + flowing silk ribbons with zari sparkles */}
       <div
         aria-hidden
         className="absolute -left-32 bottom-0 h-[22rem] w-[22rem] rounded-full bg-[radial-gradient(circle,rgba(216,107,164,0.12),transparent_65%)]"
       />
-      <Balloons />
+      <Silks />
 
       <div className="tt-container relative grid items-center gap-8 py-8 sm:py-12 lg:grid-cols-[1.05fr_1fr] lg:gap-12 lg:py-16">
         {/* ------------------------------ Copy ------------------------------ */}

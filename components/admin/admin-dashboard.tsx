@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { Button, EmptyState } from "@/components/ui";
 import { StatCard, StatusChip, formatINRShort } from "@/components/admin/shared";
+import { AdminNotificationsCard } from "@/components/admin/admin-notifications";
 import type { FulfilmentStatus } from "@/lib/types";
 
 interface Summary {
@@ -256,8 +257,12 @@ export function AdminDashboard() {
           </section>
         </div>
 
-        {/* Recent orders */}
-        <section className="rounded-2xl border border-line bg-surface p-5 lg:col-span-2">
+        {/* Notification channel health + test send */}
+        <div className="space-y-6 lg:col-span-2">
+          <AdminNotificationsCard />
+
+          {/* Recent orders */}
+          <section className="rounded-2xl border border-line bg-surface p-5">
           <div className="mb-4 flex items-center gap-2">
             <Package size={17} className="text-bronze" />
             <h2 className="text-lg text-ink">Recent orders</h2>
@@ -313,7 +318,8 @@ export function AdminDashboard() {
               </p>
             </div>
           </div>
-        </section>
+          </section>
+        </div>
       </div>
 
       {/* Quick actions */}

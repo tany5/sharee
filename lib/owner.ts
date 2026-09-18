@@ -203,3 +203,105 @@ export async function notifyOwnerOfOrder(
     sendOwnerEmail(order, kind),
   ]);
 }
+
+export interface OwnerTestResult {
+  overall: boolean;
+  email: { attempted: boolean; sent: boolean; error?: string };
+  whatsapp: { attempted: boolean; sent: boolean; channel: "cloud-api" | "callmebot" | "none"; error?: string };
+}
+
+/**
+ * Diagnostic test alert (admin panel button). Unlike notifyOwnerOfOrder this
+ * surfaces the upstream error text so production config problems are visible.
+ * Waits for both channels and never dedupes.
+ */
+export async function sendOwnerTestAlert(): Promise<OwnerTestResult> {
+  const result: OwnerTestResult = {
+    overall: false,
+    email: { attempted: false, sent: false },
+    whatsapp: { attempted: false, sent: false, channel: "none" },
+  };
+  const now = new Date();
+  const stamp = now.toLocaleString("en-IN", { timeZone: "Asia/Kolkata" });
+  const text =
+    `🔔 *${SITE.name}* — test alert\n` +
+    `Sent ${stamp}\n\n` +
+    `If you can read this, the WhatsApp owner-alert channel works.\n` +
+    `Placed a real order? You'll get the same style of message with order details.`;
+
+  const emailTo = ownerEmail();
+  const key = resendApiKey();
+  if (!emailTo || !key) {
+    result.email.error = !emailTo
+      ? "OWNER_EMAIL is not set"
+      : "RESEND_API_KEY is not set";
+  } else {
+    result.email.attempted = true;
+    try {
+      const res = await fetch("https://api.resend.com/emails", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${key}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          from: emailFrom(),
+          to: [emailTo],
+          subject: `🔔 ${SITE.name} test alert — notifications check (${stamp})`,
+          text: text.replace(/\*/g, ""),
+        }),
+        cache: "no-store",
+        signal: AbortSignal.timeout(10_000),
+      });
+      if (res.ok) {
+        result.email.sent = true;
+      } else {
+        result.email.error = `Resend HTTP ${res.status}: ${(await res.text().catch(() => "")).slice(0, 200)}`;
+      }
+    } catch (err) {
+      result.email.error = err instanceof Error ? err.message : String(err);
+    }
+  }
+
+  const phone = normalizeWhatsApp(ownerWhatsApp() ?? "");
+  const phoneId = process.env.WHATSAPP_PHONE_NUMBER_ID?.trim();
+  const apikey = ownerWhatsAppApiKey();
+  if (!phone) {
+    result.whatsapp.error = "OWNER_WHATSAPP is not set";
+  } else if (phoneId) {
+    result.whatsapp.attempted = true;
+    result.whatsapp.channel = "cloud-api";
+    const ok = await sendCloudApiText(phone, text).catch(() => false);
+    result.whatsapp.sent = ok;
+    if (!ok) {
+      result.whatsapp.error =
+        "Cloud API rejected the send — check the server logs for the Meta error code (outside-24h-window needs an approved template; an unverified number rejects all sends).";
+    }
+  } else if (apikey) {
+    result.whatsapp.attempted = true;
+    result.whatsapp.channel = "callmebot";
+    try {
+      const res = await fetch(
+        "https://api.callmebot.com/whatsapp.php" +
+          `?phone=%2B${phone}` +
+          `&text=${encodeURIComponent(text)}` +
+          `&apikey=${encodeURIComponent(apikey)}`,
+        { cache: "no-store", signal: AbortSignal.timeout(10_000) },
+      );
+      const body = await res.text().catch(() => "");
+      if (res.ok && !/ERROR/i.test(body)) {
+        result.whatsapp.sent = true;
+      } else {
+        result.whatsapp.error = `CallMeBot HTTP ${res.status}: ${body.slice(0, 160)}`;
+      }
+    } catch (err) {
+      result.whatsapp.error = err instanceof Error ? err.message : String(err);
+    }
+  } else {
+    result.whatsapp.error =
+      "No WhatsApp channel: set WHATSAPP_PHONE_NUMBER_ID (Cloud API) or OWNER_WHATSAPP_APIKEY (CallMeBot — WhatsApp 'I allow callmebot to send me messages' to +34 623 78 95 95)";
+  }
+
+  result.overall = result.email.sent || result.whatsapp.sent;
+  return result;
+}

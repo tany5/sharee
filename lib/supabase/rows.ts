@@ -76,6 +76,24 @@ const asArray = (v: unknown): unknown[] => (Array.isArray(v) ? v : []);
 const asStringArray = (v: unknown): string[] =>
   asArray(v).map((x) => String(x));
 
+/**
+ * Unwrap a jsonb value that was accidentally stored double-encoded (the
+ * caller did JSON.stringify before the write, so the column holds a JSON
+ * *string* instead of an object/array). Historical rows written that way are
+ * healed transparently on read; new writes store proper objects.
+ */
+export function asJson<T>(v: unknown, fallback: T): T {
+  if (typeof v === "string") {
+    try {
+      const parsed: unknown = JSON.parse(v);
+      return (parsed ?? fallback) as T;
+    } catch {
+      return fallback;
+    }
+  }
+  return (v ?? fallback) as T;
+}
+
 export const toProduct = (r: ProductRow) => ({
   id: r.id,
   slug: r.slug,

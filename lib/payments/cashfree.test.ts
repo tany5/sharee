@@ -6,6 +6,7 @@ import {
   createCashfreeOrder,
   fetchCashfreeOrder,
   isCashfreeLive,
+  safeCustomerId,
   verifyWebhookSignature,
 } from "./cashfree";
 import { activeGateway, isCashfreeGateway, isRazorpayGateway } from "./gateway";
@@ -72,6 +73,34 @@ describe("gateway selection", () => {
     process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID = "rzp_test_public";
     process.env.RAZORPAY_KEY_SECRET = "rzp_secret";
     expect(activeGateway()).toBe("razorpay");
+  });
+});
+
+describe("safeCustomerId", () => {
+  it("prefers user id, then phone, then email", () => {
+    expect(
+      safeCustomerId({ userId: "u-123", email: "a@b.com", phone: "987", fallback: "fb" }),
+    ).toBe("u-123");
+    expect(
+      safeCustomerId({ email: "a@b.com", phone: "9876543210", fallback: "fb" }),
+    ).toBe("9876543210");
+    expect(safeCustomerId({ email: "a@b.com", phone: "", fallback: "fb" })).toBe("a-b-com");
+    expect(safeCustomerId({ phone: "", fallback: "ord_abc" })).toBe("ord_abc");
+  });
+
+  it("strips characters Cashfree rejects (@ . dots) and collapses separators", () => {
+    expect(safeCustomerId({ email: "tanmay1dey@gmail.com", phone: "", fallback: "fb" })).toBe(
+      "tanmay1dey-gmail-com",
+    );
+    expect(safeCustomerId({ phone: "+91 98765 43210", fallback: "fb" })).toBe("91-98765-43210");
+  });
+
+  it("always returns something and caps at 45 chars", () => {
+    expect(safeCustomerId({ phone: "", email: "", fallback: "" })).toBe("");
+    expect(safeCustomerId({ phone: "", email: "", fallback: "ord_abc" })).toBe("ord_abc");
+    expect(
+      safeCustomerId({ userId: "x".repeat(80), phone: "", fallback: "fb" }).length,
+    ).toBeLessThanOrEqual(45);
   });
 });
 

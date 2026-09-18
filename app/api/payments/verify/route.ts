@@ -67,7 +67,11 @@ export async function POST(request: Request) {
     (body.gateway !== "razorpay" && isCashfreeGateway());
 
   if (cashfreeRoute) {
-    return verifyCashfree(body.orderId, orderId, Math.round(Number(amountPaise)));
+    return verifyCashfree(
+      body.cashfreeOrderId,
+      orderId,
+      Math.round(Number(amountPaise)),
+    );
   }
   return verifyRazorpay(orderId, Math.round(Number(amountPaise)), body);
 }

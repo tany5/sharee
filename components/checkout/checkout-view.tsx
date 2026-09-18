@@ -98,6 +98,8 @@ export function CheckoutView() {
   const firedMethods = useRef<Set<PaymentMethodId>>(new Set());
   const initiateFired = useRef(false);
   const prefilledFor = useRef<string | null>(null);
+  /** Dedupes Cashfree verification — SDK builds fire callback, promise or both. */
+  const cfHandledRef = useRef(false);
   const PENDING_KEY = "ambika.pending-pay";
 
   // Signed-in customers get their default address prefilled once.
@@ -327,6 +329,7 @@ export function CheckoutView() {
   /** Load the Cashfree drop-in (once) and open its payment modal. */
   const openCashfree = async (payload: CashfreePayload, orderId: string) => {
     setApiError(null);
+    cfHandledRef.current = false; // fresh attempt — callbacks may fire again
     try {
       if (typeof window === "undefined" || !window.Cashfree) {
         await new Promise<void>((resolve, reject) => {
@@ -352,28 +355,70 @@ export function CheckoutView() {
 
     const mode = payload.mode === "production" ? "production" : "sandbox";
     const cf = new window.Cashfree({ mode });
+
+    // First signal wins: some Cashfree SDK builds report the outcome via the
+    // onSuccess/onFailure callbacks, some via the checkout() promise resolving
+    // with a result object, and some via both. cfHandledRef dedupes them.
+    const settle = () => {
+      if (cfHandledRef.current) return;
+      cfHandledRef.current = true;
+      // Server is the source of truth — it re-fetches the order from the
+      // Cashfree API and lands on success or the failure page either way.
+      void verifyCashfreePayment(payload.orderId, orderId, payload.amountRupees);
+    };
+    const fail = (message?: string) => {
+      if (cfHandledRef.current) return;
+      cfHandledRef.current = true;
+      setPlacing(false);
+      setApiError(
+        message ||
+          "Payment failed or was cancelled. Your order is saved — press Resume Payment to try again.",
+      );
+      router.replace(`/order-failure?order=${encodeURIComponent(orderId)}`);
+    };
+
+    // Closing the widget is not necessarily a failure (e.g. resuming an
+    // already-paid session) — let the server decide by re-fetching status.
+    const finish = () => {
+      if (cfHandledRef.current) return;
+      cfHandledRef.current = true;
+      void verifyCashfreePayment(payload.orderId, orderId, payload.amountRupees);
+    };
+
     try {
-      await cf.checkout({
+      const result = (await cf.checkout({
         paymentSessionId: payload.paymentSessionId,
         redirectTarget: "_modal",
-        onSuccess: async () => {
-          // The modal callback isn't signed — the server re-fetches the order
-          // from the Cashfree API before flipping the order to paid.
-          await verifyCashfreePayment(payload.orderId, orderId, payload.amountRupees);
-        },
-        onFailure: (err?: { message?: string }) => {
-          setPlacing(false);
-          setApiError(
-            err?.message ||
-              "Payment failed or was cancelled. Your order is saved — press Resume Payment to try again.",
-          );
-          router.replace(`/order-failure?order=${encodeURIComponent(orderId)}`);
-        },
-        onClose: () => setPlacing(false),
-      });
+        onSuccess: () => settle(),
+        onFailure: (err?: { message?: string }) => finish(),
+        onClose: () => finish(),
+      })) as
+        | {
+            error?: { message?: string };
+            order?: { status?: string; orderId?: string };
+            payment?: { paymentId?: string; status?: string };
+            redirect?: boolean;
+          }
+        | undefined;
+
+      // Promise-resolved path (v3 drop-in): inspect the result object.
+      if (result?.error) {
+        fail(result.error.message);
+        return;
+      }
+      // A redirect was initiated (bank/UPI-app page) — the return URL / webhook
+      // completes the flow; nothing more to do here.
+      if (result?.redirect) {
+        return;
+      }
+      settle();
     } catch {
+      // checkout() threw (config/load issue) — keep the pending order so the
+      // customer can Resume Payment instead of creating a duplicate.
       setPlacing(false);
-      setApiError("Payment window closed — press Resume Payment to try again.");
+      if (!cfHandledRef.current) {
+        setApiError("Payment window closed — press Resume Payment to try again.");
+      }
     }
   };
 

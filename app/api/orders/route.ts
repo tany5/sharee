@@ -11,6 +11,7 @@ import {
   createCashfreeOrder,
   isCashfreeLive,
   cashfreeEnv,
+  safeCustomerId,
   CashfreeError,
 } from "@/lib/payments/cashfree";
 import { isCashfreeGateway } from "@/lib/payments/gateway";
@@ -115,7 +116,13 @@ export async function POST(request: Request) {
           // qualifies; prefixed so it can never collide with another merchant id.
           orderId: `tt_${order.id}`.slice(0, 45),
           amountRupees: order.total,
-          customerId: order.userEmail ?? order.address.phone,
+          // customer_id must be alphanumeric/-/_ — emails are rejected.
+          customerId: safeCustomerId({
+            userId: user?.id,
+            email: order.userEmail ?? user?.email,
+            phone: order.address.phone,
+            fallback: order.id,
+          }),
           customerName: order.address.fullName,
           customerEmail: order.userEmail ?? user?.email,
           customerPhone: order.address.phone,

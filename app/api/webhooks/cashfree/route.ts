@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { verifyWebhookSignature } from "@/lib/payments/cashfree";
 import { confirmCashfreePayment } from "@/lib/backend";
+import { sendPaymentReceivedEmail } from "@/lib/email";
+import { sendWhatsAppOrderUpdate } from "@/lib/notify";
 
 /**
  * Cashfree webhook endpoint.
@@ -59,13 +61,28 @@ export async function POST(request: Request) {
     const amountPaise = Math.round(
       Number(payment?.payment_amount ?? order?.order_amount ?? 0) * 100,
     );
-    await confirmCashfreePayment({
+    const result = await confirmCashfreePayment({
       cashfreeOrderId,
       cashfreePaymentId: payment?.cf_payment_id != null
         ? String(payment.cf_payment_id)
         : undefined,
       amountPaise,
     });
+
+    // 💳 Fire-and-forget: payment-received email (deduped against the
+    // verify route, which confirms the same payment from the browser).
+    if (result.ok && result.order?.userEmail) {
+      void sendPaymentReceivedEmail({
+        order: result.order,
+        to: result.order.userEmail,
+      }).catch(() => undefined);
+    }
+    // 📲 WhatsApp payment confirmation.
+    if (result.ok && result.order) {
+      void sendWhatsAppOrderUpdate(result.order, "payment").catch(
+        () => undefined,
+      );
+    }
   }
 
   return NextResponse.json({ ok: true });

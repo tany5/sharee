@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { setOrderFulfilment } from "@/lib/backend";
+import { sendFulfilmentEmail } from "@/lib/email";
+import { sendWhatsAppOrderUpdate } from "@/lib/notify";
 import { requireAdmin, unauthorized } from "@/lib/admin/guard";
 import type { FulfilmentStatus } from "@/lib/types";
 
@@ -23,6 +25,28 @@ export async function PATCH(
   }
   try {
     const order = await setOrderFulfilment(id, status);
+
+    // 🚚 Fire-and-forget status email to the customer (never blocks admin).
+    if (order.userEmail) {
+      void sendFulfilmentEmail({
+        order,
+        to: order.userEmail,
+        status,
+      }).catch(() => undefined);
+    }
+    // 📲 WhatsApp status update (shipped / delivered / cancelled).
+    const waEvent =
+      status === "dispatched"
+        ? ("dispatched" as const)
+        : status === "completed"
+          ? ("delivered" as const)
+          : status === "cancelled"
+            ? ("cancelled" as const)
+            : null;
+    if (waEvent) {
+      void sendWhatsAppOrderUpdate(order, waEvent).catch(() => undefined);
+    }
+
     return NextResponse.json({ ok: true, order });
   } catch (err) {
     const e = err as { code?: string; message?: string };

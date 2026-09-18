@@ -55,9 +55,14 @@ export function cartCount(items: CartItem[]): number {
   return items.reduce((sum, i) => sum + i.qty, 0);
 }
 
-/** Shipping: free at/above ₹999, flat fee below (brand promise). */
-export function shippingFor(subtotal: number): number {
-  return subtotal >= SITE.freeShippingThreshold ? 0 : SITE.shippingFee;
+/**
+ * Shipping: always free. The ₹49 courier fee is waived on every order —
+ * surfaces use `SITE.shippingFee` to show the struck-through value. The
+ * function keeps its shape so a threshold can return later in one place.
+ */
+export function shippingFor(_subtotal: number): number {
+  void _subtotal;
+  return 0;
 }
 
 export interface Totals {

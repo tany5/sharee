@@ -56,8 +56,8 @@ const HERO_PROMISES = [
   },
   {
     Icon: Truck,
-    t: "Free shipping",
-    s: "Across All over India",
+    t: "FREE Shipping",
+    s: "₹49 fee waived — all India",
   },
 ];
 
@@ -194,7 +194,7 @@ export function Hero() {
         {/* ------------------------------ Copy ------------------------------ */}
         <div className="tt-rise">
           <p className="tt-eyebrow flex items-center gap-2.5 sm:gap-3">
-            Pujo ready · Everyday sarees
+            All Sarees ₹199 · Perfect for daily use
             <span aria-hidden className="h-px w-8 bg-accent/50 sm:w-14" />
           </p>
 
@@ -214,7 +214,7 @@ export function Hero() {
           {/* Price — the commercial headline of the page. */}
           <div className="mt-5 flex flex-col gap-1.5 sm:mt-6">
             <p className="flex items-center gap-3 text-[11px] font-semibold uppercase tracking-[0.18em] text-ink2">
-              All sarees
+              Every saree · Every day wear
               <span aria-hidden className="h-px w-8 bg-accent/40" />
             </p>
             <div className="flex items-center gap-3">

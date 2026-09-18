@@ -16,6 +16,8 @@ import {
 } from "@/lib/payments/cashfree";
 import { isCashfreeGateway } from "@/lib/payments/gateway";
 import { SITE } from "@/lib/site";
+import { sendOrderConfirmationEmail } from "@/lib/email";
+import { sendWhatsAppOrderUpdate } from "@/lib/notify";
 import type { CashfreePayload, RazorpayPayload } from "@/lib/payments/client";
 import type { CartItem, DeliveryAddress, PaymentMethodId, Utm } from "@/lib/types";
 
@@ -65,6 +67,8 @@ interface OrderBody {
   address?: Partial<DeliveryAddress>;
   paymentMethod?: PaymentMethodId;
   utm?: Utm;
+  /** Guest email for order updates (optional; signed-in users use their own). */
+  email?: string;
 }
 
 export async function POST(request: Request) {
@@ -91,6 +95,13 @@ export async function POST(request: Request) {
 
   const user = await currentUser();
 
+  // Guest order-update email (optional field on checkout). Trim + light
+  // validation; guests may also leave it empty.
+  const guestEmailRaw = body.email?.trim().toLowerCase() ?? "";
+  const guestEmail = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(guestEmailRaw)
+    ? guestEmailRaw.slice(0, 200)
+    : undefined;
+
   try {
     const cashfreeGateway = isCashfreeGateway();
     const liveGateway = cashfreeGateway ? isCashfreeLive() : isRazorpayLive();
@@ -101,6 +112,7 @@ export async function POST(request: Request) {
       utm: body.utm,
       resolveProduct: resolveOrderSource,
       user: user ? { id: user.id, email: user.email } : undefined,
+      email: guestEmail,
       razorpayIntent: liveGateway,
     });
 
@@ -162,6 +174,23 @@ export async function POST(request: Request) {
     }
 
     const persisted = await addOrder(order);
+
+    // 🛍️ Order-confirmation email for COD / demo-paid orders. Online-gateway
+    // orders get the payment-received email after verification instead.
+    // Fire-and-forget: an email failure must never fail the order.
+    if (order.paymentStatus !== "pending" && persisted.userEmail) {
+      void sendOrderConfirmationEmail({
+        order: persisted,
+        to: persisted.userEmail,
+      }).catch(() => undefined);
+    }
+    // 📲 WhatsApp confirmation (same fire-and-forget rules as email).
+    if (order.paymentStatus !== "pending") {
+      void sendWhatsAppOrderUpdate(persisted, "confirmation").catch(
+        () => undefined,
+      );
+    }
+
     return NextResponse.json({ ok: true, order: persisted, razorpay, cashfree });
   } catch (err) {
     if (err instanceof CashfreeError) {

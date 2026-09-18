@@ -24,8 +24,8 @@ describe("createDemoOrder", () => {
 
     expect(order.paymentStatus).toBe("paid");
     expect(order.subtotal).toBe(199 * 3);
-    expect(order.shipping).toBe(49); // 597 is below the ₹999 free-shipping bar
-    expect(order.total).toBe(199 * 3 + 49);
+    expect(order.shipping).toBe(0); // shipping is always free (₹49 fee waived)
+    expect(order.total).toBe(199 * 3);
     expect(order.paymentMethod).toBe("upi");
     expect(order.number).toMatch(/^AMB-\d{6}-\d{4}$/);
     expect(order.items[0].name).toContain("Banarasi");

@@ -7,6 +7,8 @@ import {
 } from "@/lib/payments/cashfree";
 import { isCashfreeGateway } from "@/lib/payments/gateway";
 import { confirmCashfreePayment, confirmRazorpayPayment } from "@/lib/backend";
+import { sendPaymentReceivedEmail } from "@/lib/email";
+import { sendWhatsAppOrderUpdate } from "@/lib/notify";
 
 /**
  * Client-side payment verification (called by the checkout success handler).
@@ -132,6 +134,16 @@ async function verifyRazorpay(
     );
   }
 
+  // 💳 Fire-and-forget: payment-received email (deduped against the webhook).
+  if (result.order.userEmail) {
+    void sendPaymentReceivedEmail({
+      order: result.order,
+      to: result.order.userEmail,
+    }).catch(() => undefined);
+  }
+  // 📲 WhatsApp payment confirmation.
+  void sendWhatsAppOrderUpdate(result.order, "payment").catch(() => undefined);
+
   return NextResponse.json({ ok: true, order: result.order });
 }
 
@@ -191,6 +203,16 @@ async function verifyCashfree(
         { status: 502 },
       );
     }
+
+    // 💳 Fire-and-forget: payment-received email (deduped against the webhook).
+    if (result.order.userEmail) {
+      void sendPaymentReceivedEmail({
+        order: result.order,
+        to: result.order.userEmail,
+      }).catch(() => undefined);
+    }
+    // 📲 WhatsApp payment confirmation.
+    void sendWhatsAppOrderUpdate(result.order, "payment").catch(() => undefined);
 
     return NextResponse.json({ ok: true, order: result.order });
   } catch (err) {

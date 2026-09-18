@@ -281,7 +281,10 @@ export function OrderSuccessView({ id }: { id: string }) {
           </div>
           <div className="flex justify-between text-ink2">
             <dt>Shipping</dt>
-            <dd>{order.shipping === 0 ? "Free" : formatINR(order.shipping)}</dd>
+            <dd className="flex items-center gap-1.5">
+              <s className="text-xs text-muted">{formatINR(SITE.shippingFee)}</s>
+              <span className="font-semibold text-[#4c7a4f]">FREE</span>
+            </dd>
           </div>
           <div className="flex justify-between border-t border-line pt-3">
             <dt className="font-bold text-ink">Total paid</dt>

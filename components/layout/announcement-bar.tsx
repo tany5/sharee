@@ -3,7 +3,7 @@ import { SITE } from "@/lib/site";
 /**
  * Rose-pink promise bar — always the first thing on the page.
  * The two claims come from lib/site.ts and are backed by the live store rules
- * (single ₹199 price, free shipping at ₹999 — see lib/cart.ts).
+ * (single ₹199 price, shipping always free — see lib/cart.ts).
  */
 export function AnnouncementBar() {
   return (

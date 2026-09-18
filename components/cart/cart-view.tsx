@@ -51,9 +51,6 @@ export function CartView() {
     );
   }
 
-  const progressToFree = Math.min(1, summary.subtotal / SITE.freeShippingThreshold);
-  const remaining = SITE.freeShippingThreshold - summary.subtotal;
-
   return (
     <div className="grid gap-8 lg:grid-cols-[1fr_400px] lg:items-start">
       {/* Lines */}
@@ -159,20 +156,13 @@ export function CartView() {
           Cart Totals
         </h2>
 
-        {summary.subtotal < SITE.freeShippingThreshold && (
-          <div className="mt-4 rounded-xl bg-bronze/10 px-4 py-3">
-            <p className="flex items-center gap-2 text-[13px] font-semibold text-ink2">
-              <Truck size={15} className="text-bronze" />
-              Add {formatINR(remaining)} more for free shipping
-            </p>
-            <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-surface2">
-              <div
-                className="h-full rounded-full bg-bronze transition-all"
-                style={{ width: `${Math.round(progressToFree * 100)}%` }}
-              />
-            </div>
-          </div>
-        )}
+        {/* Shipping is always free — show the waived ₹49 fee struck through. */}
+        <div className="mt-4 rounded-xl bg-bronze/10 px-4 py-3">
+          <p className="flex items-center gap-2 text-[13px] font-semibold text-ink2">
+            <Truck size={15} className="text-bronze" />
+            Free shipping on every order — all over India
+          </p>
+        </div>
 
         <dl className="mt-5 space-y-3 text-sm">
           <div className="flex justify-between text-ink2">
@@ -181,12 +171,9 @@ export function CartView() {
           </div>
           <div className="flex justify-between text-ink2">
             <dt>Shipping</dt>
-            <dd className="font-semibold text-ink">
-              {summary.shipping === 0 ? (
-                <span className="text-[#4c7a4f]">Free</span>
-              ) : (
-                formatINR(summary.shipping)
-              )}
+            <dd className="flex items-center gap-1.5 font-semibold text-ink">
+              <s className="text-xs text-muted">{formatINR(SITE.shippingFee)}</s>
+              <span className="text-[#4c7a4f]">FREE</span>
             </dd>
           </div>
           <div className="flex justify-between border-t border-line pt-3 text-base">

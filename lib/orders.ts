@@ -67,6 +67,11 @@ export interface CreateOrderInput {
   /** Signed-in user at checkout (persists orders to their history). */
   user?: { id: string; email: string };
   /**
+   * Guest checkout email (optional) — used for order/payment email updates
+ * when no account is signed in. Falls back to the signed-in email.
+   */
+  email?: string;
+  /**
    * Live payments are enabled: online-paid orders start as pending and are
    * flipped to paid only after Razorpay signature/webhook verification.
    */
@@ -166,13 +171,20 @@ export async function createDemoOrder(input: CreateOrderInput): Promise<Order> {
     paymentMethod: input.paymentMethod,
     paymentStatus: input.paymentMethod === "cod" ? "cod" : needsPayment ? "pending" : "paid",
     status: input.paymentMethod === "cod" ? "cod" : needsPayment ? "placed" : "paid",
-    address: addressCheck.address,
+    address: {
+      ...addressCheck.address,
+      // WhatsApp updates default to the mobile number when not given.
+      whatsapp:
+        addressCheck.address.whatsapp?.trim() || addressCheck.address.phone,
+    },
     utm: input.utm,
     storedIn: "local",
     createdAt,
     estimatedDelivery: estimatedDelivery(createdAt),
     fulfilment: "pending",
+    whatsapp:
+      addressCheck.address.whatsapp?.trim() || addressCheck.address.phone,
     userId: input.user?.id,
-    userEmail: input.user?.email,
+    userEmail: input.user?.email ?? input.email,
   };
 }

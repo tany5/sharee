@@ -24,9 +24,27 @@
 import "server-only";
 import type { Order } from "@/lib/types";
 import { SITE } from "@/lib/site";
+import { loadPipelineSecrets } from "@/lib/marketing/secrets";
 
 export function whatsappToken(): string | undefined {
   return process.env.WHATSAPP_TOKEN?.trim() || undefined;
+}
+
+/**
+ * Token used for Cloud API sends: WHATSAPP_TOKEN if set, otherwise the
+ * never-expiring Meta system-user token the owner keeps in
+ * secret/secret/meta.txt (parsed by lib/marketing/secrets.ts — it carries
+ * whatsapp_business_messaging + whatsapp_business_management scopes).
+ */
+async function resolveWhatsAppToken(): Promise<string | undefined> {
+  const env = whatsappToken();
+  if (env) return env;
+  try {
+    const secrets = await loadPipelineSecrets();
+    return secrets.metaPageToken || undefined;
+  } catch {
+    return undefined;
+  }
 }
 
 export function whatsappPhoneId(): string | undefined {
@@ -119,22 +137,24 @@ export function buildMessage(order: Order, event: OrderEventType): string {
  * on any failure (unconfigured, rejected, network) — callers never await it
  * on the critical path.
  */
-export async function sendWhatsAppOrderUpdate(
-  order: Order,
-  event: OrderEventType,
+/**
+ * Low-level Cloud API text send to any E.164 number (no +). Resolves false on
+ * any failure — used for customer updates and owner alerts alike.
+ */
+export async function sendCloudApiText(
+  to: string,
+  text: string,
 ): Promise<boolean> {
-  const token = whatsappToken();
+  const token = await resolveWhatsAppToken();
   const phoneId = whatsappPhoneId();
   if (!token || !phoneId) return false;
-  const to = orderWhatsAppNumber(order);
-  if (!to) return false;
 
   const body = JSON.stringify({
     messaging_product: "whatsapp",
     recipient_type: "individual",
     to,
     type: "text",
-    text: { preview_url: false, body: buildMessage(order, event) },
+    text: { preview_url: false, body: text },
   });
 
   try {
@@ -148,20 +168,35 @@ export async function sendWhatsAppOrderUpdate(
         },
         body,
         cache: "no-store",
+        signal: AbortSignal.timeout(10_000),
       },
     );
     if (!res.ok) {
       const text = await res.text().catch(() => "");
       // 131047 = outside 24h customer-service window (needs an approved template).
-      console.error(`[whatsapp] ${event} → ${maskPhone(to)} failed: HTTP ${res.status} ${text.slice(0, 200)}`);
+      console.error(`[whatsapp] → ${maskPhone(to)} failed: HTTP ${res.status} ${text.slice(0, 200)}`);
       return false;
     }
-    console.log(`[whatsapp] ${event} → ${maskPhone(to)}`);
+    console.log(`[whatsapp] → ${maskPhone(to)}`);
     return true;
   } catch (err) {
-    console.error(`[whatsapp] ${event} error`, err);
+    console.error(`[whatsapp] ${to} error`, err);
     return false;
   }
+}
+
+/** Customer-facing order update over WhatsApp (official Cloud API). */
+export async function sendWhatsAppOrderUpdate(
+  order: Order,
+  event: OrderEventType,
+): Promise<boolean> {
+  const token = await resolveWhatsAppToken();
+  const phoneId = whatsappPhoneId();
+  if (!token || !phoneId) return false;
+  const to = orderWhatsAppNumber(order);
+  if (!to) return false;
+
+  return sendCloudApiText(to, buildMessage(order, event));
 }
 
 function maskPhone(phone: string): string {

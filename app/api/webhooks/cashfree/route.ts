@@ -3,6 +3,7 @@ import { verifyWebhookSignature } from "@/lib/payments/cashfree";
 import { confirmCashfreePayment } from "@/lib/backend";
 import { sendPaymentReceivedEmail } from "@/lib/email";
 import { sendWhatsAppOrderUpdate } from "@/lib/notify";
+import { notifyOwnerOfOrder } from "@/lib/owner";
 
 /**
  * Cashfree webhook endpoint.
@@ -82,6 +83,8 @@ export async function POST(request: Request) {
       void sendWhatsAppOrderUpdate(result.order, "payment").catch(
         () => undefined,
       );
+      // 🔔 Owner alert (WhatsApp + email) for the confirmed payment.
+      void notifyOwnerOfOrder(result.order, "payment").catch(() => undefined);
     }
   }
 

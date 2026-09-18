@@ -21,6 +21,26 @@ import { join } from "node:path";
 import { SITE } from "@/lib/site";
 import type { Order } from "@/lib/types";
 
+/**
+ * Absolute URL of the logo image embedded in every template.
+ *
+ * Default: /logo/logo.png on the live site — a URL that must already be
+ * reachable by email clients (verify with `curl -I`). Override with
+ * EMAIL_LOGO_URL when a dedicated, email-optimised asset exists
+ * (e.g. https://www.thetanti.shop/email-logo.png, a ~30 KB 500px-wide PNG).
+ * NEVER point this at a localhost / staging URL.
+ */
+export function emailLogoUrl(): string {
+  return (
+    process.env.EMAIL_LOGO_URL?.trim() || `${SITE.url}/logo/logo.png`
+  );
+}
+
+/** Shared substitution values present in every template. */
+function baseValues(): Record<string, string> {
+  return { logo_url: escapeHtml(emailLogoUrl()) };
+}
+
 /* ------------------------------ loading ---------------------------------- */
 
 type TemplateName =
@@ -128,6 +148,7 @@ export function renderWelcomeEmail(input: { name?: string }): {
   html: string;
 } {
   const html = fill(template("welcome"), {
+    ...baseValues(),
     customer_name: escapeHtml((input.name ?? "").split(" ")[0] || "there"),
   });
   return { subject: SUBJECTS.welcome(), html };
@@ -149,6 +170,7 @@ export function renderOrderConfirmationEmail(order: Order): {
   html: string;
 } {
   const html = fill(prepareOrderConfirmation(template("order-confirmation")), {
+    ...baseValues(),
     customer_name: escapeHtml(firstName(order)),
     order_number: order.number,
     order_date: dateLabel(order.createdAt),
@@ -190,6 +212,7 @@ export function renderOrderStatusEmail(
     message: "The status of your order has been updated.",
   };
   const html = fill(template("order-status"), {
+    ...baseValues(),
     customer_name: escapeHtml(firstName(order)),
     order_number: order.number,
     order_status: c.label,
@@ -205,6 +228,7 @@ export function renderShippedEmail(
   tracking?: { courier?: string; number?: string; url?: string },
 ): { subject: string; html: string } {
   const html = fill(template("shipped"), {
+    ...baseValues(),
     customer_name: escapeHtml(firstName(order)),
     order_number: order.number,
     courier_name: escapeHtml(tracking?.courier ?? "our courier partner"),
@@ -220,6 +244,7 @@ export function renderDeliveredEmail(order: Order): {
   html: string;
 } {
   const html = fill(template("delivered"), {
+    ...baseValues(),
     customer_name: escapeHtml(firstName(order)),
     order_number: order.number,
     order_url: orderUrl(order),

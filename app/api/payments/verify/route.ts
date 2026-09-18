@@ -9,6 +9,7 @@ import { isCashfreeGateway } from "@/lib/payments/gateway";
 import { confirmCashfreePayment, confirmRazorpayPayment } from "@/lib/backend";
 import { sendPaymentReceivedEmail } from "@/lib/email";
 import { sendWhatsAppOrderUpdate } from "@/lib/notify";
+import { notifyOwnerOfOrder } from "@/lib/owner";
 
 /**
  * Client-side payment verification (called by the checkout success handler).
@@ -143,6 +144,8 @@ async function verifyRazorpay(
   }
   // 📲 WhatsApp payment confirmation.
   void sendWhatsAppOrderUpdate(result.order, "payment").catch(() => undefined);
+  // 🔔 Owner alert (WhatsApp + email) for the confirmed payment.
+  void notifyOwnerOfOrder(result.order, "payment").catch(() => undefined);
 
   return NextResponse.json({ ok: true, order: result.order });
 }
@@ -213,6 +216,8 @@ async function verifyCashfree(
     }
     // 📲 WhatsApp payment confirmation.
     void sendWhatsAppOrderUpdate(result.order, "payment").catch(() => undefined);
+    // 🔔 Owner alert (WhatsApp + email) for the confirmed payment.
+    void notifyOwnerOfOrder(result.order, "payment").catch(() => undefined);
 
     return NextResponse.json({ ok: true, order: result.order });
   } catch (err) {

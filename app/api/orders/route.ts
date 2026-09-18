@@ -18,6 +18,7 @@ import { isCashfreeGateway } from "@/lib/payments/gateway";
 import { SITE } from "@/lib/site";
 import { sendOrderConfirmationEmail } from "@/lib/email";
 import { sendWhatsAppOrderUpdate } from "@/lib/notify";
+import { notifyOwnerOfOrder } from "@/lib/owner";
 import type { CashfreePayload, RazorpayPayload } from "@/lib/payments/client";
 import type { CartItem, DeliveryAddress, PaymentMethodId, Utm } from "@/lib/types";
 
@@ -189,6 +190,9 @@ export async function POST(request: Request) {
       void sendWhatsAppOrderUpdate(persisted, "confirmation").catch(
         () => undefined,
       );
+      // 🔔 Owner alert (WhatsApp + email) — COD/demo orders only; online
+      // payments alert at "payment" once the gateway confirms.
+      void notifyOwnerOfOrder(persisted, "order").catch(() => undefined);
     }
 
     return NextResponse.json({ ok: true, order: persisted, razorpay, cashfree });

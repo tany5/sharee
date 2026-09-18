@@ -3,6 +3,7 @@ import { verifyWebhookSignature } from "@/lib/payments/razorpay";
 import { confirmRazorpayPayment } from "@/lib/backend";
 import { sendPaymentReceivedEmail } from "@/lib/email";
 import { sendWhatsAppOrderUpdate } from "@/lib/notify";
+import { notifyOwnerOfOrder } from "@/lib/owner";
 
 /**
  * Razorpay webhook endpoint.
@@ -73,6 +74,8 @@ export async function POST(request: Request) {
       void sendWhatsAppOrderUpdate(result.order, "payment").catch(
         () => undefined,
       );
+      // 🔔 Owner alert (WhatsApp + email) for the confirmed payment.
+      void notifyOwnerOfOrder(result.order, "payment").catch(() => undefined);
     }
   }
 

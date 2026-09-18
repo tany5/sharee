@@ -22,11 +22,15 @@
  *
  * Configuration (.env.local):
  *   RESEND_API_KEY=re_xxxxxxxx   # API key (full access) from the Resend dashboard
- *   EMAIL_FROM="TheTanti <orders@thetanti.shop>"   # after domain verification;
- *                 # leave unset to use onboarding@resend.dev (test mode, only
- *                 # delivers to your own Resend account email)
+ *   EMAIL_FROM="TheTanti <orders@thetanti.shop>"   # MUST be an address on a
+ *                 # Resend-verified domain (DNS: DKIM + SPF + MAIL FROM records).
+ *                 # Sending from onboarding@resend.dev is test-only: it is
+ *                 # restricted to the account owner's own inbox and routinely
+ *                 # filtered as spam elsewhere — never ship with it.
  *   EMAIL_BCC=                   # optional comma-separated Bcc copies
  *   EMAIL_ENABLED=0              # optional kill-switch (default: on)
+ *   EMAIL_LOGO_URL=              # optional logo override; defaults to
+ *                 # ${SITE.url}/logo/logo.png (see lib/email-templates/render.ts)
  */
 import "server-only";
 import { SITE } from "@/lib/site";
@@ -46,10 +50,20 @@ export function resendApiKey(): string | undefined {
   return process.env.RESEND_API_KEY?.trim() || undefined;
 }
 
+/**
+ * From address for every outgoing email.
+ *
+ * IMPORTANT (deliverability): this must be an address on a Resend-verified
+ * domain — i.e. the domain whose Resend DNS records (DKIM `resend._domainkey`,
+ * SPF on the `send.` subdomain, MAIL FROM MX) are showing "Verified" in the
+ * Resend dashboard. The Resend sandbox sender `onboarding@resend.dev` is only
+ * allowed to deliver to the account owner's own inbox and is spam-filtered
+ * everywhere else, so it must never be the production default.
+ */
 export function emailFrom(): string {
   return (
     process.env.EMAIL_FROM?.trim() ||
-    `${SITE.name} <onboarding@resend.dev>`
+    `${SITE.name} <orders@${SITE.url.replace(/^https?:\/\//, "").replace(/^www\./, "")}>`
   );
 }
 

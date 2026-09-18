@@ -60,6 +60,11 @@ export function CheckoutView() {
   const { user } = useAuth();
 
   const [form, setForm] = useState<FormState>(EMPTY);
+  /** Guest email for order updates — pre-filled for signed-in users. */
+  const [email, setEmail] = useState("");
+  /** WhatsApp for order/shipping updates — blank = same as mobile. */
+  const [whatsapp, setWhatsapp] = useState("");
+  const [whatsappSame, setWhatsappSame] = useState(true);
   const [errors, setErrors] = useState<AddressErrors>({});
   const [method, setMethod] = useState<PaymentMethodId>("upi");
   const [selectedAddressId, setSelectedAddressId] = useState<string>("manual");
@@ -98,6 +103,8 @@ export function CheckoutView() {
   const firedMethods = useRef<Set<PaymentMethodId>>(new Set());
   const initiateFired = useRef(false);
   const prefilledFor = useRef<string | null>(null);
+  /** Dedupes Cashfree verification — SDK builds fire callback, promise or both. */
+  const cfHandledRef = useRef(false);
   const PENDING_KEY = "ambika.pending-pay";
 
   // Signed-in customers get their default address prefilled once.
@@ -109,6 +116,52 @@ export function CheckoutView() {
     setForm(addressToForm(def));
     setErrors({});
   }, [user]);
+
+  // Signed-in customers get their email pre-filled for order updates.
+  useEffect(() => {
+    if (user?.email) setEmail(user.email);
+  }, [user?.email]);
+
+  // ── Guest persistence (IndexedDB via Dexie) ──────────────────────────
+  // Hydrate once: checkout draft + the address the guest opted to save.
+  const [saveAddressNext, setSaveAddressNext] = useState(false);
+  const hydratedRef = useRef(false);
+  useEffect(() => {
+    if (hydratedRef.current) return;
+    hydratedRef.current = true;
+    void (async () => {
+      const { dbGetDraft, dbGetGuestAddress, purgeExpired } = await import(
+        "@/lib/guest-db"
+      );
+      void purgeExpired();
+      // Guests only — signed-in users have their account address book.
+      if (user) return;
+      const [draft, saved] = await Promise.all([dbGetDraft(), dbGetGuestAddress()]);
+      if (draft?.form && Object.keys(draft.form).length > 0) {
+        setForm((prev) => ({ ...draft.form, ...prev }));
+        if (draft.email) setEmail((prev) => prev || draft.email!);
+        if (draft.paymentMethod) {
+          setMethod(draft.paymentMethod);
+          firedMethods.current.add(draft.paymentMethod);
+        }
+      }
+      if (saved) {
+        setForm((prev) => ({ ...prev, ...saved }));
+        setSaveAddressNext(true); // they opted in before — keep it on
+      }
+    })();
+  }, [user]);
+
+  // Persist the draft (debounced) as the guest types.
+  useEffect(() => {
+    if (!user || !hydratedRef.current) return; // guests only, after hydration
+    const id = setTimeout(() => {
+      void import("@/lib/guest-db").then(({ dbSaveDraft }) =>
+        dbSaveDraft({ form, paymentMethod: method, email: email || undefined }),
+      );
+    }, 600);
+    return () => clearTimeout(id);
+  }, [form, method, email, user]);
 
   function addressToForm(address: DeliveryAddress): FormState {
     return {
@@ -327,6 +380,7 @@ export function CheckoutView() {
   /** Load the Cashfree drop-in (once) and open its payment modal. */
   const openCashfree = async (payload: CashfreePayload, orderId: string) => {
     setApiError(null);
+    cfHandledRef.current = false; // fresh attempt — callbacks may fire again
     try {
       if (typeof window === "undefined" || !window.Cashfree) {
         await new Promise<void>((resolve, reject) => {
@@ -352,28 +406,70 @@ export function CheckoutView() {
 
     const mode = payload.mode === "production" ? "production" : "sandbox";
     const cf = new window.Cashfree({ mode });
+
+    // First signal wins: some Cashfree SDK builds report the outcome via the
+    // onSuccess/onFailure callbacks, some via the checkout() promise resolving
+    // with a result object, and some via both. cfHandledRef dedupes them.
+    const settle = () => {
+      if (cfHandledRef.current) return;
+      cfHandledRef.current = true;
+      // Server is the source of truth — it re-fetches the order from the
+      // Cashfree API and lands on success or the failure page either way.
+      void verifyCashfreePayment(payload.orderId, orderId, payload.amountRupees);
+    };
+    const fail = (message?: string) => {
+      if (cfHandledRef.current) return;
+      cfHandledRef.current = true;
+      setPlacing(false);
+      setApiError(
+        message ||
+          "Payment failed or was cancelled. Your order is saved — press Resume Payment to try again.",
+      );
+      router.replace(`/order-failure?order=${encodeURIComponent(orderId)}`);
+    };
+
+    // Closing the widget is not necessarily a failure (e.g. resuming an
+    // already-paid session) — let the server decide by re-fetching status.
+    const finish = () => {
+      if (cfHandledRef.current) return;
+      cfHandledRef.current = true;
+      void verifyCashfreePayment(payload.orderId, orderId, payload.amountRupees);
+    };
+
     try {
-      await cf.checkout({
+      const result = (await cf.checkout({
         paymentSessionId: payload.paymentSessionId,
         redirectTarget: "_modal",
-        onSuccess: async () => {
-          // The modal callback isn't signed — the server re-fetches the order
-          // from the Cashfree API before flipping the order to paid.
-          await verifyCashfreePayment(payload.orderId, orderId, payload.amountRupees);
-        },
-        onFailure: (err?: { message?: string }) => {
-          setPlacing(false);
-          setApiError(
-            err?.message ||
-              "Payment failed or was cancelled. Your order is saved — press Resume Payment to try again.",
-          );
-          router.replace(`/order-failure?order=${encodeURIComponent(orderId)}`);
-        },
-        onClose: () => setPlacing(false),
-      });
+        onSuccess: () => settle(),
+        onFailure: (err?: { message?: string }) => finish(),
+        onClose: () => finish(),
+      })) as
+        | {
+            error?: { message?: string };
+            order?: { status?: string; orderId?: string };
+            payment?: { paymentId?: string; status?: string };
+            redirect?: boolean;
+          }
+        | undefined;
+
+      // Promise-resolved path (v3 drop-in): inspect the result object.
+      if (result?.error) {
+        fail(result.error.message);
+        return;
+      }
+      // A redirect was initiated (bank/UPI-app page) — the return URL / webhook
+      // completes the flow; nothing more to do here.
+      if (result?.redirect) {
+        return;
+      }
+      settle();
     } catch {
+      // checkout() threw (config/load issue) — keep the pending order so the
+      // customer can Resume Payment instead of creating a duplicate.
       setPlacing(false);
-      setApiError("Payment window closed — press Resume Payment to try again.");
+      if (!cfHandledRef.current) {
+        setApiError("Payment window closed — press Resume Payment to try again.");
+      }
     }
   };
 
@@ -492,9 +588,16 @@ export function CheckoutView() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           items: visibleItems,
-          address: check.address,
+          address: {
+            ...check.address,
+            whatsapp:
+              whatsappSame
+                ? check.address.phone
+                : whatsapp.trim() || check.address.phone,
+          },
           paymentMethod: method,
           utm: readUtmFromUrl(),
+          email: email.trim() || undefined,
         }),
       });
       const data = (await res.json()) as {
@@ -510,6 +613,20 @@ export function CheckoutView() {
         if (data.fieldErrors) setErrors((prev) => ({ ...prev, ...data.fieldErrors }));
         return;
       }
+
+      // Guest persistence: remember/forget the address per the opt-in, and
+      // clear the checkout draft — the order is with the server now.
+      void (async () => {
+        const { dbSaveGuestAddress, dbClearGuestAddress, dbClearDraft, dbSetCart } =
+          await import("@/lib/guest-db");
+        if (saveAddressNext && check.address) {
+          await dbSaveGuestAddress(check.address);
+        } else {
+          await dbClearGuestAddress();
+        }
+        await dbClearDraft();
+        await dbSetCart([]); // local cart mirrors the cleared cart
+      })();
 
       // Live payment: hold the order as pending and open the gateway widget.
       if (data.cashfree?.paymentSessionId) {
@@ -709,6 +826,54 @@ export function CheckoutView() {
                   aria-invalid={Boolean(errors.phone)}
                 />
               </Field>
+              <Field
+                label="Email (optional)"
+                hint="Order confirmation & shipping updates by email"
+              >
+                <TextInput
+                  type="email"
+                  autoComplete="email"
+                  placeholder="you@example.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                />
+              </Field>
+              <div className="sm:col-span-2">
+                <label className="flex cursor-pointer items-center gap-2.5 text-[13px] text-ink2">
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4 accent-[#e2448f]"
+                    checked={whatsappSame}
+                    onChange={(e) => {
+                      setWhatsappSame(e.target.checked);
+                      if (e.target.checked) setWhatsapp("");
+                    }}
+                  />
+                  <span>
+                    Send order & shipping updates on WhatsApp —{" "}
+                    <span className="font-semibold text-ink">
+                      same as mobile number
+                    </span>
+                  </span>
+                </label>
+                {!whatsappSame && (
+                  <div className="mt-3">
+                    <Field
+                      label="WhatsApp Number"
+                      hint="Where we'll send order, shipping & delivery updates"
+                    >
+                      <TextInput
+                        type="tel"
+                        inputMode="numeric"
+                        autoComplete="tel-national"
+                        placeholder="98765 43210"
+                        value={whatsapp}
+                        onChange={(e) => setWhatsapp(e.target.value)}
+                      />
+                    </Field>
+                  </div>
+                )}
+              </div>
               <Field label="Pincode" required error={errors.pincode}>
                 <TextInput
                   inputMode="numeric"
@@ -764,6 +929,25 @@ export function CheckoutView() {
                   ))}
                 </SelectInput>
               </Field>
+              {!user && (
+                <div className="sm:col-span-2">
+                  <label className="flex cursor-pointer items-start gap-2.5 rounded-xl bg-bg2 px-4 py-3 text-[13px] text-ink2">
+                    <input
+                      type="checkbox"
+                      className="mt-0.5 h-4 w-4 accent-[#e2448f]"
+                      checked={saveAddressNext}
+                      onChange={(e) => setSaveAddressNext(e.target.checked)}
+                    />
+                    <span>
+                      <span className="font-semibold text-ink">
+                        Use this address for my next order
+                      </span>{" "}
+                      — saved only on this device (we keep it 30 days, never on
+                      our servers unless you create an account).
+                    </span>
+                  </label>
+                </div>
+              )}
             </div>
           </section>
 
@@ -878,12 +1062,9 @@ export function CheckoutView() {
             </div>
             <div className="flex justify-between text-ink2">
               <dt>Shipping</dt>
-              <dd className="font-semibold text-ink">
-                {summary.shipping === 0 ? (
-                  <span className="text-[#4c7a4f]">Free</span>
-                ) : (
-                  formatINR(summary.shipping)
-                )}
+              <dd className="flex items-center gap-1.5 font-semibold text-ink">
+                <s className="text-xs text-muted">{formatINR(SITE.shippingFee)}</s>
+                <span className="text-[#4c7a4f]">FREE</span>
               </dd>
             </div>
             <div className="flex items-baseline justify-between border-t border-line pt-3">

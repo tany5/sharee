@@ -19,8 +19,8 @@ import { swatchFor } from "@/lib/color-dots";
 import { cx } from "@/lib/utils";
 
 export const metadata = pageMetadata({
-  title: `Shop All Sarees — ${SITE.tagline}`,
-  description: `Browse every saree at ${SITE.tagline}. Cotton, silk, printed, chiffon, georgette and fancy sarees — quality assured with easy returns and free shipping over ₹999.`,
+  title: `All Sarees ₹199 — Daily Use Sarees, FREE Shipping | ${SITE.name}`,
+  description: `Browse every saree at ${SITE.tagline} — made for daily use. Cotton, silk, printed, chiffon, georgette and fancy sarees at ₹199 flat, with FREE shipping across India (₹49 fee waived), easy returns and COD.`,
   path: "/sarees",
 });
 

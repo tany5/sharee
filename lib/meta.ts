@@ -68,7 +68,7 @@ export function categoryMetadata(
 ): Metadata {
   return pageMetadata({
     title: `${name} — ${SITE.tagline}`,
-    description: `${blurb} ${SITE.promise} Shop ${name.toLowerCase()} online at ₹199 with free shipping over ₹999.`,
+    description: `${blurb} ${SITE.promise} Shop ${name.toLowerCase()} online at ₹199 — made for daily use, with FREE shipping across India (₹49 fee waived) and easy returns.`,
     path,
   });
 }
@@ -92,6 +92,18 @@ export function productJsonLd(product: Product): string {
       price: product.price,
       availability: product.stock > 0 ? "https://schema.org/InStock" : "https://schema.org/OutOfStock",
       itemCondition: "https://schema.org/NewCondition",
+      shippingDetails: {
+        "@type": "OfferShippingDetails",
+        shippingRate: {
+          "@type": "MonetaryAmount",
+          value: "0",
+          currency: "INR",
+        },
+        shippingDestination: {
+          "@type": "DefinedRegion",
+          addressCountry: "IN",
+        },
+      },
     },
     aggregateRating: {
       "@type": "AggregateRating",
@@ -107,7 +119,7 @@ export function storeJsonLd(): string {
     "@type": "OnlineStore",
     name: SITE.name,
     legalName: SITE.legalName,
-    description: `${SITE.tagline}. ${SITE.promise}`,
+    description: `${SITE.tagline}. ${SITE.promise} FREE shipping on every order across India.`,
     url: SITE.url,
     email: SITE.email,
     sameAs: [SITE.facebookUrl, SITE.instagramUrl],

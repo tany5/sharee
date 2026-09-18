@@ -204,7 +204,7 @@ export async function PromoBanner() {
             </p>
             <p className="mt-3 max-w-md text-[15px] leading-7 text-white/85">
               No sales, no tricks — one honest price for every saree in the
-              store, with free shipping over ₹999.
+              store, and FREE shipping on every order (the ₹49 fee is on us).
             </p>
             <Link
               href="/sarees"

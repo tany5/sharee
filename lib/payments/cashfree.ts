@@ -53,6 +53,26 @@ export class CashfreeError extends Error {
   }
 }
 
+/**
+ * Cashfree customer_id only allows alphanumerics, underscore and hyphen —
+ * no "@" or ".", so emails are off-limits. Sanitise to a stable, safe id:
+ * user id (uuid) → phone digits → email, with the order id as fallback.
+ */
+export function safeCustomerId(input: {
+  userId?: string;
+  email?: string;
+  phone: string;
+  fallback: string;
+}): string {
+  const candidate =
+    input.userId?.trim() || input.phone.trim() || input.email?.trim() || input.fallback;
+  const safe = candidate
+    .replace(/[^A-Za-z0-9_-]/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "");
+  return (safe || input.fallback).slice(0, 45);
+}
+
 export interface CashfreeOrder {
   /** Cashfree order id (echoes the merchant order id we send). */
   orderId: string;

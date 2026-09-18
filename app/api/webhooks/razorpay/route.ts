@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { verifyWebhookSignature } from "@/lib/payments/razorpay";
 import { confirmRazorpayPayment } from "@/lib/backend";
+import { sendPaymentReceivedEmail } from "@/lib/email";
+import { sendWhatsAppOrderUpdate } from "@/lib/notify";
+import { notifyOwnerOfOrder } from "@/lib/owner";
 
 /**
  * Razorpay webhook endpoint.
@@ -50,13 +53,30 @@ export async function POST(request: Request) {
       event === "payment.authorized" ||
       event === "order.paid")
   ) {
-    await confirmRazorpayPayment({
+    const result = await confirmRazorpayPayment({
       razorpayOrderId: String(razorpayOrderId),
       razorpayPaymentId: payment?.id ? String(payment.id) : undefined,
       webhookBody: raw,
       webhookSignature: signature,
       amountPaise,
     });
+
+    // 💳 Fire-and-forget: payment-received email (deduped against the
+    // verify route, which confirms the same payment from the browser).
+    if (result.ok && result.order?.userEmail) {
+      void sendPaymentReceivedEmail({
+        order: result.order,
+        to: result.order.userEmail,
+      }).catch(() => undefined);
+    }
+    // 📲 WhatsApp payment confirmation.
+    if (result.ok && result.order) {
+      void sendWhatsAppOrderUpdate(result.order, "payment").catch(
+        () => undefined,
+      );
+      // 🔔 Owner alert (WhatsApp + email) for the confirmed payment.
+      void notifyOwnerOfOrder(result.order, "payment").catch(() => undefined);
+    }
   }
 
   return NextResponse.json({ ok: true });

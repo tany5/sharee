@@ -19,8 +19,8 @@ import { pageMetadata, storeJsonLd } from "@/lib/meta";
 import { cx } from "@/lib/utils";
 
 export const metadata = pageMetadata({
-  title: `Shop ${SITE.tagline} Online`,
-  description: `${SITE.motto} ${SITE.promise} Cotton, silk, printed, chiffon, georgette and fancy sarees — quality checked, easy returns, COD, free shipping over ₹999.`,
+  title: `Sarees for Daily Use — All ₹199 with FREE Shipping | ${SITE.name}`,
+  description: `${SITE.motto} Every saree — cotton, silk, printed, chiffon, georgette & fancy — just ₹199, made for everyday wear. FREE shipping all over India (₹49 fee waived), easy returns, COD. Quality checked before dispatch.`,
   path: "/",
 });
 

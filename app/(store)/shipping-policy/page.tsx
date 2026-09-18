@@ -5,7 +5,7 @@ import { pageMetadata } from "@/lib/meta";
 export const metadata = pageMetadata({
   title: "Shipping Policy",
   description:
-    "TheTanti shipping and delivery timelines, charges, COD support and tracking information.",
+    "TheTanti ships every saree FREE across India — the ₹49 courier fee is waived on all orders. Delivery in 3–5 working days, COD available, live tracking on WhatsApp.",
   path: "/shipping-policy",
 });
 
@@ -42,12 +42,9 @@ export default function ShippingPolicyPage() {
         <PolicySection title="3. Shipping Charges">
           <ul className="list-disc space-y-2 pl-5">
             <li>
-              All single or combined cart orders valued at ₹999 and above qualify
-              for <strong>Free Shipping</strong> across India.
-            </li>
-            <li>
-              Flat shipping of ₹{SITE.shippingFee} is strictly applied to all
-              individual or multi-piece orders totaling under ₹999.
+              <strong>Shipping is FREE on every order</strong> — no minimum
+              order value, across India. The standard ₹{SITE.shippingFee}
+              courier fee is fully waived by TheTanti.
             </li>
             <li>
               Cash on Delivery (COD) services are available for valid regional

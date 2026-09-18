@@ -1,0 +1,114 @@
+
+> ambika-sarees@0.1.0 dev
+> next dev -p 3000
+
+▲ Next.js 16.3.4 (Turbopack)
+- Local:         http://localhost:3000
+- Network:       http://192.168.0.116:3000
+- Environments: .env.local
+✓ Ready in 430ms
+✓ Running next.config.ts took 41ms
+
+⚠ Slow filesystem detected. The benchmark took 236ms. If \\?\D:\thetanti\.next\dev is a network drive, consider moving it to a local folder.
+See more: https://nextjs.org/docs/app/guides/local-development
+○ Compiling /api/orders/status ...
+ GET /api/orders/status 400 in 7.3s (next.js: 7.2s, application-code: 28ms)
+ GET / 200 in 4.9s (next.js: 281ms, application-code: 4.6s)
+ GET /api/auth/me 200 in 197ms (next.js: 112ms, application-code: 84ms)
+ GET /api/auth/me 200 in 226ms (next.js: 179ms, application-code: 47ms)
+ GET /sarees/blue-and-brown-with-gold-zari-accents-saree-mu2h0zxn 200 in 3.0s (next.js: 934ms, application-code: 2.0s)
+ GET /sarees/blue-and-brown-with-gold-zari-accents-saree-mu2h0zxn 200 in 1663ms (next.js: 14ms, application-code: 1648ms)
+[browser] Detected `scroll-behavior: smooth` on the `<html>` element. To disable smooth scrolling during route transitions, add `data-scroll-behavior="smooth"` to your <html> element. Learn more: https://nextjs.org/docs/messages/missing-data-scroll-behavior
+ GET /checkout 200 in 106ms (next.js: 68ms, application-code: 38ms)
+ POST /api/orders 200 in 1612ms (next.js: 74ms, application-code: 1538ms)
+ POST /api/payments/verify 200 in 1535ms (next.js: 62ms, application-code: 1473ms)
+○ Compiling /order-success ...
+ GET /order-success?order=6245624b-d8a9-4e84-a3d4-42ca50cf496e 200 in 8.2s (next.js: 8.2s, application-code: 30ms)
+ GET /account 200 in 83ms (next.js: 61ms, application-code: 22ms)
+⚠ Fast Refresh had to perform a full reload when ./lib/cart.ts changed. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+✓ Compiled in 31.1s
+ GET /account 200 in 1281ms (next.js: 681ms, application-code: 600ms)
+ GET /account 200 in 1283ms (next.js: 1018ms, application-code: 265ms)
+ GET /api/auth/me 200 in 14ms (next.js: 6ms, application-code: 8ms)
+ GET /api/auth/me 200 in 8ms (next.js: 3ms, application-code: 6ms)
+ GET /account 200 in 45ms (next.js: 4ms, application-code: 41ms)
+ GET /account 200 in 41ms (next.js: 5ms, application-code: 37ms)
+ GET /account 200 in 63ms (next.js: 22ms, application-code: 41ms)
+ GET /account 200 in 40ms (next.js: 3ms, application-code: 37ms)
+ GET /account 200 in 44ms (next.js: 3ms, application-code: 41ms)
+✓ Compiled in 968ms
+ GET /account 200 in 67ms (next.js: 4ms, application-code: 63ms)
+ GET /account 200 in 46ms (next.js: 4ms, application-code: 42ms)
+ GET /account 200 in 39ms (next.js: 3ms, application-code: 36ms)
+ GET /account 200 in 44ms (next.js: 6ms, application-code: 38ms)
+✓ Finished filesystem cache database compaction in 16.1s
+  Reload env: .env.local
+✓ Compiled in 1666ms
+⚠ Fast Refresh had to perform a full reload when ./node_modules/next/dist/client/image-component.js changed. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+ GET /account 200 in 331ms (next.js: 4ms, application-code: 327ms)
+ GET /account 200 in 2.2s (next.js: 1791ms, application-code: 430ms)
+ GET /account 200 in 332ms (next.js: 278ms, application-code: 54ms)
+ GET /api/auth/me 200 in 263ms (next.js: 129ms, application-code: 135ms)
+ GET /api/auth/me 200 in 16ms (next.js: 2ms, application-code: 13ms)
+  Reload env: .env.local
+✓ Compiled in 496ms
+⚠ Fast Refresh had to perform a full reload when ./node_modules/next/dist/client/image-component.js changed. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+ GET /account 200 in 667ms (next.js: 374ms, application-code: 293ms)
+ GET /account 200 in 218ms (next.js: 4ms, application-code: 214ms)
+ GET /account 200 in 174ms (next.js: 4ms, application-code: 170ms)
+ GET /api/auth/me 200 in 92ms (next.js: 41ms, application-code: 51ms)
+ GET /api/auth/me 200 in 12ms (next.js: 3ms, application-code: 9ms)
+ GET /account 200 in 38ms (next.js: 4ms, application-code: 34ms)
+ GET /account 200 in 37ms (next.js: 6ms, application-code: 32ms)
+ GET /account 200 in 44ms (next.js: 5ms, application-code: 39ms)
+ GET /account 200 in 42ms (next.js: 3ms, application-code: 40ms)
+ GET /account 200 in 42ms (next.js: 5ms, application-code: 38ms)
+ GET /account 200 in 45ms (next.js: 3ms, application-code: 41ms)
+ GET /api/orders/status?order=x 404 in 1554ms (next.js: 218ms, application-code: 1336ms)
+ POST /api/auth/register 500 in 1271ms (next.js: 469ms, application-code: 802ms)
+ POST /api/auth/register 200 in 1979ms (next.js: 2.0ms, application-code: 1977ms)
+[email] welcome failed: HTTP 403 {"statusCode":403,"name":"validation_error","message":"You can only send testing emails to your own email address (tanmay1dey@gmail.com). To send emails to other recipients, please verify a domain at resend.com/domains, and change the `from` address to an email using this domain."}
+ GET /order-success 200 in 291ms (next.js: 93ms, application-code: 198ms)
+ GET /api/auth/me 200 in 1320ms (next.js: 3ms, application-code: 1317ms)
+ GET /api/auth/me 200 in 1538ms (next.js: 4ms, application-code: 1534ms)
+ GET /account 200 in 43ms (next.js: 6ms, application-code: 37ms)
+✓ Compiled in 13.8s
+⚠ Fast Refresh had to perform a full reload when ./node_modules/next/dist/client/image-component.js changed. Read more: https://nextjs.org/docs/messages/fast-refresh-reload
+ GET /account 200 in 63ms (next.js: 9ms, application-code: 54ms)
+ GET /account 200 in 412ms (next.js: 36ms, application-code: 376ms)
+ GET /account 200 in 14.4s (next.js: 13.9s, application-code: 493ms)
+ GET /account 200 in 416ms (next.js: 3ms, application-code: 412ms)
+ GET /api/auth/me 200 in 262ms (next.js: 126ms, application-code: 136ms)
+ GET /api/auth/me 200 in 9ms (next.js: 1.7ms, application-code: 8ms)
+ GET /account 200 in 38ms (next.js: 4ms, application-code: 34ms)
+✓ Compiled in 1159ms
+ GET /account 200 in 52ms (next.js: 3ms, application-code: 48ms)
+ GET /account 200 in 73ms (next.js: 4ms, application-code: 69ms)
+ GET /account 200 in 70ms (next.js: 10ms, application-code: 60ms)
+ GET /api/guest-id 200 in 1032ms (next.js: 1023ms, application-code: 9ms)
+ GET /sarees 200 in 3.6s (next.js: 348ms, application-code: 3.3s)
+ GET /sarees 200 in 2.0s (next.js: 4ms, application-code: 1997ms)
+ GET /sarees 200 in 2.0s (next.js: 11ms, application-code: 1991ms)
+ GET /api/auth/me 200 in 14ms (next.js: 4ms, application-code: 10ms)
+ GET /api/auth/me 200 in 14ms (next.js: 2ms, application-code: 12ms)
+ GET /checkout 200 in 239ms (next.js: 77ms, application-code: 162ms)
+ GET /api/auth/me 200 in 12ms (next.js: 5ms, application-code: 7ms)
+ GET /api/auth/me 200 in 12ms (next.js: 4ms, application-code: 8ms)
+ GET /account 200 in 124ms (next.js: 10ms, application-code: 114ms)
+ GET /checkout 200 in 70ms (next.js: 5ms, application-code: 65ms)
+ GET /checkout 200 in 157ms (next.js: 7ms, application-code: 150ms)
+ GET /account 200 in 93ms (next.js: 9ms, application-code: 84ms)
+ GET /checkout 200 in 271ms (next.js: 17ms, application-code: 253ms)
+ GET /account 200 in 183ms (next.js: 14ms, application-code: 169ms)
+✓ Compiled in 423ms
+ GET /checkout 200 in 159ms (next.js: 9ms, application-code: 150ms)
+ GET /account 200 in 81ms (next.js: 10ms, application-code: 71ms)
+✓ Compiled in 248ms
+ GET /checkout 200 in 153ms (next.js: 15ms, application-code: 137ms)
+ GET /account 200 in 85ms (next.js: 13ms, application-code: 72ms)
+ GET /sarees 200 in 1739ms (next.js: 8ms, application-code: 1731ms)
+[browser] Detected `scroll-behavior: smooth` on the `<html>` element. To disable smooth scrolling during route transitions, add `data-scroll-behavior="smooth"` to your <html> element. Learn more: https://nextjs.org/docs/messages/missing-data-scroll-behavior
+ GET /sarees/baby-pink-and-deep-green-with-gold-zari-accents-saree-mu2gbp 200 in 1509ms (next.js: 120ms, application-code: 1389ms)
+ GET /cart 200 in 172ms (next.js: 137ms, application-code: 35ms)
+ GET /checkout 200 in 25ms (next.js: 6ms, application-code: 18ms)
+[?25h

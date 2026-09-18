@@ -20,12 +20,15 @@ export const SITE = {
   price: 199,
   currency: "INR",
 
-  /** Shipping rule shown in the announcement bar + cart. */
-  freeShippingThreshold: 999,
+  /**
+   * Shipping: always FREE. The ₹49 courier fee is waived on every order —
+   * shown struck-through in the cart/checkout so customers see the value
+   * they're getting. There is no minimum-order threshold.
+   */
   shippingFee: 49,
 
   announcementMain: "ALL SAREES ₹199",
-  announcementSub: "FREE SHIPPING All OVER INDIA",
+  announcementSub: "FREE SHIPPING ALL OVER INDIA",
 
   email: "info@thetanti.com",
   phone: "+91 90381 27527",

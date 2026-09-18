@@ -7,6 +7,9 @@ import {
 } from "@/lib/payments/cashfree";
 import { isCashfreeGateway } from "@/lib/payments/gateway";
 import { confirmCashfreePayment, confirmRazorpayPayment } from "@/lib/backend";
+import { sendPaymentReceivedEmail } from "@/lib/email";
+import { sendWhatsAppOrderUpdate } from "@/lib/notify";
+import { notifyOwnerOfOrder } from "@/lib/owner";
 
 /**
  * Client-side payment verification (called by the checkout success handler).
@@ -67,7 +70,11 @@ export async function POST(request: Request) {
     (body.gateway !== "razorpay" && isCashfreeGateway());
 
   if (cashfreeRoute) {
-    return verifyCashfree(body.orderId, orderId, Math.round(Number(amountPaise)));
+    return verifyCashfree(
+      body.cashfreeOrderId,
+      orderId,
+      Math.round(Number(amountPaise)),
+    );
   }
   return verifyRazorpay(orderId, Math.round(Number(amountPaise)), body);
 }
@@ -128,6 +135,18 @@ async function verifyRazorpay(
     );
   }
 
+  // 💳 Fire-and-forget: payment-received email (deduped against the webhook).
+  if (result.order.userEmail) {
+    void sendPaymentReceivedEmail({
+      order: result.order,
+      to: result.order.userEmail,
+    }).catch(() => undefined);
+  }
+  // 📲 WhatsApp payment confirmation.
+  void sendWhatsAppOrderUpdate(result.order, "payment").catch(() => undefined);
+  // 🔔 Owner alert (WhatsApp + email) for the confirmed payment.
+  void notifyOwnerOfOrder(result.order, "payment").catch(() => undefined);
+
   return NextResponse.json({ ok: true, order: result.order });
 }
 
@@ -187,6 +206,18 @@ async function verifyCashfree(
         { status: 502 },
       );
     }
+
+    // 💳 Fire-and-forget: payment-received email (deduped against the webhook).
+    if (result.order.userEmail) {
+      void sendPaymentReceivedEmail({
+        order: result.order,
+        to: result.order.userEmail,
+      }).catch(() => undefined);
+    }
+    // 📲 WhatsApp payment confirmation.
+    void sendWhatsAppOrderUpdate(result.order, "payment").catch(() => undefined);
+    // 🔔 Owner alert (WhatsApp + email) for the confirmed payment.
+    void notifyOwnerOfOrder(result.order, "payment").catch(() => undefined);
 
     return NextResponse.json({ ok: true, order: result.order });
   } catch (err) {

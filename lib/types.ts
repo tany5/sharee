@@ -58,6 +58,8 @@ export type PaymentMethodId = "upi" | "card" | "netbanking" | "cod";
 export interface DeliveryAddress {
   fullName: string;
   phone: string;
+  /** WhatsApp number for order/shipping updates — defaults to `phone`. */
+  whatsapp?: string;
   pincode: string;
   line1: string;
   landmark?: string;
@@ -117,6 +119,8 @@ export interface Order {
   cashfreeOrderId?: string;
   /** Cashfree payment id (set once the payment is verified/confirmed). */
   cashfreePaymentId?: string;
+  /** WhatsApp number for order/shipping updates (defaults to address.phone). */
+  whatsapp?: string;
   address: DeliveryAddress;
   utm?: Utm;
   /** Demo only: where the order record is stored locally. */

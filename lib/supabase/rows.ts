@@ -62,6 +62,7 @@ export interface OrderRow {
   razorpay_payment_id: string | null;
   cashfree_order_id: string | null;
   cashfree_payment_id: string | null;
+  whatsapp: string | null;
   address: unknown;
   utm: unknown;
   fulfilment: string;

@@ -62,20 +62,16 @@ describe("cart line operations", () => {
   });
 });
 
-describe("shipping + totals (rule: free at/above ₹999)", () => {
-  it("charges the flat fee below the threshold", () => {
-    expect(shippingFor(0)).toBe(49);
-    expect(shippingFor(199)).toBe(49);
-    expect(shippingFor(998)).toBe(49);
+describe("shipping + totals (rule: shipping is always free)", () => {
+  it("is free for every cart value — no threshold", () => {
+    expect(shippingFor(0)).toBe(0);
+    expect(shippingFor(199)).toBe(0);
+    expect(shippingFor(998)).toBe(0);
+    expect(shippingFor(9999)).toBe(0);
   });
 
-  it("is free at and above the threshold", () => {
-    expect(shippingFor(999)).toBe(0);
-    expect(shippingFor(1194)).toBe(0);
-  });
-
-  it("totalsFor adds shipping correctly", () => {
-    expect(totalsFor(199)).toEqual({ subtotal: 199, shipping: 49, total: 248 });
+  it("totalsFor adds shipping correctly (always ₹0)", () => {
+    expect(totalsFor(199)).toEqual({ subtotal: 199, shipping: 0, total: 199 });
     expect(totalsFor(1194)).toEqual({ subtotal: 1194, shipping: 0, total: 1194 });
   });
 });
@@ -93,18 +89,12 @@ describe("summarizeCart", () => {
       priceOf,
     );
     expect(s.subtotal).toBe(697);
-    expect(s.shipping).toBe(49);
-    expect(s.total).toBe(746);
+    expect(s.shipping).toBe(0);
+    expect(s.total).toBe(697);
     expect(s.lines.map((l) => l.total)).toEqual([398, 299]);
   });
 
-  it("charges shipping below ₹999 even for larger baskets", () => {
-    const s = summarizeCart([{ slug: "a", qty: 5, color: "Maroon" }], priceOf);
-    expect(s.subtotal).toBe(995); // 5 × 199 — still below the threshold
-    expect(s.total).toBe(995 + 49);
-  });
-
-  it("applies free shipping at/above ₹999", () => {
+  it("keeps larger baskets free with no shipping added", () => {
     const s = summarizeCart([{ slug: "a", qty: 6, color: "Maroon" }], priceOf);
     expect(s.subtotal).toBe(1194);
     expect(s.shipping).toBe(0);

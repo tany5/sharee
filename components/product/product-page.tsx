@@ -136,6 +136,10 @@ export function ProductPage({ product, related }: ProductPageProps) {
   // ViewContent: product page opened (fires once per page view).
   useEffect(() => {
     trackViewContent(product.slug, product.name);
+    // Recently-viewed list (device-local, IndexedDB via Dexie).
+    void import("@/lib/guest-db").then(({ dbTrackRecentlyViewed }) =>
+      dbTrackRecentlyViewed(product.slug),
+    );
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -513,7 +517,7 @@ function StickyBuyBar({
           </span>
           <span className="mt-1 flex items-center gap-1 text-[11px] text-muted">
             <ChevronDown size={11} className={cx("transition-transform", open && "rotate-180")} />
-            Free shipping ₹999+
+            <s className="opacity-75">₹49 shipping</s> FREE
           </span>
         </button>
         <div className="flex-1" />

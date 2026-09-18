@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { registerUser } from "@/lib/backend";
+import { sendWelcomeEmail } from "@/lib/email";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
@@ -37,6 +38,9 @@ export async function POST(request: Request) {
       { status: conflict ? 409 : 500 },
     );
   }
+  // 🎉 Welcome email — fire-and-forget, never blocks registration.
+  void sendWelcomeEmail({ to: email, name }).catch(() => undefined);
+
   if (result.needsConfirm) {
     return NextResponse.json({
       ok: true,

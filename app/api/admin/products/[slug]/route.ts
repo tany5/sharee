@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { adminProducts, deleteMediaFiles, deleteProduct, upsertProduct } from "@/lib/backend";
 import { requireAdmin, unauthorized } from "@/lib/admin/guard";
+import { revalidateCatalogue } from "@/lib/data/catalogue-cache";
 import { parseMarketing } from "@/lib/marketing/types";
 import type { DbStatus } from "@/lib/types";
 import type { DbProduct } from "@/lib/demo/db";
@@ -102,6 +103,7 @@ export async function PATCH(
             : undefined,
     });
     await deleteMediaFiles(cleanupUrls);
+    revalidateCatalogue();
     return NextResponse.json({ ok: true, product: row });
   } catch (err) {
     const e = err as { code?: string; message?: string };
@@ -125,6 +127,7 @@ export async function DELETE(
     }
     const cleanupUrls = productMediaUrls(product);
     await deleteProduct(slug);
+    revalidateCatalogue();
     try {
       await deleteMediaFiles(cleanupUrls);
     } catch (cleanupErr) {

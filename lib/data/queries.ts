@@ -2,13 +2,37 @@
  * Async data-access layer for storefront pages. Pages only talk to these
  * functions, which resolve through the active backend facade — the demo
  * database (so admin edits appear in the store on refresh) or Supabase.
+ *
+ * In Supabase mode the two catalogue lists (active products, categories) are
+ * served from the cross-request data cache (lib/data/catalogue-cache.ts), so
+ * a page view does ZERO database round trips when the cache is warm, and all
+ * filtering/sorting/lookups below are just in-memory work on that snapshot.
  */
 import {
   storeCategories,
   storeProductBySlug,
   storeProducts,
 } from "@/lib/backend";
-import type { CategoryWithCount, Product } from "@/lib/types";
+import { isSupabaseBackend } from "@/lib/backend/env";
+import {
+  cachedActiveProducts,
+  cachedCategories,
+} from "@/lib/data/catalogue-cache";
+import type { Category, CategoryWithCount, Product } from "@/lib/types";
+
+/** Active products — cached snapshot in Supabase mode, live reads in demo. */
+async function allProducts(): Promise<Product[]> {
+  if (isSupabaseBackend()) {
+    return (await cachedActiveProducts()) as unknown as Product[];
+  }
+  return storeProducts();
+}
+
+/** All categories — cached snapshot in Supabase mode, live reads in demo. */
+async function allCategories(): Promise<Category[]> {
+  if (isSupabaseBackend()) return cachedCategories();
+  return storeCategories();
+}
 
 export type SortKey = "popular" | "newest" | "rating";
 
@@ -22,7 +46,7 @@ export interface ProductFilter {
 }
 
 export async function getCategories(): Promise<CategoryWithCount[]> {
-  const [list, products] = await Promise.all([storeCategories(), storeProducts()]);
+  const [list, products] = await Promise.all([allCategories(), allProducts()]);
   return list.map((c) => ({
     ...c,
     count: products.filter((p) => p.category === c.slug).length,
@@ -31,7 +55,7 @@ export async function getCategories(): Promise<CategoryWithCount[]> {
 
 export async function getProducts(filter: ProductFilter = {}): Promise<Product[]> {
   const { category, q, color, tag, sort = "popular", limit } = filter;
-  let list = await storeProducts();
+  let list = await allProducts();
 
   if (category) list = list.filter((p) => p.category === category);
   if (tag) list = list.filter((p) => p.tags.includes(tag));
@@ -78,6 +102,11 @@ export async function getProducts(filter: ProductFilter = {}): Promise<Product[]
 export async function getProductBySlug(
   slug: string,
 ): Promise<Product | undefined> {
+  // Supabase mode: the cached catalogue snapshot avoids a DB round trip and
+  // dedupes the metadata + page double lookup; demo keeps the direct read.
+  if (isSupabaseBackend()) {
+    return (await allProducts()).find((p) => p.slug === slug);
+  }
   return storeProductBySlug(slug);
 }
 
@@ -93,7 +122,7 @@ export async function getRelated(
   product: Product,
   limit = 4,
 ): Promise<Product[]> {
-  const pool = await storeProducts();
+  const pool = await allProducts();
   const sameCategory = pool.filter(
     (p) => p.category === product.category && p.slug !== product.slug,
   );
@@ -109,6 +138,6 @@ export async function getRelated(
 /** Distinct base colours present in the catalogue (for the filter UI). */
 export async function getFilterColors(): Promise<string[]> {
   const set = new Set<string>();
-  for (const p of await storeProducts()) for (const c of p.colors) set.add(c);
+  for (const p of await allProducts()) for (const c of p.colors) set.add(c);
   return [...set];
 }

@@ -71,3 +71,45 @@ embedded in customers' inboxes, not served by the app): after changing it, run
 `curl -I <url>` and expect HTTP 200. Do not reference `/email-logo.png` unless
 that file is committed AND the site is redeployed — a 404 renders as a broken
 image. See `lib/email-templates/render.ts::emailLogoUrl()`.
+
+---
+
+## WhatsApp customer updates — making delivery reliable
+
+Free-form WhatsApp texts are ONLY delivered when the customer messaged the
+business number within the last 24 hours (Meta's customer-service window).
+Customers placing a first order are almost always outside that window, so
+without a template the customer confirmation is silently rejected (Meta error
+131047) while the owner alert and emails still work.
+
+Reliable path (one-time setup):
+
+1. Meta Business Suite → WhatsApp Manager → **Message templates → Create**:
+   - Name: `order_update_v1`, Category: **Utility**, Language: English
+   - Body:
+     ```
+     🥻 TheTanti order update
+     Hi {{1}}, your order {{2}} (₹{{3}}) is {{4}}.
+     Questions? Just reply to this message.
+     ```
+     `{{1}}` customer first name · `{{2}}` order number · `{{3}}` total ·
+     `{{4}}` status line (confirmed/paid/shipped/delivered/cancelled)
+2. Wait for Meta approval (usually minutes for Utility templates).
+3. Set env on Vercel (and `.env.local`):
+   - `WHATSAPP_TEMPLATE_NAME=order_update_v1`
+   - `WHATSAPP_TEMPLATE_LANG=en` (must match the template's language)
+4. Also required: `WHATSAPP_PHONE_NUMBER_ID` + `WHATSAPP_TOKEN` (or the Meta
+   system-user token from `secret/secret/meta.txt` as the fallback).
+
+With the template set, order events send the template first and fall back to
+free-form text when the 24h window is open. Without it, behaviour is
+unchanged (free-form attempt, logged rejection). Verify any time with the
+**Admin → Notifications → Send test alert** button, which reports the exact
+upstream error per channel.
+
+Vercel env checklist for the full notification stack: `RESEND_API_KEY`,
+`EMAIL_FROM`, `OWNER_EMAIL`, `OWNER_WHATSAPP`, `WHATSAPP_PHONE_NUMBER_ID`,
+`WHATSAPP_TOKEN`, `WHATSAPP_TEMPLATE_NAME`, optional
+`OWNER_WHATSAPP_APIKEY` (CallMeBot backup for the owner channel),
+`WHATSAPP_WEBHOOK_VERIFY_TOKEN` + the Meta webhook pointed at
+`/api/webhooks/whatsapp`.

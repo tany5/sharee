@@ -5,6 +5,10 @@ const nextConfig: NextConfig = {
   // static ffmpeg binary for the marketing reel renderer).
   serverExternalPackages: ["sharp", "ffmpeg-static"],
   images: {
+    // Optimized variants are served from the Vercel CDN; keep them cached for
+    // a week so repeat product-page views never re-fetch from Supabase storage
+    // (first-hit optimization of a large original is the slow case).
+    minimumCacheTTL: 60 * 60 * 24 * 7,
     remotePatterns: [
       // Real saree photography (women wearing the sarees) — Pexels CDN.
       { protocol: "https", hostname: "images.pexels.com" },

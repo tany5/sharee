@@ -11,20 +11,24 @@
 -- ============================================================================
 
 -- Orders: unwrap the string form back into real jsonb objects/arrays.
+-- NOTE: use (#>> '{}') — `(items::text)::jsonb` is a NO-OP for a jsonb string
+-- (it casts the string back to a string), which is why the first version of
+-- this file left every row untouched. (#>> '{}') extracts the inner text
+-- without the surrounding quotes before casting.
 update public.orders
-set items   = (items::text)::jsonb
+set items   = (items #>> '{}')::jsonb
 where jsonb_typeof(items) = 'string';
 
 update public.orders
-set address = (address::text)::jsonb
+set address = (address #>> '{}')::jsonb
 where jsonb_typeof(address) = 'string';
 
 update public.orders
-set utm = (utm::text)::jsonb
+set utm = (utm #>> '{}')::jsonb
 where utm is not null
   and jsonb_typeof(utm) = 'string';
 
 -- Profiles: saved address books (jsonb array stored as a string).
 update public.profiles
-set addresses = (addresses::text)::jsonb
+set addresses = (addresses #>> '{}')::jsonb
 where jsonb_typeof(addresses) = 'string';

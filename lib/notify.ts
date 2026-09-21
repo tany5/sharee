@@ -206,7 +206,7 @@ export async function sendWhatsAppOrderUpdate(
       to,
       template,
       whatsappTemplateLang(),
-      templateParams(order, event),
+      orderTemplateParams(order, event),
     );
     if (sent) return true;
     console.warn(`[whatsapp] template "${template}" failed — trying free-form`);
@@ -266,7 +266,10 @@ function eventStatusLine(order: Order, event: OrderEventType): string {
 }
 
 /** Ordered body parameters matching the approved template's {{1}}..{{4}}. */
-function templateParams(order: Order, event: OrderEventType): string[] {
+export function orderTemplateParams(
+  order: Order,
+  event: OrderEventType,
+): string[] {
   const firstName = (order.address.fullName ?? "there").trim().split(/\s+/)[0] || "there";
   return [
     firstName,

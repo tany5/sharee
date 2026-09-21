@@ -25,7 +25,14 @@ import "server-only";
 import type { Order } from "@/lib/types";
 import { SITE } from "@/lib/site";
 import { emailFrom, maskEmail, resendApiKey } from "@/lib/email";
-import { normalizeWhatsApp, sendCloudApiText } from "@/lib/notify";
+import {
+  normalizeWhatsApp,
+  orderTemplateParams,
+  sendCloudApiText,
+  sendCloudApiTemplate,
+  whatsappTemplateLang,
+  whatsappTemplateName,
+} from "@/lib/notify";
 
 /* ------------------------------- config ----------------------------------- */
 
@@ -99,8 +106,22 @@ async function sendOwnerWhatsApp(
   const text = ownerOrderText(order, kind);
 
   // Preferred: official WhatsApp Cloud API (needs a WABA phone number id).
+  // Outside Meta's 24h window only an approved template is delivered — the
+  // owner rarely messages the business number, so try the template first.
   const phoneId = process.env.WHATSAPP_PHONE_NUMBER_ID?.trim();
   if (phoneId) {
+    const template = whatsappTemplateName();
+    if (template) {
+      const eventType = kind === "payment" ? "payment" : "confirmation";
+      const sentTemplate = await sendCloudApiTemplate(
+        phone,
+        template,
+        whatsappTemplateLang(),
+        orderTemplateParams(order, eventType),
+      );
+      if (sentTemplate) return true;
+      console.warn("[owner] template send failed — trying free-form text");
+    }
     const sent = await sendCloudApiText(phone, text);
     if (sent) return true;
     console.warn("[owner] Cloud API send failed — trying CallMeBot fallback");

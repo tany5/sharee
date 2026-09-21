@@ -6,6 +6,7 @@ import {
   upsertProduct,
 } from "@/lib/backend";
 import { requireAdmin, unauthorized } from "@/lib/admin/guard";
+import { revalidateCatalogue } from "@/lib/data/catalogue-cache";
 
 export async function GET() {
   if (!(await requireAdmin())) return unauthorized();
@@ -101,6 +102,7 @@ export async function POST(request: Request) {
       images: productImages,
       dbStatus: body.dbStatus === "active" ? "active" : "draft",
     });
+    revalidateCatalogue();
     return NextResponse.json({ ok: true, product: row });
   } catch (err) {
     const e = err as { code?: string; message?: string };

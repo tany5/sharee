@@ -6,6 +6,7 @@ import {
   updateCategory,
 } from "@/lib/backend";
 import { requireAdmin, unauthorized } from "@/lib/admin/guard";
+import { revalidateCatalogue } from "@/lib/data/catalogue-cache";
 
 export async function GET() {
   if (!(await requireAdmin())) return unauthorized();
@@ -29,6 +30,7 @@ export async function POST(request: Request) {
       short: body.short ?? "",
       blurb: body.blurb ?? "",
     });
+    revalidateCatalogue();
     return NextResponse.json({ ok: true, category });
   } catch (err) {
     const e = err as { code?: string; message?: string };
@@ -52,6 +54,7 @@ export async function PATCH(request: Request) {
   }
   try {
     const category = await updateCategory(slug, body);
+    revalidateCatalogue();
     return NextResponse.json({ ok: true, category });
   } catch (err) {
     const e = err as { code?: string; message?: string };
@@ -69,6 +72,7 @@ export async function DELETE(request: Request) {
   if (!slug) return NextResponse.json({ ok: false, error: "Missing slug" }, { status: 400 });
   try {
     await removeCategory(slug);
+    revalidateCatalogue();
     return NextResponse.json({ ok: true });
   } catch (err) {
     const e = err as { code?: string; message?: string };

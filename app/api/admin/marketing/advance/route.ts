@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { requireAdmin, unauthorized } from "@/lib/admin/guard";
 import { pipelineProducts } from "@/lib/marketing/store";
 import { advanceProduct } from "@/lib/marketing/engine";
+import { revalidateCatalogue } from "@/lib/data/catalogue-cache";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
@@ -36,6 +37,9 @@ export async function POST() {
   }
 
   const failed = results.filter((r) => r.to === "failed").length;
+  // Pipeline stages mutate product rows (try-on renders, gallery images,
+  // reel URLs) — keep the storefront catalogue cache in sync.
+  if (results.length > 0) revalidateCatalogue();
   return NextResponse.json({
     ok: true,
     processed: results.length,

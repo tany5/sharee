@@ -39,13 +39,16 @@ export const SITE = {
 
   /** Used for canonical URLs / sitemap. Override with NEXT_PUBLIC_SITE_URL in prod. */
   get url() {
-    if (process.env.NEXT_PUBLIC_SITE_URL) return process.env.NEXT_PUBLIC_SITE_URL;
-    // VERCEL_URL is the throwaway *.vercel.app deployment host — only correct
-    // for preview deploys. On production it must NOT win over the real domain,
-    // otherwise canonical links/OG tags/the sitemap point at the wrong origin.
+    // Production on Vercel always uses the real storefront domain. A stray
+    // NEXT_PUBLIC_SITE_URL (e.g. the *.vercel.app host) used to leak into
+    // canonical tags, OG urls and the sitemap — never let it win in prod.
+    if (process.env.VERCEL_ENV === "production") return "https://www.thetanti.shop";
+    // Preview deploys keep their own throwaway origin.
     if (process.env.VERCEL_ENV === "preview" && process.env.VERCEL_URL) {
       return `https://${process.env.VERCEL_URL}`;
     }
+    const configured = process.env.NEXT_PUBLIC_SITE_URL?.trim();
+    if (configured && !/\.vercel\.app(\/|$)/i.test(configured)) return configured;
     return "https://www.thetanti.shop";
   },
 } as const;

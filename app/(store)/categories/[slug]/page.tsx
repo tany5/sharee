@@ -45,6 +45,18 @@ export async function generateStaticParams() {
   return categories.map((c) => ({ slug: c.slug }));
 }
 
+/**
+ * Render on demand, every request.
+ *
+ * Declaring generateStaticParams makes Next treat this route as ISR/static;
+ * the on-demand static render then throws DYNAMIC_SERVER_USAGE (HTTP 500)
+ * because the page reads `searchParams` (the ?sort= control) and the shared
+ * layout reads request data. That is what broke every /categories/<slug> page
+ * in production — dev never takes the static path, so it looked fine locally.
+ * Caching lives in the catalogue data cache, so nothing is lost here.
+ */
+export const dynamic = "force-dynamic";
+
 export default async function CategoryPage({
   params,
   searchParams,

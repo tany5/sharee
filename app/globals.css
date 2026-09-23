@@ -302,3 +302,37 @@
     animation: none;
   }
 }
+
+/* ---------------------------------------------------------------------------
+   Invoice printing (components/order/invoice-document.tsx)
+   The .tt-print-area wrapper carries `print:...` Tailwind variants; these
+   rules additionally strip site chrome and force an A4-friendly layout so
+   "Print → Save as PDF" produces a clean invoice with zero dependencies.
+--------------------------------------------------------------------------- */
+@media print {
+  /* Hide everything except the invoice while it is on screen. */
+  body:has(.tt-invoice) > *:not(main):not(script):not(style),
+  main:has(.tt-invoice) > *:not(.tt-print-area) {
+    display: none !important;
+  }
+  .tt-print-area {
+    padding: 0 !important;
+    max-width: none !important;
+  }
+  .tt-invoice {
+    border: none !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    max-width: 100% !important;
+    width: 100% !important;
+    padding: 0 !important;
+    color: #171311 !important;
+  }
+  .tt-invoice ~ * {
+    display: none !important;
+  }
+  @page {
+    size: A4;
+    margin: 14mm;
+  }
+}

@@ -1,0 +1,150 @@
+
+ ⛅️ wrangler 4.131.1 (update available 4.136.3)
+───────────────────────────────────────────────
+
+Cloudflare collects anonymous telemetry about your usage of Wrangler. Learn more at https://github.com/cloudflare/workers-sdk/tree/main/packages/wrangler/telemetry.md
+Your Worker has access to the following bindings:
+Binding                                           Resource                  Mode
+env.AI                                            AI                        remote
+env.ALLOWED_ORIGIN ("http://localhost:3000")      Environment Variable      local
+
+⎔ Establishing remote connection...
+[33m▲ [43;33m[[43;30mWARNING[43;33m][0m [1mAI bindings always access remote resources, and so may incur usage charges even in local dev. To suppress this warning, set `remote: true` for the binding definition in your configuration file.[0m
+
+
+⎔ Starting local server...
+[wrangler:info] Ready on http://127.0.0.1:8788
+[wrangler:info] GET /health 200 OK (18ms)
+[wrangler:info] GET /health 200 OK (3ms)
+[wrangler:info] POST /generate 200 OK (13484ms)
+[wrangler:info] POST /generate 200 OK (15527ms)
+[wrangler:info] POST /generate 200 OK (26769ms)
+[wrangler:info] POST /generate 200 OK (19687ms)
+[wrangler:info] POST /generate 200 OK (21949ms)
+[wrangler:info] POST /generate 200 OK (19943ms)
+[wrangler:info] POST /generate 200 OK (15083ms)
+[wrangler:info] POST /generate 200 OK (19888ms)
+[wrangler:info] POST /generate 200 OK (21065ms)
+[wrangler:info] POST /generate 200 OK (16817ms)
+[wrangler:info] POST /generate 200 OK (26481ms)
+[wrangler:info] POST /generate 200 OK (20348ms)
+[wrangler:info] POST /generate 200 OK (23281ms)
+[wrangler:info] POST /generate 200 OK (16630ms)
+[wrangler:info] POST /generate 200 OK (10224ms)
+[wrangler:info] POST /generate 200 OK (15896ms)
+[wrangler:info] POST /generate 200 OK (23869ms)
+[wrangler:info] POST /generate 200 OK (28981ms)
+[wrangler:info] POST /generate 200 OK (17028ms)
+[wrangler:info] POST /generate 200 OK (16785ms)
+[wrangler:info] POST /generate 200 OK (21318ms)
+[wrangler:info] POST /generate 200 OK (21607ms)
+[wrangler:info] POST /generate 200 OK (20965ms)
+[wrangler:info] POST /generate 200 OK (18409ms)
+[wrangler:info] POST /generate 200 OK (21857ms)
+[wrangler:info] POST /generate 200 OK (17405ms)
+[wrangler:info] POST /generate 200 OK (20684ms)
+[wrangler:info] POST /generate 200 OK (20173ms)
+[wrangler:info] POST /generate 200 OK (16004ms)
+[wrangler:info] POST /generate 200 OK (11319ms)
+[wrangler:info] POST /generate 200 OK (18057ms)
+[wrangler:info] POST /generate 200 OK (19179ms)
+[wrangler:info] POST /generate 200 OK (13162ms)
+[wrangler:info] POST /generate 200 OK (20542ms)
+[wrangler:info] POST /generate 200 OK (20222ms)
+[wrangler:info] POST /generate 200 OK (16376ms)
+[wrangler:info] POST /generate 200 OK (15160ms)
+[wrangler:info] POST /generate 200 OK (28638ms)
+[wrangler:info] POST /generate 200 OK (12429ms)
+[wrangler:info] POST /generate 200 OK (22756ms)
+[wrangler:info] POST /generate 200 OK (12631ms)
+[wrangler:info] POST /generate 200 OK (20806ms)
+[wrangler:info] POST /generate 200 OK (28184ms)
+[wrangler:info] POST /generate 200 OK (17296ms)
+[wrangler:info] POST /generate 200 OK (21980ms)
+[wrangler:info] POST /generate 200 OK (15694ms)
+[wrangler:info] POST /generate 200 OK (21814ms)
+[wrangler:info] POST /generate 200 OK (18444ms)
+[wrangler:info] POST /generate 200 OK (14472ms)
+[wrangler:info] POST /generate 200 OK (16033ms)
+[wrangler:info] POST /generate 200 OK (17379ms)
+[wrangler:info] POST /generate 200 OK (16176ms)
+[wrangler:info] POST /generate 200 OK (21292ms)
+[wrangler:info] POST /generate 200 OK (15362ms)
+[wrangler:info] POST /generate 200 OK (14154ms)
+[wrangler:info] POST /generate 200 OK (17611ms)
+[wrangler:info] POST /generate 200 OK (17188ms)
+[wrangler:info] POST /generate 200 OK (16185ms)
+[wrangler:info] POST /generate 200 OK (17090ms)
+[wrangler:info] POST /generate 200 OK (16632ms)
+[wrangler:info] POST /generate 200 OK (24780ms)
+[wrangler:info] POST /generate 200 OK (21483ms)
+[wrangler:info] POST /generate 200 OK (11397ms)
+[wrangler:info] POST /generate 200 OK (17916ms)
+[wrangler:info] POST /generate 200 OK (12352ms)
+[wrangler:info] POST /generate 200 OK (19888ms)
+[wrangler:info] POST /generate 200 OK (19306ms)
+[wrangler:info] POST /generate 200 OK (17747ms)
+[wrangler:info] POST /generate 200 OK (10927ms)
+[wrangler:info] POST /generate 200 OK (17974ms)
+[wrangler:info] POST /generate 200 OK (13973ms)
+[wrangler:info] POST /generate 200 OK (16870ms)
+[wrangler:info] POST /generate 200 OK (12487ms)
+[wrangler:info] POST /generate 200 OK (14257ms)
+[wrangler:info] POST /generate 200 OK (18976ms)
+[wrangler:info] POST /generate 200 OK (15833ms)
+[wrangler:info] POST /generate 200 OK (18094ms)
+[wrangler:info] POST /generate 200 OK (13119ms)
+[wrangler:info] POST /generate 200 OK (15466ms)
+[wrangler:info] POST /generate 200 OK (22966ms)
+[wrangler:info] POST /generate 200 OK (23175ms)
+[wrangler:info] POST /generate 200 OK (20282ms)
+[wrangler:info] POST /generate 200 OK (11794ms)
+[wrangler:info] POST /generate 200 OK (14186ms)
+[wrangler:info] POST /generate 200 OK (31181ms)
+[wrangler:info] POST /generate 200 OK (18105ms)
+[wrangler:info] POST /generate 200 OK (17523ms)
+[wrangler:info] POST /generate 200 OK (16140ms)
+[wrangler:info] POST /generate 200 OK (15515ms)
+[wrangler:info] POST /generate 200 OK (15298ms)
+[wrangler:info] POST /generate 200 OK (31916ms)
+[wrangler:info] POST /generate 200 OK (22607ms)
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1m[image-worker] generate failed: 4006: you have used up your daily free allocation of 10,000 neurons, please upgrade to Cloudflare's Workers Paid plan if you would like to continue usage.[0m
+
+
+[wrangler:info] POST /generate 502 Bad Gateway (1451ms)
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1m[image-worker] generate failed: 4006: you have used up your daily free allocation of 10,000 neurons, please upgrade to Cloudflare's Workers Paid plan if you would like to continue usage.[0m
+
+
+[wrangler:info] POST /generate 502 Bad Gateway (782ms)
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1m[image-worker] generate failed: 4006: you have used up your daily free allocation of 10,000 neurons, please upgrade to Cloudflare's Workers Paid plan if you would like to continue usage.[0m
+
+
+[wrangler:info] POST /generate 502 Bad Gateway (1081ms)
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1m[image-worker] generate failed: 4006: you have used up your daily free allocation of 10,000 neurons, please upgrade to Cloudflare's Workers Paid plan if you would like to continue usage.[0m
+
+
+[wrangler:info] POST /generate 502 Bad Gateway (1742ms)
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1m[image-worker] generate failed: 4006: you have used up your daily free allocation of 10,000 neurons, please upgrade to Cloudflare's Workers Paid plan if you would like to continue usage.[0m
+
+
+[wrangler:info] POST /generate 502 Bad Gateway (963ms)
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1m[image-worker] generate failed: 4006: you have used up your daily free allocation of 10,000 neurons, please upgrade to Cloudflare's Workers Paid plan if you would like to continue usage.[0m
+
+
+[wrangler:info] POST /generate 502 Bad Gateway (1067ms)
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1m[image-worker] generate failed: 4006: you have used up your daily free allocation of 10,000 neurons, please upgrade to Cloudflare's Workers Paid plan if you would like to continue usage.[0m
+
+
+[wrangler:info] POST /generate 502 Bad Gateway (1128ms)
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1m[image-worker] generate failed: 4006: you have used up your daily free allocation of 10,000 neurons, please upgrade to Cloudflare's Workers Paid plan if you would like to continue usage.[0m
+
+
+[wrangler:info] POST /generate 502 Bad Gateway (721ms)
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1m[image-worker] generate failed: 4006: you have used up your daily free allocation of 10,000 neurons, please upgrade to Cloudflare's Workers Paid plan if you would like to continue usage.[0m
+
+
+[wrangler:info] POST /generate 502 Bad Gateway (569ms)
+[31mX [41;31m[[41;97mERROR[41;31m][0m [1m[image-worker] generate failed: 4006: you have used up your daily free allocation of 10,000 neurons, please upgrade to Cloudflare's Workers Paid plan if you would like to continue usage.[0m
+
+
+[wrangler:info] POST /generate 502 Bad Gateway (670ms)

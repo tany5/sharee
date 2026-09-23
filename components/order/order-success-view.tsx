@@ -296,6 +296,9 @@ export function OrderSuccessView({ id }: { id: string }) {
 
         {/* Actions */}
         <div className="flex flex-col gap-3 sm:flex-row">
+          <ButtonLink href={`/track?number=${encodeURIComponent(order.number)}`} variant="outline" className="flex-1">
+            <Truck size={16} /> Track order
+          </ButtonLink>
           <ButtonLink href="/account" variant="outline" className="flex-1">
             View My Orders <ChevronRight size={16} />
           </ButtonLink>

@@ -56,7 +56,7 @@ const POSE_SETUPS: Record<
   },
   full_saree: {
     pose:
-      "three-quarter full-body catalogue pose, one hand lightly holding the pallu, pallu drape over the left shoulder clearly visible, head to toe in frame",
+      "three-quarter full-body catalogue pose, one hand lightly holding the pallu, the other arm relaxed at her side, pallu drape over the left shoulder clearly visible, head to toe in frame",
     background:
       "elegant heritage courtyard: cream wall, wooden door frame, soft daylight, minimal props",
     width: 896,
@@ -72,11 +72,14 @@ function buildPosePrompt(input: {
   const product = input.productName ? `Product: ${input.productName}.` : "";
   return [
     product,
-    "INPUT IMAGE 1 is the MODEL REFERENCE: preserve her identity, face, age appearance, hairstyle and realistic body proportions exactly.",
-    "INPUT IMAGE 2 is the EXACT SAREE PRODUCT REFERENCE and the source of truth: reproduce its exact base colour, border palette and width, motif style and placement, pallu design, fabric sheen and weave texture. Do not redesign, recolour, simplify or invent the saree. Drape the same saree naturally with realistic pleats, believable fabric weight and correct garment geometry.",
+    // Extra-limb guard: multi-reference models fuse people/hands out of the
+    // reference photos. State the anatomy budget explicitly and repeatedly.
+    "FINAL IMAGE RULE: exactly ONE woman appears in the photo — one head, exactly two arms, exactly two hands, exactly two legs, exactly ten fingers total. No extra arms, no extra hands, no duplicate or detached limbs, no second person, no reflection of a person.",
+    "INPUT IMAGE 1 is the MODEL REFERENCE: preserve her identity, face, age appearance, hairstyle and realistic body proportions exactly. She is the ONLY person in the output.",
+    "INPUT IMAGE 2 is the EXACT SAREE PRODUCT REFERENCE and the source of truth: reproduce its exact base colour, border palette and width, motif style and placement, pallu design, fabric sheen and weave texture. Do not redesign, recolour, simplify or invent the saree. INPUT IMAGE 2 shows FABRIC ONLY — if any person, mannequin, hand, arm or body part is visible inside INPUT IMAGE 2, ignore it completely: copy the fabric, never people or limbs from it.",
     `Pose: ${setup.pose}.`,
     `Background: ${setup.background}. This photo must NOT share its background with the other catalogue shots.`,
-    `Photography: premium Indian ecommerce catalogue photo, realistic skin texture with visible pores, natural facial asymmetry, normal hands with five fingers, believable anatomy, natural soft lighting, vertical portrait ${setup.width}x${setup.height}, head to toe inside frame with safe space above the head and below the feet. Saree remains the hero.`,
+    `Photography: premium Indian ecommerce catalogue photo, realistic skin texture with visible pores, natural facial asymmetry, normal hands with five fingers each, anatomically correct arms attached only at the two shoulders, believable anatomy, natural soft lighting, vertical portrait ${setup.width}x${setup.height}, head to toe inside frame with safe space above the head and below the feet. Saree remains the hero.`,
     "Model appearance: a real Bengali/Indian woman who could walk into the shop — natural dark hair, subtle bindi, minimal natural makeup. Jewellery is LIGHT everyday wear only: small stud or jhumka earrings, a thin chain or simple pendant, maybe one thin bangle. Absolutely no heavy bridal jewellery sets, no large chokers, no maang tikka, no stacks of bangles.",
     "Do NOT look AI-generated: no plastic or porcelain skin, no doll face, no over-smooth beauty-filter look, no exaggerated tiny waist, no glossy lips. She must read as a real person in a real photo.",
     "Do not add text, logo, watermark, price tag, promotional graphics, extra people, random clothing or props unrelated to the scene.",

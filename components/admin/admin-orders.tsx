@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { ChevronDown, Loader2, MapPin, Search, ShoppingBag, Wallet } from "lucide-react";
+import { ChevronDown, Loader2, MapPin, PackageCheck, ReceiptText, Save, Search, ShoppingBag, Wallet } from "lucide-react";
 import { EmptyState, TextInput } from "@/components/ui";
 import {
   FULFILMENT_LABEL,
@@ -12,6 +12,7 @@ import {
   formatINRShort,
 } from "@/components/admin/shared";
 import type { FulfilmentStatus, Order } from "@/lib/types";
+import { COURIERS } from "@/lib/tracking";
 import { formatDate, formatINR } from "@/lib/format";
 import { cx } from "@/lib/utils";
 import { useToast } from "@/components/admin/toast";
@@ -38,6 +39,35 @@ function OrderCard({ order, onUpdated }: { order: Order; onUpdated: () => void }
   const [error, setError] = useState<string | null>(null);
   const toast = useToast();
   const current = order.fulfilment ?? "pending";
+
+  // Shipment details — courier + AWB saved via PATCH { courier, awb }.
+  const [courier, setCourier] = useState(order.tracking?.courier ?? "");
+  const [awb, setAwb] = useState(order.tracking?.awb ?? "");
+  const [savingTracking, setSavingTracking] = useState(false);
+  const [trackingSaved, setTrackingSaved] = useState(false);
+
+  const saveTracking = async () => {
+    if (savingTracking) return;
+    setSavingTracking(true);
+    setError(null);
+    setTrackingSaved(false);
+    const res = await fetch(`/api/admin/orders/${order.id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ courier: courier || undefined, awb: awb.trim() || undefined }),
+    });
+    const data = (await res.json()) as { ok: boolean; order?: Order; error?: string };
+    setSavingTracking(false);
+    if (!data.ok) {
+      setError(data.error ?? "Could not save tracking details");
+      toast.error(data.error ?? "Could not save tracking details");
+      return;
+    }
+    setTrackingSaved(true);
+    setTimeout(() => setTrackingSaved(false), 2000);
+    toast.success(`Tracking saved for ${order.number}.`);
+    onUpdated();
+  };
 
   const setStatus = async (status: FulfilmentStatus) => {
     if (status === current || updating) return;
@@ -167,6 +197,14 @@ function OrderCard({ order, onUpdated }: { order: Order; onUpdated: () => void }
                 <p className="mb-1.5 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.16em] text-muted">
                   <Wallet size={12} /> Payment
                 </p>
+                <a
+                  href={`/admin/orders/${order.id}/invoice`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mb-2 flex w-fit items-center gap-1.5 text-[11px] font-semibold text-accent hover:underline"
+                >
+                  <ReceiptText size={12} /> Print invoice
+                </a>
                 <p className="text-sm font-semibold text-ink">
                   {PAYMENT_LABEL[order.paymentMethod] ?? order.paymentMethod}
                   <span
@@ -193,6 +231,57 @@ function OrderCard({ order, onUpdated }: { order: Order; onUpdated: () => void }
                     clears.
                   </p>
                 )}
+              </div>
+
+              <div>
+                <p className="mb-1.5 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.16em] text-muted">
+                  <PackageCheck size={12} /> Shipment tracking
+                </p>
+                <div className="rounded-xl border border-line bg-bg px-3.5 py-3">
+                  <div className="flex flex-col gap-2">
+                    <select
+                      value={courier}
+                      onChange={(e) => setCourier(e.target.value)}
+                      aria-label="Courier"
+                      className="h-9 w-full rounded-lg border border-line bg-surface px-2.5 text-[13px] font-semibold text-ink focus:border-accent focus:outline-none"
+                    >
+                      <option value="">Select courier…</option>
+                      {COURIERS.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.name}
+                        </option>
+                      ))}
+                    </select>
+                    <div className="flex gap-2">
+                      <TextInput
+                        value={awb}
+                        onChange={(e) => setAwb(e.target.value)}
+                        placeholder="AWB / tracking no."
+                        aria-label="AWB / tracking number"
+                        className="flex-1"
+                      />
+                      <button
+                        type="button"
+                        onClick={saveTracking}
+                        disabled={savingTracking || (!courier && !awb.trim())}
+                        className="flex h-9 shrink-0 items-center gap-1.5 rounded-pill bg-ink px-3.5 text-xs font-bold text-btntext transition-colors hover:bg-ink/85 disabled:opacity-50"
+                      >
+                        {savingTracking ? (
+                          <Loader2 size={13} className="animate-spin" />
+                        ) : trackingSaved ? (
+                          <Save size={13} />
+                        ) : (
+                          <Save size={13} />
+                        )}
+                        {savingTracking ? "Saving…" : trackingSaved ? "Saved" : "Save"}
+                      </button>
+                    </div>
+                  </div>
+                  <p className="mt-2 text-[11px] leading-4 text-muted">
+                    Saved details go out with the dispatched email + WhatsApp and
+                    power the customer&apos;s /track page.
+                  </p>
+                </div>
               </div>
 
               <div>

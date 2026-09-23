@@ -42,6 +42,7 @@ export interface ProductFilter {
   color?: string;
   tag?: string;
   sort?: SortKey;
+  offset?: number;
   limit?: number;
 }
 
@@ -54,7 +55,7 @@ export async function getCategories(): Promise<CategoryWithCount[]> {
 }
 
 export async function getProducts(filter: ProductFilter = {}): Promise<Product[]> {
-  const { category, q, color, tag, sort = "popular", limit } = filter;
+  const { category, q, color, tag, sort = "popular", limit, offset } = filter;
   let list = await allProducts();
 
   if (category) list = list.filter((p) => p.category === category);
@@ -96,8 +97,41 @@ export async function getProducts(filter: ProductFilter = {}): Promise<Product[]
       );
   }
 
-  return typeof limit === "number" ? list.slice(0, limit) : list;
+  const start = typeof offset === "number" && offset > 0 ? Math.floor(offset) : 0;
+  const sliced = start > 0 ? list.slice(start) : list;
+  return typeof limit === "number" ? sliced.slice(0, limit) : sliced;
 }
+/**
+ * Total matching products for an infinite listing, without materialising the
+ * whole result set. Uses the same filters and cached catalogue snapshot as
+ * getProducts, so the count and the pages can never disagree.
+ */
+export async function countProducts(
+  filter: Omit<ProductFilter, "limit" | "offset"> = {},
+): Promise<number> {
+  const { category, q, color, tag } = filter;
+  const list = await allProducts();
+
+  let n = 0;
+  for (const p of list) {
+    if (category && p.category !== category) continue;
+    if (tag && !p.tags.includes(tag)) continue;
+    if (color) {
+      const needle = color.toLowerCase();
+      if (!p.colors.some((c) => c.toLowerCase().includes(needle))) continue;
+    }
+    if (q) {
+      const needle = q.toLowerCase().trim();
+      if (needle) {
+        const haystacks = [p.name, p.description, p.fabric, p.occasion];
+        if (!haystacks.some((h) => h.toLowerCase().includes(needle))) continue;
+      }
+    }
+    n += 1;
+  }
+  return n;
+}
+
 
 export async function getProductBySlug(
   slug: string,

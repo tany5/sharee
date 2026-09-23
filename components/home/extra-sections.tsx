@@ -2,6 +2,8 @@ import Link from "next/link";
 import Image from "next/image";
 import { ArrowRight } from "lucide-react";
 import { getCategories, getProducts } from "@/lib/data/queries";
+import { artForCategory } from "@/lib/art";
+import SareeArt from "@/components/product/saree-art";
 import { swatchFor } from "@/lib/color-dots";
 import { SITE } from "@/lib/site";
 import { formatINR } from "@/lib/format";
@@ -115,7 +117,12 @@ export async function CollectionTiles() {
     getCategories(),
     getProducts({ limit: 200 }),
   ]);
-  const top = categories.slice(0, 4);
+  // Stocked categories first so tiles always lead somewhere useful; any
+  // category still waiting on stock renders brand-consistent saree art
+  // instead of a blank card (never an empty white box).
+  const top = [...categories]
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 4);
   if (top.length === 0) return null;
 
   return (
@@ -150,7 +157,14 @@ export async function CollectionTiles() {
                   sizes="(min-width: 1024px) 24vw, 46vw"
                   className="object-cover object-top transition-transform duration-500 group-hover:scale-[1.04]"
                 />
-              ) : null}
+              ) : (
+                <SareeArt
+                  spec={artForCategory(c.slug, 1)}
+                  label={c.name}
+                  crop="portrait"
+                  className="absolute inset-0 h-full w-full transition-transform duration-500 group-hover:scale-[1.04]"
+                />
+              )}
               <div
                 aria-hidden
                 className="absolute inset-x-0 bottom-0 h-2/5 bg-gradient-to-t from-black/70 via-black/25 to-transparent"

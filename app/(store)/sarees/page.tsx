@@ -1,12 +1,15 @@
 import Link from "next/link";
 import { SearchX } from "lucide-react";
 import {
+  countProducts,
   getCategories,
   getFilterColors,
   getProducts,
   type SortKey,
 } from "@/lib/data/queries";
 import { SITE } from "@/lib/site";
+import { LISTING_PAGE_SIZE } from "@/lib/listing";
+import { InfiniteProductGrid } from "@/components/product/infinite-product-grid";
 import { ProductGrid } from "@/components/product/product-grid";
 import {
   ListingSearch,
@@ -58,12 +61,22 @@ export default async function SareesPage({
   const sort: SortKey = SORTS[sp.sort ?? ""] ?? "popular";
 
   const [products, categories, colors] = await Promise.all([
-    getProducts({ category, q, color, tag, sort }),
+    getProducts({ category, q, color, tag, sort, limit: LISTING_PAGE_SIZE }),
     getCategories(),
     getFilterColors(),
   ]);
 
   const filtersActive = Boolean(q || category || color || tag);
+
+  // First page is server-rendered; later pages stream from /api/products with
+  // the same filter/sort contract. countProducts avoids loading every row into
+  // the page HTML. The key restarts the client grid whenever the result set
+  // changes so stale cards never linger.
+  const firstPage = products;
+  const filter = { category, q, color, tag, sort };
+  const fullCount = await countProducts(filter);
+  const listingQuery = filter;
+  const resetKey = JSON.stringify(listingQuery);
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
@@ -77,7 +90,7 @@ export default async function SareesPage({
           </p>
           <h1 className="mt-1 text-3xl text-ink sm:text-4xl">All Sarees</h1>
           <p className="mt-1.5 text-sm text-ink2">
-            {products.length} style{products.length === 1 ? "" : "s"}
+            {fullCount} style{fullCount === 1 ? "" : "s"}
             {q ? ` for “${q}”` : ""} · every saree {SITE.tagline.toLowerCase()}
           </p>
         </div>
@@ -171,8 +184,16 @@ export default async function SareesPage({
               </ButtonLink>
             }
           />
+        ) : fullCount > LISTING_PAGE_SIZE ? (
+          <InfiniteProductGrid
+            key={resetKey}
+            initial={firstPage}
+            total={fullCount}
+            initialHasMore
+            query={listingQuery}
+          />
         ) : (
-          <ProductGrid products={products} cols="wide" />
+          <ProductGrid products={firstPage} cols="wide" />
         )}
       </div>
     </div>

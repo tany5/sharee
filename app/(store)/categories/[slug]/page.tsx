@@ -2,12 +2,15 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { ChevronRight } from "lucide-react";
 import {
+  countProducts,
   getCategories,
   getProducts,
   type SortKey,
 } from "@/lib/data/queries";
 import { isSupabaseBackend } from "@/lib/backend/env";
 import { SITE } from "@/lib/site";
+import { LISTING_PAGE_SIZE } from "@/lib/listing";
+import { InfiniteProductGrid } from "@/components/product/infinite-product-grid";
 import { ProductGrid } from "@/components/product/product-grid";
 import { SortSelect } from "@/components/product/listing-tools";
 import { categoryMetadata } from "@/lib/meta";
@@ -68,13 +71,16 @@ export default async function CategoryPage({
   const { sort: sortParam } = await searchParams;
   const sort: SortKey = SORTS[sortParam ?? ""] ?? "popular";
 
-  const [categories, category, products] = await Promise.all([
+  const [categories, category, products, fullCount] = await Promise.all([
     getCategories(),
     getCategories().then((cs) => cs.find((c) => c.slug === slug)),
-    getProducts({ category: slug, sort }),
+    getProducts({ category: slug, sort, limit: LISTING_PAGE_SIZE }),
+    countProducts({ category: slug, sort }),
   ]);
 
   if (!category) notFound();
+
+  const resetKey = `${slug}:${sort}`;
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
@@ -90,7 +96,7 @@ export default async function CategoryPage({
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <p className="text-xs font-bold uppercase tracking-[0.2em] text-accent">
-            {category.count} styles · {SITE.tagline}
+            {fullCount} styles · {SITE.tagline}
           </p>
           <h1 className="mt-1 text-3xl text-ink sm:text-4xl">{category.name}</h1>
           <p className="mt-1.5 max-w-xl text-sm leading-6 text-ink2">
@@ -123,7 +129,21 @@ export default async function CategoryPage({
       </div>
 
       <div className="mt-8">
-        <ProductGrid products={products} cols="wide" />
+        {products.length === 0 ? (
+          <p className="rounded-card border border-line bg-surface px-5 py-8 text-center text-sm text-ink2">
+            New styles are on the way — check the other categories meanwhile.
+          </p>
+        ) : fullCount > LISTING_PAGE_SIZE ? (
+          <InfiniteProductGrid
+            key={resetKey}
+            initial={products}
+            total={fullCount}
+            initialHasMore
+            query={{ category: slug, sort }}
+          />
+        ) : (
+          <ProductGrid products={products} cols="wide" />
+        )}
       </div>
     </div>
   );

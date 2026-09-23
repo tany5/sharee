@@ -22,6 +22,7 @@ import type {
   PublicUser,
 } from "@/lib/types";
 import type { DbProduct, DbStatus } from "@/lib/demo/db";
+import type { TrackedOrder } from "@/lib/tracking";
 
 /* ------------------------- demo implementation ------------------------- */
 
@@ -349,6 +350,34 @@ export async function setOrderFulfilment(
     return (await supabaseModule()).supabaseSetOrderFulfilment(orderId, status);
   }
   return (await demo()).setOrderFulfilment(orderId, status);
+}
+
+/** Admin: save courier/AWB shipment details on an order. */
+export async function setOrderTracking(
+  orderId: string,
+  tracking: Order["tracking"],
+): Promise<Order> {
+  if (active()) {
+    return (await supabaseModule()).supabaseSetOrderTracking(orderId, tracking);
+  }
+  return (await demo()).setOrderTracking(orderId, tracking);
+}
+
+/**
+ * Public /track lookup: order number + phone (the phone check is the auth).
+ * Demo mode returns the full Order (the route projects it to TrackedOrder via
+ * toTrackedOrder); Supabase mode returns the customer-safe shape directly
+ * from the security-definer `track_order` RPC. Null on no match.
+ */
+export async function findOrderForTracking(
+  orderNumber: string,
+  phone: string,
+): Promise<Order | TrackedOrder | null> {
+  if (active()) {
+    return (await supabaseModule()).supabaseFindOrderForTracking(orderNumber, phone);
+  }
+  const mod = await import("@/lib/demo/db");
+  return mod.findOrderForTracking(orderNumber, phone) ?? null;
 }
 
 /* ------------------------------- customers ------------------------------- */

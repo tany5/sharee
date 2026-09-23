@@ -143,10 +143,13 @@ export function ProductCard({ product }: { product: ProductCardData }) {
           <p className="font-display text-[19px] font-semibold leading-none text-ink sm:text-xl">
             {formatINR(product.price)}
           </p>
-          <div className="flex items-center gap-1.5 text-[11px] text-muted sm:text-xs">
-            <Stars rating={product.rating} size={12} />
-            <span>({product.reviewCount})</span>
-          </div>
+          {/* Dead stars mislead — admin rows start at rating 0 / 0 reviews. */}
+          {product.reviewCount > 0 && product.rating > 0 && (
+            <div className="flex items-center gap-1.5 text-[11px] text-muted sm:text-xs">
+              <Stars rating={product.rating} size={12} />
+              <span>({product.reviewCount})</span>
+            </div>
+          )}
         </div>
       </Link>
 

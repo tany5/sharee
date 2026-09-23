@@ -10,9 +10,11 @@ import {
   MapPin,
   PackageOpen,
   Plus,
+  ReceiptText,
   Settings2,
   ShieldCheck,
   Trash2,
+  Truck,
   UserRound,
 } from "lucide-react";
 import { useAuth } from "@/components/auth/auth-provider";
@@ -419,6 +421,22 @@ function OrdersList({ orders }: { orders: Order[] | null }) {
             <span className="font-display text-lg font-bold text-ink">
               {formatINR(o.total)}
             </span>
+          </div>
+
+          {/* Track + invoice — the two things a customer comes back for. */}
+          <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1.5 border-t border-line pt-3 text-xs font-semibold">
+            <Link
+              href={`/track?number=${encodeURIComponent(o.number)}`}
+              className="flex items-center gap-1.5 text-accent hover:underline"
+            >
+              <Truck size={13} /> Track order
+            </Link>
+            <Link
+              href={`/account/orders/${o.id}/invoice`}
+              className="flex items-center gap-1.5 text-bronze hover:underline"
+            >
+              <ReceiptText size={13} /> Invoice
+            </Link>
           </div>
         </li>
       ))}

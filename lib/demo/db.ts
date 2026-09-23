@@ -487,9 +487,48 @@ export function ordersForUser(userId: string): Order[] {
 
 export async function addOrder(order: Order): Promise<Order> {
   return mutate((db) => {
+    // Stock decrement happens here (order creation) — the policy chosen for
+    // this store: reserve at checkout, restore on cancel. `createDemoOrder`
+    // has already validated qty <= stock, so the holds below always fit.
+    // Abandoned pending-payment orders release their stock when an admin
+    // cancels them (setOrderFulfilment "cancelled").
+    const bySlug = new Map<string, number>();
+    for (const it of order.items) {
+      bySlug.set(it.slug, (bySlug.get(it.slug) ?? 0) + it.qty);
+    }
+    for (const [slug, qty] of bySlug) {
+      const product = db.products.find((p) => p.slug === slug);
+      if (!product) throw new DbError(`Product ${slug} not found`, "not_found");
+      if (product.stock < qty) {
+        throw new DbError(
+          `Only ${product.stock} of "${product.name}" left — reduce the quantity`,
+          "conflict",
+        );
+      }
+    }
+    for (const [slug, qty] of bySlug) {
+      const product = db.products.find((p) => p.slug === slug)!;
+      product.stock -= qty;
+      product.updatedAt = new Date().toISOString();
+    }
+
     db.orders.unshift(order);
     return order;
   });
+}
+
+/** Add ordered quantities back to stock (admin cancel path). */
+function restockProducts(db: DbShape, order: Order): void {
+  const bySlug = new Map<string, number>();
+  for (const it of order.items) {
+    bySlug.set(it.slug, (bySlug.get(it.slug) ?? 0) + it.qty);
+  }
+  for (const [slug, qty] of bySlug) {
+    const product = db.products.find((p) => p.slug === slug);
+    if (!product) continue;
+    product.stock += qty;
+    product.updatedAt = new Date().toISOString();
+  }
 }
 
 export async function setOrderFulfilment(
@@ -499,6 +538,10 @@ export async function setOrderFulfilment(
   return mutate((db) => {
     const order = db.orders.find((o) => o.id === orderId);
     if (!order) throw new DbError("Order not found", "not_found");
+    // Restock only on the pending → cancelled transition (never double-count).
+    if (status === "cancelled" && order.fulfilment !== "cancelled") {
+      restockProducts(db, order);
+    }
     order.fulfilment = status;
     if (status === "cancelled") {
       order.status = "cancelled";
@@ -507,6 +550,45 @@ export async function setOrderFulfilment(
     order.updatedAt = new Date().toISOString();
     return { ...order, items: order.items.map((i) => ({ ...i })) };
   });
+}
+
+/** Save admin-entered courier/AWB details on an order. */
+export async function setOrderTracking(
+  orderId: string,
+  tracking: Order["tracking"],
+): Promise<Order> {
+  return mutate((db) => {
+    const order = db.orders.find((o) => o.id === orderId);
+    if (!order) throw new DbError("Order not found", "not_found");
+    order.tracking = {
+      courier: tracking?.courier || undefined,
+      awb: tracking?.awb || undefined,
+      url: tracking?.url || undefined,
+      updatedAt: new Date().toISOString(),
+    };
+    order.updatedAt = order.tracking.updatedAt;
+    return { ...order, items: order.items.map((i) => ({ ...i })) };
+  });
+}
+
+/**
+ * Phone-gated lookup for the public /track page: finds the order by its human
+ * number and verifies the caller knows the phone it was placed with. Returns
+ * undefined on no match — the API route collapses both cases to a 404.
+ */
+export function findOrderForTracking(
+  orderNumber: string,
+  phone: string,
+): Order | undefined {
+  const digits = phone.replace(/\D/g, "").slice(-10);
+  if (digits.length !== 10) return undefined;
+  const order = getDb().orders.find((o) => o.number === orderNumber);
+  if (!order) return undefined;
+  const expected = (order.whatsapp || order.address.phone || "")
+    .replace(/\D/g, "")
+    .slice(-10);
+  if (expected !== digits) return undefined;
+  return { ...order, items: order.items.map((i) => ({ ...i })) };
 }
 
 export function findOrderById(orderId: string): Order | undefined {

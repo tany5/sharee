@@ -24,6 +24,7 @@
 import "server-only";
 import type { Order } from "@/lib/types";
 import { SITE } from "@/lib/site";
+import { courierName, trackingUrlFor } from "@/lib/tracking";
 import { loadPipelineSecrets } from "@/lib/marketing/secrets";
 
 export function whatsappToken(): string | undefined {
@@ -130,6 +131,31 @@ export function buildMessage(order: Order, event: OrderEventType): string {
   return (COPY[event] ?? COPY.confirmation)(order);
 }
 
+/**
+ * Dispatched message with the shipment line — courier + AWB + the courier's
+ * public tracking link when the admin saved them. Used instead of the default
+ * dispatched copy once an AWB exists, so the customer gets the digits the
+ * shipping policy promises.
+ */
+export function buildDispatchedMessage(order: Order): string {
+  const t = order.tracking;
+  const lines: string[] = [
+    `🚚 *${SITE.name}* — Order *${order.number}* is on the way!`,
+  ];
+  if (t?.courier && t.awb) {
+    lines.push(`Courier: ${courierName(t.courier)} · AWB: ${t.awb}`);
+    const url = trackingUrlFor(t);
+    if (url) lines.push(`Track live: ${url}`);
+  } else if (t?.awb) {
+    lines.push(`Tracking number: ${t.awb}`);
+  }
+  lines.push(
+    `Arriving in 3–5 working days. We'll ping you when it's delivered.`,
+    `Track: ${trackUrl(order)}`,
+  );
+  return lines.join("\n");
+}
+
 /* ------------------------------- sending ---------------------------------- */
 
 /**
@@ -189,6 +215,8 @@ export async function sendCloudApiText(
 export async function sendWhatsAppOrderUpdate(
   order: Order,
   event: OrderEventType,
+  /** Optional prebuilt message override (e.g. dispatched with AWB line). */
+  overrideMessage?: string,
 ): Promise<boolean> {
   const token = await resolveWhatsAppToken();
   const phoneId = whatsappPhoneId();
@@ -200,6 +228,13 @@ export async function sendWhatsAppOrderUpdate(
   // reach the customer — and customers almost never message first, so the
   // template is the primary path when configured. Free-form remains the
   // fallback (works when the webhook has opened the window).
+  // An explicit override (AWB-enriched dispatch) is worth more than the
+  // generic template body — try free-form first, template as fallback.
+  if (overrideMessage) {
+    const sent = await sendCloudApiText(to, overrideMessage);
+    if (sent) return true;
+    console.warn("[whatsapp] override message failed — trying template");
+  }
   const template = whatsappTemplateName();
   if (template) {
     const sent = await sendCloudApiTemplate(

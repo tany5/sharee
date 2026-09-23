@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+
 import {
   BadgeCheck,
   Check,
@@ -289,10 +290,16 @@ export function ProductPage({ product, related }: ProductPageProps) {
             <span className="absolute left-3 top-3 rounded-full bg-accentdeep px-3 py-1.5 font-display text-sm font-bold text-white shadow-md">
               {formatINR(product.price)}
             </span>
-            {product.stock <= 10 && (
-              <span className="absolute right-3 top-3 rounded-full bg-surface/95 px-3 py-1 text-[11px] font-semibold text-danger shadow-sm backdrop-blur">
-                Only {product.stock} left
+            {product.stock <= 0 ? (
+              <span className="absolute right-3 top-3 rounded-full bg-ink px-3 py-1 text-[11px] font-bold uppercase tracking-wide text-btntext shadow-sm">
+                Sold out
               </span>
+            ) : (
+              product.stock <= 10 && (
+                <span className="absolute right-3 top-3 rounded-full bg-surface/95 px-3 py-1 text-[11px] font-semibold text-danger shadow-sm backdrop-blur">
+                  Only {product.stock} left
+                </span>
+              )
             )}
           </div>
         </div>
@@ -307,12 +314,19 @@ export function ProductPage({ product, related }: ProductPageProps) {
           </h1>
 
           <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1.5">
-            <Stars rating={product.rating} size={16} />
-            <span className="text-sm text-muted">({product.reviewCount} reviews)</span>
-            <span className="flex items-center gap-1 text-sm font-semibold text-success">
-              <BadgeCheck size={15} />
-              In stock · ships in 24h
-            </span>
+            {/* Dead stars mislead — hide the row for admin rows without reviews. */}
+            {product.reviewCount > 0 && product.rating > 0 && (
+              <>
+                <Stars rating={product.rating} size={16} />
+                <span className="text-sm text-muted">({product.reviewCount} reviews)</span>
+              </>
+            )}
+            {product.stock > 0 && (
+              <span className="flex items-center gap-1 text-sm font-semibold text-success">
+                <BadgeCheck size={15} />
+                In stock · ships in 24h
+              </span>
+            )}
           </div>
 
           <div className="mt-4 flex items-baseline gap-3">
@@ -362,7 +376,20 @@ export function ProductPage({ product, related }: ProductPageProps) {
             </div>
           </div>
 
-          {/* Qty + actions */}
+          {/* Qty + actions — hidden entirely once sold out */}
+          {product.stock <= 0 ? (
+            <div className="mt-6 flex flex-wrap items-center gap-3">
+              <Button size="lg" disabled aria-disabled>
+                <ShoppingCart size={18} /> Sold out
+              </Button>
+              <Link
+                href="/sarees"
+                className="inline-flex min-h-12 items-center rounded-pill border border-bronze/60 px-6 text-[15px] font-semibold text-bronze transition-colors hover:bg-bronze/10"
+              >
+                Browse sarees
+              </Link>
+            </div>
+          ) : (
           <div className="mt-6 flex flex-wrap items-center gap-3">
             <div className="flex h-12 items-center rounded-full border border-line bg-surface">
               <button
@@ -401,6 +428,7 @@ export function ProductPage({ product, related }: ProductPageProps) {
               <Zap size={17} /> Buy Now
             </Button>
           </div>
+          )}
 
           {/* Feature bullets */}
           <ul className="mt-7 grid grid-cols-1 gap-3 border-t border-line pt-6 sm:grid-cols-3">
@@ -444,16 +472,25 @@ export function ProductPage({ product, related }: ProductPageProps) {
       {/* Reviews */}
       <section className="mx-auto mt-12 max-w-7xl px-4 sm:px-6">
         <div className="grid gap-6 lg:grid-cols-[280px_1fr]">
-          <div className="rounded-3xl border border-line bg-surface p-6 text-center lg:text-left">
-            <p className="text-xs font-bold uppercase tracking-[0.2em] text-accent">Customer reviews</p>
-            <p className="mt-2 font-display text-5xl font-bold text-ink">{product.rating}</p>
-            <div className="mt-2 flex justify-center lg:justify-start">
-              <Stars rating={product.rating} size={18} />
+          {product.reviewCount > 0 && product.rating > 0 ? (
+            <div className="rounded-3xl border border-line bg-surface p-6 text-center lg:text-left">
+              <p className="text-xs font-bold uppercase tracking-[0.2em] text-accent">Customer reviews</p>
+              <p className="mt-2 font-display text-5xl font-bold text-ink">{product.rating}</p>
+              <div className="mt-2 flex justify-center lg:justify-start">
+                <Stars rating={product.rating} size={18} />
+              </div>
+              <p className="mt-2 text-sm text-muted">
+                Based on {product.reviewCount} verified buyers
+              </p>
             </div>
-            <p className="mt-2 text-sm text-muted">
-              Based on {product.reviewCount} verified buyers
-            </p>
-          </div>
+          ) : (
+            <div className="rounded-3xl border border-line bg-surface p-6 text-center lg:text-left">
+              <p className="text-xs font-bold uppercase tracking-[0.2em] text-accent">Customer reviews</p>
+              <p className="mt-3 text-sm leading-6 text-muted">
+                Be the first to review this saree.
+              </p>
+            </div>
+          )}
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
             {SAMPLE_REVIEWS.map((r) => (
               <figure key={r.name} className="flex flex-col rounded-2xl border border-line bg-surface p-5">
@@ -480,6 +517,7 @@ export function ProductPage({ product, related }: ProductPageProps) {
       <StickyBuyBar
         price={product.price}
         stockLeft={product.stock <= 10 ? product.stock : null}
+        soldOut={product.stock <= 0}
         added={added}
         onAdd={() => doAdd(false)}
         onBuy={() => doAdd(true)}
@@ -491,12 +529,14 @@ export function ProductPage({ product, related }: ProductPageProps) {
 function StickyBuyBar({
   price,
   stockLeft,
+  soldOut,
   added,
   onAdd,
   onBuy,
 }: {
   price: number;
   stockLeft: number | null;
+  soldOut: boolean;
   added: boolean;
   onAdd: () => void;
   onBuy: () => void;
@@ -521,33 +561,45 @@ function StickyBuyBar({
           </span>
         </button>
         <div className="flex-1" />
-        <Button
-          size="md"
-          className="flex-1"
-          onClick={onAdd}
-          aria-live="polite"
-        >
-          {added ? (
-            <>
-              <Check size={17} /> Added
-            </>
-          ) : (
-            <>
-              <ShoppingCart size={17} /> Add to Cart
-            </>
-          )}
-        </Button>
-        <Button size="md" variant="outline" className="flex-none" onClick={onBuy} aria-label="Buy now">
-          <Zap size={17} />
-        </Button>
+        {soldOut ? (
+          <span className="flex-1 rounded-pill bg-ink/10 py-2 text-center text-sm font-bold text-ink2">
+            Sold out
+          </span>
+        ) : (
+          <>
+            <Button
+              size="md"
+              className="flex-1"
+              onClick={onAdd}
+              aria-live="polite"
+            >
+              {added ? (
+                <>
+                  <Check size={17} /> Added
+                </>
+              ) : (
+                <>
+                  <ShoppingCart size={17} /> Add to Cart
+                </>
+              )}
+            </Button>
+            <Button size="md" variant="outline" className="flex-none" onClick={onBuy} aria-label="Buy now">
+              <Zap size={17} />
+            </Button>
+          </>
+        )}
       </div>
       {open && (
         <div className="border-t border-line px-4 py-3 text-xs text-ink2">
           <p className="flex items-center gap-1.5">
             <Clock size={13} className="text-bronze" /> Est. delivery: 3–5 working days · COD available
           </p>
-          {stockLeft !== null && (
-            <p className="mt-1.5 flex items-center gap-1.5 text-danger">Only {stockLeft} left in stock</p>
+          {soldOut ? (
+            <p className="mt-1.5 text-danger">This saree is sold out — browse the collection for similar styles.</p>
+          ) : (
+            stockLeft !== null && (
+              <p className="mt-1.5 flex items-center gap-1.5 text-danger">Only {stockLeft} left in stock</p>
+            )
           )}
           <p className="mt-1.5">
             <Link href="/shipping-policy" className="text-accent underline">Shipping & returns</Link>

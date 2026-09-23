@@ -80,6 +80,18 @@ export type PaymentStatus = "paid" | "pending" | "cod";
 /** Fulfilment pipeline managed in the admin panel. */
 export type FulfilmentStatus = "pending" | "dispatched" | "completed" | "cancelled";
 
+/** Courier shipment details, entered by the admin when dispatching. */
+export interface OrderTracking {
+  /** Courier slug — see `lib/tracking.ts` COURIERS ("delhivery", "bluedart", …). */
+  courier?: string;
+  /** Air waybill / tracking number as printed on the label. */
+  awb?: string;
+  /** Public courier tracking page (derived from courier + AWB when absent). */
+  url?: string;
+  /** ISO timestamp of the last tracking edit. */
+  updatedAt?: string;
+}
+
 export interface OrderItem {
   slug: string;
   name: string;
@@ -129,6 +141,8 @@ export interface Order {
   estimatedDelivery: string;
   /** Admin/fulfilment fields (present once persisted to the demo DB). */
   fulfilment?: FulfilmentStatus;
+  /** Courier + AWB, entered from the admin panel at dispatch. */
+  tracking?: OrderTracking;
   userId?: string;
   userEmail?: string;
   updatedAt?: string;

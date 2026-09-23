@@ -5,7 +5,7 @@ import { pageMetadata } from "@/lib/meta";
 export const metadata = pageMetadata({
   title: "Shipping Policy",
   description:
-    "TheTanti ships every saree FREE across India — the ₹49 courier fee is waived on all orders. Delivery in 3–5 working days, COD available, live tracking on WhatsApp.",
+    "TheTanti ships every saree FREE across India — the ₹49 courier fee is waived on all orders. Delivery in 3–5 working days, COD available, track your order anytime at /track.",
   path: "/shipping-policy",
 });
 
@@ -54,11 +54,21 @@ export default function ShippingPolicyPage() {
         </PolicySection>
 
         <PolicySection title="4. Tracking Support">
-          <p>
-            Once your product leaves our warehouse facility, an automated
-            shipment status link containing live courier tracking digits will be
-            routed to your registered WhatsApp or SMS contact channel.
-          </p>
+          <ul className="list-disc space-y-2 pl-5">
+            <li>
+              When your order is dispatched you receive an email and a WhatsApp
+              update carrying the courier name and the AWB (tracking) number.
+            </li>
+            <li>
+              Track anytime at{" "}
+              <a href="/track" className="text-accent underline">
+                thetanti.shop/track
+              </a>{" "}
+              with your order number and the phone you ordered with — the page
+              deep-links to the courier&apos;s own live tracking and includes a
+              printable invoice.
+            </li>
+          </ul>
         </PolicySection>
       </div>
     </PageShell>

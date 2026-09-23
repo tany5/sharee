@@ -30,6 +30,7 @@ import type {
   Order,
   PublicUser,
 } from "@/lib/types";
+import type { TrackedOrder } from "@/lib/tracking";
 import type { DbProduct, DbStatus } from "@/lib/demo/db";
 
 export class SupabaseError extends Error {
@@ -376,6 +377,15 @@ function toOrder(r: OrderRow): Order {
     createdAt: r.created_at,
     estimatedDelivery: r.estimated_delivery ?? r.created_at,
     fulfilment: (String(r.fulfilment) as FulfilmentStatus) ?? "pending",
+    tracking:
+      r.courier || r.awb || r.tracking_url
+        ? {
+            courier: r.courier ?? undefined,
+            awb: r.awb ?? undefined,
+            url: r.tracking_url ?? undefined,
+            updatedAt: r.updated_at,
+          }
+        : undefined,
     userId: r.user_id ?? undefined,
     userEmail: r.user_email ?? undefined,
     updatedAt: r.updated_at,
@@ -418,6 +428,28 @@ export async function supabaseAddOrder(order: Order): Promise<Order> {
     .from("orders")
     .insert({ ...orderToRow(order), id });
   if (error) fail(error, "Could not save your order");
+
+  // Reserve stock atomically via the security-definer RPC (0011). RLS blocks
+  // anon product writes, so the decrement must run as definer — same pattern
+  // as confirm_payment. createDemoOrder already validated qty <= stock; the
+  // RPC re-checks and rolls its own writes back on any shortfall. If the RPC
+  // fails, the just-inserted order is deleted so no order can exist without
+  // its stock hold.
+  const holds = Object.values(
+    order.items.reduce<Record<string, { slug: string; qty: number }>>((acc, it) => {
+      acc[it.slug] = { slug: it.slug, qty: (acc[it.slug]?.qty ?? 0) + it.qty };
+      return acc;
+    }, {}),
+  );
+  const { error: stockError } = await supabase.rpc("decrement_stock", {
+    p_order_id: id,
+    p_items: holds,
+  });
+  if (stockError) {
+    await supabase.from("orders").delete().eq("id", id);
+    fail(stockError, "Order could not be saved — item just went out of stock");
+  }
+
   return { ...order, id };
 }
 
@@ -519,6 +551,24 @@ export async function supabaseSetOrderFulfilment(
   status: FulfilmentStatus,
 ): Promise<Order> {
   const supabase = await supabaseServer();
+  // Read first so the restock RPC runs only on the pending → cancelled
+  // transition (never double-counts on repeated cancel calls).
+  let previous: Order | null = null;
+  if (status === "cancelled") {
+    const { data } = await supabase
+      .from("orders")
+      .select("*")
+      .eq("id", orderId)
+      .maybeSingle();
+    previous = data ? toOrder(data as OrderRow) : null;
+  }
+  if (status === "cancelled" && previous && previous.fulfilment !== "cancelled") {
+    const { error: restockError } = await supabase.rpc("restock_order", {
+      p_order_id: orderId,
+      p_items: previous.items.map((i) => ({ slug: i.slug, qty: i.qty })),
+    });
+    if (restockError) fail(restockError, "Could not restore stock for the cancelled order");
+  }
   const patch: Record<string, unknown> = {
     fulfilment: status,
     updated_at: new Date().toISOString(),
@@ -538,6 +588,49 @@ export async function supabaseSetOrderFulfilment(
     throw new SupabaseError("Order not found", "not_found");
   }
   return toOrder(data as OrderRow);
+}
+
+/** Save admin-entered courier/AWB details (columns from migration 0011). */
+export async function supabaseSetOrderTracking(
+  orderId: string,
+  tracking: Order["tracking"],
+): Promise<Order> {
+  const supabase = await supabaseServer();
+  const now = new Date().toISOString();
+  const { data, error } = await supabase
+    .from("orders")
+    .update({
+      courier: tracking?.courier || null,
+      awb: tracking?.awb || null,
+      tracking_url: tracking?.url || null,
+      updated_at: now,
+    })
+    .eq("id", orderId)
+    .select("*")
+    .single();
+  if (error) {
+    if (!error.message?.includes("returned zero rows")) fail(error, "Could not save tracking details");
+    throw new SupabaseError("Order not found", "not_found");
+  }
+  return toOrder(data as OrderRow);
+}
+
+/**
+ * Phone-gated lookup for the public /track page via the security-definer
+ * `track_order` RPC (0011). Returns the customer-safe jsonb only when the
+ * order number exists AND the phone matches; null otherwise.
+ */
+export async function supabaseFindOrderForTracking(
+  orderNumber: string,
+  phone: string,
+): Promise<TrackedOrder | null> {
+  const supabase = await supabaseServer();
+  const { data, error } = await supabase.rpc("track_order", {
+    p_number: orderNumber,
+    p_phone: phone,
+  });
+  if (error) return null;
+  return (data as TrackedOrder | null) ?? null;
 }
 
 /* ---------------------------- customers ---------------------------- */

@@ -6,6 +6,7 @@ import { SiteFooter } from "@/components/layout/site-footer";
 import { BottomNav } from "@/components/layout/bottom-nav";
 import { AnalyticsScripts } from "@/components/analytics/analytics-scripts";
 import { PageViewTracker } from "@/components/analytics/page-view-tracker";
+import ChatbotLazy from "@/components/chatbot/chatbot-lazy";
 
 export default function StoreLayout({
   children,
@@ -20,6 +21,7 @@ export default function StoreLayout({
         <main className="flex-1 pb-bottomnav lg:pb-0">{children}</main>
         <SiteFooter />
         <BottomNav />
+        <ChatbotLazy />
         <Suspense fallback={null}>
           <PageViewTracker />
         </Suspense>

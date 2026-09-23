@@ -66,6 +66,10 @@ export interface OrderRow {
   address: unknown;
   utm: unknown;
   fulfilment: string;
+  /** Admin-entered shipment details (migration 0011). */
+  courier: string | null;
+  awb: string | null;
+  tracking_url: string | null;
   stored_in: string;
   created_at: string;
   updated_at?: string;

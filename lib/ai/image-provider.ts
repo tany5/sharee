@@ -33,13 +33,17 @@ import type {
 
 export const DEFAULT_SAREE_PROMPT = [
   "Create a realistic professional Indian fashion catalogue photograph.",
-  "INPUT IMAGE 1 is the MODEL REFERENCE. Preserve the model's identity, facial structure, age appearance, hairstyle, skin tone and realistic body proportions.",
+  // Extra-limb guard: multi-reference models fuse people/hands out of the
+  // reference photos. State the anatomy budget explicitly and repeatedly.
+  "FINAL IMAGE RULE: exactly ONE woman appears in the photo — one head, exactly two arms, exactly two hands, exactly two legs, exactly ten fingers total. No extra arms, no extra hands, no duplicate or detached limbs, no second person, no reflection of a person.",
+  "INPUT IMAGE 1 is the MODEL REFERENCE. Preserve the model's identity, facial structure, age appearance, hairstyle, skin tone and realistic body proportions. She is the ONLY person in the output.",
   "INPUT IMAGE 2 is the EXACT SAREE PRODUCT REFERENCE. The saree shown in INPUT IMAGE 2 is the source of truth.",
   "Dress the model in the exact saree from the product reference. Preserve the saree's exact colour, print, motifs, border, pallu, fabric appearance, decorative details, pattern placement and overall visual identity.",
+  "INPUT IMAGE 2 shows FABRIC ONLY — if any person, mannequin, hand, arm or body part is visible inside INPUT IMAGE 2, ignore it completely: copy the fabric, never people or limbs from it.",
   "Do not redesign, recolour, simplify, replace or invent the saree.",
   "Create a natural and realistic Indian saree drape with realistic pleats, realistic pallu, natural fabric folds, believable fabric weight, realistic shadows, correct garment geometry and realistic interaction between fabric and body.",
   "The model should look like a real Indian/Bengali fashion catalogue model: realistic Bengali/Indian woman, natural dark hair, subtle makeup, small tasteful bindi, minimal elegant jewellery, healthy realistic body proportions, natural expression.",
-  "Photography: premium Indian ecommerce catalogue photography, realistic skin texture, realistic hands and fingers, realistic anatomy, natural studio lighting, clean premium background, soft realistic shadows, high-quality fashion photography, full-body or three-quarter-body composition, saree must remain the main subject.",
+  "Photography: premium Indian ecommerce catalogue photography, realistic skin texture, exactly two arms and two hands with five fingers each, anatomically correct arms attached only at the two shoulders, realistic anatomy, natural studio lighting, clean premium background, soft realistic shadows, high-quality fashion photography, full-body or three-quarter-body composition, saree must remain the main subject.",
   "Do not add text, logo, watermark, price, promotional graphics, random jewellery, random clothing or extra people.",
   "Do not change the model's identity. Do not change the saree. The result must look like a real ecommerce fashion photograph.",
 ].join("\n");

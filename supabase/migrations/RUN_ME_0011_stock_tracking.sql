@@ -1,0 +1,30 @@
+-- ============================================================================
+-- RUN ME - 0011 Stock Tracking (Supabase SQL Editor edition)
+-- =============================================================================
+-- If pasting 0011_stock_tracking.sql into the Supabase SQL Editor errors with
+--   ERROR 42601: syntax error / unterminated quoted string
+-- paste THIS file instead:
+--
+--   supabase/migrations/0011_stock_tracking_sqleditor.sql
+--
+-- It is the same migration rewritten so there is ZERO quote-escaping to
+-- corrupt on paste: function bodies use named dollar tags (each with its own
+-- name: dec / restock / track) instead of single-quote strings with doubled
+-- quotes. It also fixes a PERFORM UPDATE bug in restock_order.
+--
+-- HOW TO PASTE (important - both past failures were partial/mangled copies):
+--   1. Open the file in VS Code (or Notepad).
+--   2. Ctrl+A (select all), Ctrl+C.
+--   3. In Supabase SQL Editor: Ctrl+A (select any old content), Ctrl+V, Run.
+--   4. Sanity check: the editor should show ~197 lines, first line starts
+--      "-- ============" and the LAST line is a "grant execute ..." statement.
+--
+-- Creates, idempotently:
+--   * orders.courier / awb / tracking_url columns
+--   * order_stock_holds guard table
+--   * decrement_stock(p_order_id, p_items)  - stock hold on order creation
+--   * restock_order(p_order_id, p_items)    - stock return on cancellation
+--   * track_order(p_number, p_phone)        - phone-gated public tracking
+-- =============================================================================
+-- (This file intentionally contains no executable SQL so it can never be
+--  double-applied by mistake; see the _sqleditor.sql file above.)

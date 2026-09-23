@@ -100,19 +100,17 @@ export function InfiniteProductGrid({
         return [...prev, ...data.items.filter((p) => !seen.has(p.slug))];
       });
       setNextOffset(data.nextOffset);
-      setHasMore(data.hasMore);
+      // An empty page always ends the list, so a bad payload can never spin.
+      setHasMore(data.hasMore && data.items.length > 0);
     } catch {
       setFailed(true);
     } finally {
       setLoading(false);
       setLoaded(true);
     }
-  }, [nextOffset]);
+  }, [nextOffset, loading]);
 
-  // On mount, only attach the scroll sentinel. Auto-load page 2+ happens
-  // when the user scrolls near the bottom — never on mount. This keeps page
-  // 1 stable (SEO + no-JS intact) and makes each subsequent page perceptibly
-  // appear as the user scrolls.
+  // Scroll trigger: load the next page whenever the sentinel comes into view.
   useEffect(() => {
     const el = sentinelRef.current;
     if (!el) return;
@@ -138,6 +136,21 @@ export function InfiniteProductGrid({
     return () => window.removeEventListener("scroll", onScroll);
   }, [loadMore]);
 
+  /**
+   * Keep filling. IntersectionObserver only fires on change, so once a page is
+   * appended the sentinel can stay on screen (tall monitors, short rows) and
+   * never fire again — the list would stall at 24 of 76. This re-checks after
+   * every render and keeps pulling pages until the sentinel is safely below
+   * the fold, so scrolling always continues to the end of the catalogue.
+   */
+  useEffect(() => {
+    const el = sentinelRef.current;
+    if (!el || loading || !hasMore || failed) return;
+    if (el.getBoundingClientRect().top <= window.innerHeight + 600) {
+      loadMore();
+    }
+  }, [items.length, loading, hasMore, failed, loadMore]);
+
   const shown = items.length;
 
   return (
@@ -159,9 +172,13 @@ export function InfiniteProductGrid({
           : `You have seen all ${total} styles`}
       </p>
 
-      {/* Sentinel: auto-load next page when the user scrolls near the bottom. */}
+      {/* Sentinel: triggers the next page as it comes into view (and keeps
+          filling until the list ends). */}
       {shown < total && (
-        <div className="flex min-h-[48px] items-center justify-center gap-3 py-4">
+        <div
+          ref={sentinelRef}
+          className="flex min-h-[48px] items-center justify-center gap-3 py-4"
+        >
           {loading ? (
             <div
               className="flex w-full flex-row items-center gap-3"
